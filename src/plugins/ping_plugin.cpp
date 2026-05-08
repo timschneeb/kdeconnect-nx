@@ -1,5 +1,5 @@
 #include "ping_plugin.h"
-#include <iostream>
+#include "../logger.h"
 
 std::string PingPlugin::name() const {
     return "Ping Plugin";
@@ -23,7 +23,7 @@ bool PingPlugin::on_packet_received(const NetworkPacket& np) {
         msg = np.body["message"].get<std::string>();
     }
     
-    std::cout << "\n[PING RECEIVED] From " << device_id_ << ": " << msg << "\n> " << std::flush;
+    Logger::info("[PING RECEIVED] From " + device_id_ + ": " + msg);
     return true;
 }
 

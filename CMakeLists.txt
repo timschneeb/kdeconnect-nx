@@ -19,6 +19,7 @@ add_executable(MiniKDEConnect
   src/network_packet.cpp
   src/storage.cpp
   src/tls.cpp
+  src/logger.cpp
   src/plugins/ping_plugin.cpp
   src/plugins/plugin_registry.cpp
 )

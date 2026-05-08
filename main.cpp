@@ -3,19 +3,20 @@
 #include <string>
 
 #include "kdeconnect_client.h"
+#include "logger.h"
 #include "plugins/ping_plugin.h"
 
 namespace {
 void print_help() {
-    std::cout << "Commands:\n"
-              << "  help\n"
-              << "  list\n"
-              << "  pair <deviceId>\n"
-              << "  unpair <deviceId>\n"
-              << "  accept <deviceId>\n"
-              << "  reject <deviceId>\n"
-              << "  ping <deviceId> [message]\n"
-              << "  quit\n";
+    Logger::info("Commands:\n"
+              "  help\n"
+              "  list\n"
+              "  pair <deviceId>\n"
+              "  unpair <deviceId>\n"
+              "  accept <deviceId>\n"
+              "  reject <deviceId>\n"
+              "  ping <deviceId> [message]\n"
+              "  quit");
 }
 } // namespace
 
@@ -28,7 +29,7 @@ void prompt_device(
     iss >> id;
     auto device = client.device(id);
     if (!device) {
-        std::cout << "Device not found: " << id << "\n";
+        Logger::error("Device not found: " + id);
     }
     else {
         action(device);
@@ -39,11 +40,11 @@ int main() {
     Storage storage;
     KdeConnectClient client(storage);
     if (!client.start()) {
-        std::cerr << "Failed to start client.\n";
+        Logger::error("Failed to start client.");
         return 1;
     }
 
-    std::cout << "MiniKDEConnect prototype running. Device ID: " << client.local_device().id << "\n";
+    Logger::info("MiniKDEConnect prototype running. Device ID: " + client.local_device().id);
     print_help();
 
     std::string line;
@@ -57,7 +58,18 @@ int main() {
         if (cmd == "help") {
             print_help();
         } else if (cmd == "list") {
-            client.list_devices();
+            auto sessions = client.devices();
+            if (sessions.empty()) {
+                Logger::info("No active devices.");
+                continue;
+            }
+            for (const auto& [id, session] : sessions) {
+                std::string state = session->paired ? "paired" : "unpaired";
+                if (session->disconnected.load()) {
+                    state = "disconnected";
+                }
+                Logger::info(session->info.name + " (" + id + ") - " + state);
+            }
         } else if (cmd == "pair") {
             std::string id;
             iss >> id;
@@ -87,7 +99,7 @@ int main() {
         } else if (cmd == "quit") {
             break;
         } else {
-            std::cout << "Unknown command. Type 'help'.\n";
+            Logger::warn("Unknown command. Type 'help'.");
         }
     }
 

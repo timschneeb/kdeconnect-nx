@@ -1,7 +1,6 @@
 #pragma once
 
 #include <atomic>
-#include <iostream>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -14,6 +13,7 @@
 #include "storage.h"
 #include "tls.h"
 #include "plugins/plugin.h"
+#include "logger.h"
 
 class KdeConnectClient : public DeviceProvider {
 public:
@@ -27,7 +27,6 @@ public:
 
   std::unordered_map<std::string, std::shared_ptr<DeviceSession>> devices() const;
   std::shared_ptr<DeviceSession> device(const std::string &device_id) const;
-  void list_devices() const;
 
   void request_pair(const std::string &device_id);
   void accept_pair(const std::string &device_id);
@@ -62,7 +61,7 @@ public:
                   return typed_plugin;
               }
           }
-          std::cerr << "Plugin of requested type not found for device " << info.name << " (" << info.id << ")\n";
+          Logger::error("Plugin of requested type not found for device " + info.name + " (" + info.id + ")");
           return nullptr;
       }
   };
