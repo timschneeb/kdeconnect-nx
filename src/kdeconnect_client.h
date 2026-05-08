@@ -10,6 +10,7 @@
 #include <nlohmann/json.hpp>
 
 #include "kdeconnect_types.h"
+#include "mdns/mdns_discovery.h"
 #include "storage.h"
 #include "tls.h"
 #include "plugins/plugin.h"
@@ -70,6 +71,7 @@ private:
   void tcp_accept_loop();
   void udp_listen_loop();
   void udp_broadcast_loop();
+  void send_udp_identity_probe(const std::string& device_id, const std::string& host);
   void handle_discovered_peer(const DeviceInfo &identity,
                               const std::string &host, int port);
   void handle_new_connection(const DeviceInfo &identity, int fd,
@@ -93,6 +95,8 @@ private:
   int tcp_fd_ = -1;
   int udp_fd_ = -1;
   int tcp_port_ = 0;
+
+  std::unique_ptr<MdnsDiscovery> mdns_discovery_;
 
   std::thread tcp_thread_;
   std::thread udp_thread_;

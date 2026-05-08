@@ -25,6 +25,7 @@ find_package(Threads REQUIRED)
 add_executable(MiniKDEConnect
   main.cpp
   src/kdeconnect_client.cpp
+        src/mdns/mdns_discovery.cpp
   src/network_packet.cpp
   src/storage.cpp
   src/tls.cpp
