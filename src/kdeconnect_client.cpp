@@ -90,10 +90,6 @@ bool KdeConnectClient::start() {
             Logger::error("Error handling mDNS discovery for device " + device_id + " at " + host + ": " + e.what());
         }
     });
-    if (!mdns_discovery_->start()) {
-        Logger::warn("mDNS discovery could not be started; continuing with UDP broadcast discovery only.");
-        mdns_discovery_.reset();
-    }
 
     running_.store(true);
     tcp_thread_ = std::thread(&KdeConnectClient::tcp_accept_loop, this);
@@ -101,6 +97,11 @@ bool KdeConnectClient::start() {
     broadcast_thread_ = std::thread(&KdeConnectClient::udp_broadcast_loop, this);
 
     Logger::info("Listening on TCP port " + std::to_string(tcp_port_) + ".");
+
+    if (!mdns_discovery_->start()) {
+        Logger::warn("mDNS discovery could not be started; continuing with UDP broadcast discovery only.");
+        mdns_discovery_.reset();
+    }
     return true;
 }
 
@@ -393,6 +394,9 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, int fd,
     Logger::info("Connected to " + session->info.name + " (" + session->info.id + ", " + (tcp_server_side ? "server-side" : "client-side") + ", " + (session->paired ? "paired" : "unpaired") + ").");
 
     session->reader = std::thread(&KdeConnectClient::read_loop, this, session);
+
+    // Quirk: the desktop client will not display us as connected, until we send another packet, so just resend the identity packet.
+    send_packet(identity.id, NetworkUtil::make_identity_packet(local_device_, identity.id, identity.protocol_version, tcp_port_));
 }
 
 void KdeConnectClient::read_loop(const std::shared_ptr<DeviceSession>& session) {
