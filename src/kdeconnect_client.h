@@ -13,7 +13,7 @@
 #include "storage.h"
 #include "tls.h"
 #include "plugins/plugin.h"
-#include "logger.h"
+#include "utils/logger.h"
 
 class KdeConnectClient : public DeviceProvider {
 public:

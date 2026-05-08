@@ -3,7 +3,7 @@
 #include <string>
 
 #include "kdeconnect_client.h"
-#include "logger.h"
+#include "src/utils/logger.h"
 #include "plugins/ping_plugin.h"
 
 namespace {

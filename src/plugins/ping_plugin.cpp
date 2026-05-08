@@ -1,5 +1,5 @@
 #include "ping_plugin.h"
-#include "../logger.h"
+#include "../utils/logger.h"
 
 std::string PingPlugin::name() const {
     return "Ping Plugin";

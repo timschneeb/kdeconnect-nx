@@ -2,7 +2,6 @@
 
 #include <mbedtls/bignum.h>
 #include <mbedtls/base64.h>
-#include <mbedtls/error.h>
 #include <mbedtls/net_sockets.h>
 #include <mbedtls/pem.h>
 #include <mbedtls/sha256.h>
