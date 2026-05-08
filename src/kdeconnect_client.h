@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -12,28 +13,61 @@
 #include "kdeconnect_types.h"
 #include "storage.h"
 #include "tls.h"
+#include "plugins/plugin.h"
 
-class KdeConnectClient {
+class KdeConnectClient : public DeviceProvider {
 public:
+  struct DeviceSession;
+
   explicit KdeConnectClient(Storage storage);
-  ~KdeConnectClient();
+  ~KdeConnectClient() override;
 
   bool start();
   void stop();
 
+  std::unordered_map<std::string, std::shared_ptr<DeviceSession>> devices() const;
+  std::shared_ptr<DeviceSession> device(const std::string &device_id) const;
   void list_devices() const;
+
   void request_pair(const std::string &device_id);
   void accept_pair(const std::string &device_id);
   void reject_pair(const std::string &device_id);
   void unpair(const std::string &device_id);
-  void send_ping(const std::string &device_id, const std::string &message);
+
+  bool send_packet(const std::string &device_id, const NetworkPacket& pkt) override;
 
   const DeviceInfo &local_device() const { return local_device_; }
   int tcp_port() const { return tcp_port_; }
 
-private:
-  struct DeviceSession;
+  struct DeviceSession {
+      DeviceInfo info;
+      PairState pair_state = PairState::NotPaired;
+      long pairing_timestamp = 0;
+      bool paired = false;
+      std::string cert_pem;
+      std::vector<unsigned char> peer_pubkey;
 
+      std::unique_ptr<TlsSession> tls;
+      int fd = -1;
+      std::thread reader;
+      std::mutex send_mutex;
+      std::atomic<bool> disconnected{false};
+
+      std::vector<std::unique_ptr<Plugin>> plugins;
+
+      template<typename T>
+      T* plugin() {
+          for (const auto& plugin : plugins) {
+              if (auto typed_plugin = dynamic_cast<T*>(plugin.get())) {
+                  return typed_plugin;
+              }
+          }
+          std::cerr << "Plugin of requested type not found for device " << info.name << " (" << info.id << ")\n";
+          return nullptr;
+      }
+  };
+
+private:
   void tcp_accept_loop();
   void udp_listen_loop();
   void udp_broadcast_loop();
@@ -47,8 +81,6 @@ private:
                      const std::string &line);
   void handle_pair_packet(const std::shared_ptr<DeviceSession> &session,
                           const nlohmann::json &body);
-  void handle_ping_packet(const std::shared_ptr<DeviceSession> &session,
-                                 const nlohmann::json &body);
 
   std::string verification_key(const std::shared_ptr<DeviceSession> &session,
                                long timestamp) const;

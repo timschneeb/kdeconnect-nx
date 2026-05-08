@@ -3,6 +3,7 @@
 #include <string>
 
 #include "kdeconnect_client.h"
+#include "plugins/ping_plugin.h"
 
 namespace {
 void print_help() {
@@ -17,6 +18,22 @@ void print_help() {
               << "  quit\n";
 }
 } // namespace
+
+void prompt_device(
+    const KdeConnectClient& client,
+    std::istringstream& iss,
+    const std::function<void(std::shared_ptr<KdeConnectClient::DeviceSession>)> &action) {
+
+    std::string id;
+    iss >> id;
+    auto device = client.device(id);
+    if (!device) {
+        std::cout << "Device not found: " << id << "\n";
+    }
+    else {
+        action(device);
+    }
+}
 
 int main() {
     Storage storage;
@@ -58,14 +75,15 @@ int main() {
             iss >> id;
             client.unpair(id);
         } else if (cmd == "ping") {
-            std::string id;
-            iss >> id;
-            std::string message;
-            std::getline(iss, message);
-            if (!message.empty() && message.front() == ' ') {
-                message.erase(0, 1);
-            }
-            client.send_ping(id, message);
+            prompt_device(client, iss, [&iss](const std::shared_ptr<KdeConnectClient::DeviceSession> &device) {
+                std::string message;
+                std::getline(iss, message);
+                if (!message.empty() && message.front() == ' ') {
+                    message.erase(0, 1);
+                }
+
+                device->plugin<PingPlugin>()->ping(message);
+            });
         } else if (cmd == "quit") {
             break;
         } else {

@@ -1,11 +1,11 @@
 #include "storage.h"
 
 #include <fstream>
-#include <random>
-#include <sstream>
 #include <string>
 
 #include <nlohmann/json.hpp>
+#include "network_packet.h"
+#include "plugins/plugin_registry.h"
 
 #if __has_include(<unistd.h>)
 #include <unistd.h>
@@ -36,13 +36,18 @@ Storage::Storage() {
     std::filesystem::create_directories(base_path_ / "paired");
 }
 
-DeviceInfo Storage::load_or_create_local_device() const {
+DeviceInfo Storage::load_or_create_local_device(DeviceProvider* device_provider) const {
     DeviceInfo info;
     info.name = hostname_or_default();
     info.type = "tablet";
     info.protocol_version = kProtocolVersion;
-    info.incoming_capabilities = {"kdeconnect.ping", "kdeconnect.pair"};
-    info.outgoing_capabilities = {"kdeconnect.ping", "kdeconnect.pair"};
+
+    info.incoming_capabilities = PluginRegistry::get_all_supported_packet_types(device_provider);
+    info.incoming_capabilities.push_back(PacketTypes::Pair); // Core capability
+
+    info.outgoing_capabilities = PluginRegistry::get_all_outgoing_packet_types(device_provider);
+    info.outgoing_capabilities.push_back(PacketTypes::Pair); // Core capability
+
     return info;
 }
 

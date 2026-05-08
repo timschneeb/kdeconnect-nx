@@ -20,6 +20,8 @@
 #include <sstream>
 #include <thread>
 
+#include "plugins/plugin_registry.h"
+
 namespace {
 constexpr int kUdpPort = 1716;
 constexpr int kMinTcpPort = 1716;
@@ -113,7 +115,7 @@ DeviceInfo info_from_identity(const NetworkPacket& pkt) {
 NetworkPacket make_identity_packet(const DeviceInfo& info, std::optional<std::string> target_id,
                                    std::optional<int> target_protocol, std::optional<int> tcp_port) {
     NetworkPacket pkt;
-    pkt.type = "kdeconnect.identity";
+    pkt.type = PacketTypes::Identity;
     pkt.body = nlohmann::json::object();
     pkt.body["deviceId"] = info.id;
     pkt.body["deviceName"] = info.name;
@@ -141,23 +143,8 @@ std::string uppercase_first8(const std::string& hex) {
 }
 } // namespace
 
-struct KdeConnectClient::DeviceSession {
-    DeviceInfo info;
-    PairState pair_state = PairState::NotPaired;
-    long pairing_timestamp = 0;
-    bool paired = false;
-    std::string cert_pem;
-    std::vector<unsigned char> peer_pubkey;
-
-    std::unique_ptr<TlsSession> tls;
-    int fd = -1;
-    std::thread reader;
-    std::mutex send_mutex;
-    std::atomic<bool> disconnected{false};
-};
-
 KdeConnectClient::KdeConnectClient(Storage storage) : storage_(std::move(storage)) {
-    local_device_ = storage_.load_or_create_local_device();
+    local_device_ = storage_.load_or_create_local_device(this);
 }
 
 KdeConnectClient::~KdeConnectClient() {
@@ -447,7 +434,7 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, int fd,
         return;
     }
     auto packet = NetworkPacket::parse(*line);
-    if (!packet || packet->type != "kdeconnect.identity") {
+    if (!packet || packet->type != PacketTypes::Identity) {
         close(fd);
         return;
     }
@@ -466,6 +453,8 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, int fd,
     session->fd = fd;
     session->cert_pem = peer_pem;
     session->peer_pubkey = tls_.peer_pubkey_bytes(*session->tls);
+
+    PluginRegistry::instantiate_plugins(this, session->info.id, session->plugins);
 
     {
         std::lock_guard lock(session_mutex_);
@@ -509,13 +498,23 @@ void KdeConnectClient::handle_packet(const std::shared_ptr<DeviceSession>& sessi
     if (!packet) {
         return;
     }
-    if (packet->type == "kdeconnect.pair") {
+    if (packet->type == PacketTypes::Pair) {
         handle_pair_packet(session, packet->body);
         return;
     }
-    if (packet->type == "kdeconnect.ping") {
-        handle_ping_packet(session, packet->body);
+    
+    if (!session->paired) {
         return;
+    }
+    
+    for (const auto& plugin : session->plugins) {
+        for (const auto& supported_type : plugin->supported_packet_types()) {
+            if (supported_type == packet->type) {
+                if (plugin->on_packet_received(*packet)) {
+                    return;
+                }
+            }
+        }
     }
 }
 
@@ -552,13 +551,7 @@ void KdeConnectClient::handle_pair_packet(const std::shared_ptr<DeviceSession>& 
     }
 }
 
-void KdeConnectClient::handle_ping_packet(const std::shared_ptr<DeviceSession>& session, const nlohmann::json& body) {
-    if (!session->paired) {
-        return;
-    }
-    std::string message = body.value("message", "Ping!");
-    log_line("PING", session->info.name + ": " + message);
-}
+
 
 std::string KdeConnectClient::verification_key(const std::shared_ptr<DeviceSession>& session, long timestamp) const {
     std::vector<unsigned char> a = tls_.local_pubkey_bytes();
@@ -580,6 +573,21 @@ std::string KdeConnectClient::verification_key(const std::shared_ptr<DeviceSessi
         combined.insert(combined.end(), ts.begin(), ts.end());
     }
     return uppercase_first8(sha256_hex_upper(combined));
+}
+
+std::unordered_map<std::string, std::shared_ptr<KdeConnectClient::DeviceSession>> KdeConnectClient::devices() const {
+    std::lock_guard lock(session_mutex_);
+    return sessions_;
+}
+
+std::shared_ptr<KdeConnectClient::DeviceSession> KdeConnectClient::device(const std::string& device_id) const {
+    std::lock_guard lock(session_mutex_);
+    auto it = sessions_.find(device_id);
+    if (it != sessions_.end()) {
+        return it->second;
+    }
+    std::cerr << "Device not found: " << device_id << "\n";
+    return nullptr;
 }
 
 void KdeConnectClient::list_devices() const {
@@ -616,7 +624,7 @@ void KdeConnectClient::request_pair(const std::string& device_id) {
     }
 
     NetworkPacket pkt;
-    pkt.type = "kdeconnect.pair";
+    pkt.type = PacketTypes::Pair;
     pkt.body = nlohmann::json::object();
     pkt.body["pair"] = true;
     long ts = std::chrono::duration_cast<std::chrono::seconds>(
@@ -649,7 +657,7 @@ void KdeConnectClient::accept_pair(const std::string& device_id) {
     }
 
     NetworkPacket pkt;
-    pkt.type = "kdeconnect.pair";
+    pkt.type = PacketTypes::Pair;
     pkt.body = nlohmann::json::object();
     pkt.body["pair"] = true;
 
@@ -681,7 +689,7 @@ void KdeConnectClient::reject_pair(const std::string& device_id) {
     }
 
     NetworkPacket pkt;
-    pkt.type = "kdeconnect.pair";
+    pkt.type = PacketTypes::Pair;
     pkt.body = nlohmann::json::object();
     pkt.body["pair"] = false;
 
@@ -714,7 +722,7 @@ void KdeConnectClient::unpair(const std::string& device_id) {
     }
 
     NetworkPacket pkt;
-    pkt.type = "kdeconnect.pair";
+    pkt.type = PacketTypes::Pair;
     pkt.body = nlohmann::json::object();
     pkt.body["pair"] = false;
 
@@ -728,7 +736,7 @@ void KdeConnectClient::unpair(const std::string& device_id) {
     }
 }
 
-void KdeConnectClient::send_ping(const std::string& device_id, const std::string& message) {
+bool KdeConnectClient::send_packet(const std::string& device_id, const NetworkPacket& pkt) {
     std::shared_ptr<DeviceSession> session;
     {
         std::lock_guard lock(session_mutex_);
@@ -739,22 +747,11 @@ void KdeConnectClient::send_ping(const std::string& device_id, const std::string
     }
     if (!session) {
         log_line("WARN", "Device not connected: " + device_id);
-        return;
-    }
-    if (!session->paired) {
-        log_line("WARN", "Device not paired: " + session->info.name);
-        return;
-    }
-
-    NetworkPacket pkt;
-    pkt.type = "kdeconnect.ping";
-    pkt.body = nlohmann::json::object();
-    if (!message.empty()) {
-        pkt.body["message"] = message;
+        return false;
     }
     std::string payload = pkt.serialize();
     std::lock_guard lock(session->send_mutex);
-    send_all_tls(*session->tls, payload);
+    return send_all_tls(*session->tls, payload);
 }
 
 
