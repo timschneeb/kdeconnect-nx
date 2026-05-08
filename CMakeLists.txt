@@ -4,13 +4,22 @@ project(MiniKDEConnect)
 set(CMAKE_CXX_STANDARD 20)
 
 include(FetchContent)
-FetchContent_Declare(
-  nlohmann_json
-  URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
-)
-FetchContent_MakeAvailable(nlohmann_json)
 
-find_package(MbedTLS REQUIRED)
+find_package(nlohmann_json QUIET)
+if (NOT ${nlohmann_json_FOUND})
+    FetchContent_Declare(
+            nlohmann_json
+            GIT_REPOSITORY https://github.com/nlohmann/json.git
+            GIT_TAG v3.11.3
+            OVERRIDE_FIND_PACKAGE
+    )
+    FetchContent_MakeAvailable(nlohmann_json)
+endif()
+
+# Use pkg-config to find MbedTLS (for devkitpro compatibility)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(MBEDTLS REQUIRED IMPORTED_TARGET mbedtls mbedx509 mbedcrypto)
+
 find_package(Threads REQUIRED)
 
 add_executable(MiniKDEConnect
@@ -27,4 +36,4 @@ add_executable(MiniKDEConnect
 
 target_include_directories(MiniKDEConnect PRIVATE src)
 
-target_link_libraries(MiniKDEConnect PRIVATE nlohmann_json::nlohmann_json MbedTLS::mbedtls MbedTLS::mbedx509 MbedTLS::mbedcrypto Threads::Threads)
+target_link_libraries(MiniKDEConnect PRIVATE nlohmann_json::nlohmann_json PkgConfig::MBEDTLS Threads::Threads)

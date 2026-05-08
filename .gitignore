@@ -1,6 +1,7 @@
 kdeconnect-android/
 kdeconnect-kde/
 build/
+build-*/
 .idea/
 CMakeFiles/
 cmake-build-*

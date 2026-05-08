@@ -1,3 +1,4 @@
+// ReSharper disable CppRedundantCastExpression
 #include "tls.h"
 
 #include <mbedtls/bignum.h>
@@ -149,7 +150,7 @@ std::unique_ptr<TlsSession> TlsContext::create_session(int fd, bool is_client) {
 
 std::vector<unsigned char> TlsContext::local_pubkey_bytes() const {
     std::vector<unsigned char> out(2048);
-    const int len = mbedtls_pk_write_pubkey_der(&key_, out.data(), out.size());
+    const int len = mbedtls_pk_write_pubkey_der(const_cast<mbedtls_pk_context*>(&key_), out.data(), out.size());
     if (len <= 0) {
         return {};
     }
@@ -171,7 +172,7 @@ std::vector<unsigned char> TlsContext::peer_pubkey_bytes(const TlsSession& sessi
         return {};
     }
     std::vector<unsigned char> out(2048);
-    const int len = mbedtls_pk_write_pubkey_der(&cert->pk, out.data(), out.size());
+    const int len = mbedtls_pk_write_pubkey_der(const_cast<mbedtls_pk_context*>(&cert->pk), out.data(), out.size());
     if (len <= 0) {
         return {};
     }
@@ -188,7 +189,12 @@ bool TlsContext::load_from_files(const std::string& cert_path, const std::string
     if (ret != 0) {
         return false;
     }
+
+#ifdef __SWITCH__
+    ret = mbedtls_pk_parse_key(&key_, reinterpret_cast<const unsigned char*>(key_pem.c_str()), key_pem.size() + 1, nullptr, 0);
+#else
     ret = mbedtls_pk_parse_key(&key_, reinterpret_cast<const unsigned char*>(key_pem.c_str()), key_pem.size() + 1, nullptr, 0, mbedtls_ctr_drbg_random, &ctr_drbg_);
+#endif
     if (ret != 0) {
         return false;
     }
