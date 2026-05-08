@@ -15,7 +15,6 @@
 #include <cerrno>
 #include <chrono>
 #include <cstring>
-#include <iostream>
 #include <memory>
 #include <optional>
 #include <sys/select.h>
@@ -407,18 +406,15 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, int fd,
 
 void KdeConnectClient::handle_packet(const std::shared_ptr<DeviceSession>& session, const std::string& line) {
     auto packet = NetworkPacket::parse(line);
-    if (!packet) {
-        return;
-    }
+    if (!packet) return;
+
     if (packet->type == PacketTypes::Pair) {
         handle_pair_packet(session, packet->body);
         return;
     }
-    
-    if (!session->paired) {
-        return;
-    }
-    
+
+    if (!session->paired) return;
+
     for (const auto& plugin : session->plugins) {
         for (const auto& supported_type : plugin->supported_packet_types()) {
             if (supported_type == packet->type) {
@@ -471,8 +467,6 @@ void KdeConnectClient::handle_pair_packet(const std::shared_ptr<DeviceSession>& 
             Logger::info("Unpaired from " + session->info.name);
     }
 }
-
-
 
 std::string KdeConnectClient::verification_key(const std::shared_ptr<DeviceSession>& session, long timestamp) const {
     std::vector<unsigned char> a = tls_.local_pubkey_bytes();
@@ -606,50 +600,43 @@ bool KdeConnectClient::send_packet(const std::string& device_id, const NetworkPa
 }
 
 void KdeConnectClient::io_loop(const std::shared_ptr<DeviceSession>& session) {
-    while (running_.load() && !session->disconnected.load()) {
-        // Drain the send queue before blocking on receive. All TLS access
-        // is serialized in this single thread, so read and write never race.
+    // Drain outgoing queue. All TLS access is in this one thread, so reads and
+    // writes never race on the mbedtls context. Returns false on send failure.
+    auto drain_sends = [&]() -> bool {
         while (!session->disconnected.load()) {
             std::string payload;
             {
                 std::lock_guard lock(session->send_queue_mutex);
-                if (session->send_queue.empty()) break;
+                if (session->send_queue.empty()) return true;
                 payload = std::move(session->send_queue.front());
                 session->send_queue.pop();
             }
-            if (!NetworkUtil::send_all_tls(*session->tls, payload)) {
-                session->disconnected.store(true);
-                if (session->fd >= 0) {
-                    shutdown(session->fd, SHUT_RDWR);
-                    close(session->fd);
-                    session->fd = -1;
-                }
-                goto done;
-            }
+            if (!NetworkUtil::send_all_tls(*session->tls, payload))
+                return false;
         }
+        return false;
+    };
 
-        // Wait up to 5 ms for incoming data. The short timeout ensures queued
-        // sends are never delayed more than one tick even when idle.
+    while (running_.load() && !session->disconnected.load()) {
+        if (!drain_sends()) break;
+
         if (session->fd < 0) break;
-        {
-            fd_set rfds;
-            FD_ZERO(&rfds);
-            FD_SET(session->fd, &rfds);
-            timeval tv{0, 5'000};
-            int ret = select(session->fd + 1, &rfds, nullptr, nullptr, &tv);
-            if (ret < 0) {
-                if (errno == EINTR) continue;
-                break;
-            }
-            if (ret == 0) continue; // timeout — loop back to drain sends
+        fd_set rfds;
+        FD_ZERO(&rfds);
+        FD_SET(session->fd, &rfds);
+        timeval tv{0, 5'000}; // 5 ms: max latency before queued sends are flushed
+        int ret = select(session->fd + 1, &rfds, nullptr, nullptr, &tv);
+        if (ret < 0) {
+            if (errno == EINTR) continue;
+            break;
         }
+        if (ret == 0) continue;
 
         auto line = NetworkUtil::read_line_tls(*session->tls, kMaxPacketSize);
         if (!line) break;
         handle_packet(session, *line);
     }
 
-done:
     session->disconnected.store(true);
     if (session->fd >= 0) {
         shutdown(session->fd, SHUT_RDWR);
@@ -662,5 +649,4 @@ done:
     }
     Logger::info("Disconnected from " + session->info.name + " (" + session->info.id + ")");
 }
-
 
