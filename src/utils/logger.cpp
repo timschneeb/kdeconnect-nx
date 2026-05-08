@@ -1,9 +1,15 @@
 #include "logger.h"
 
 #include <chrono>
+#include <cstdio>
 #include <iomanip>
-#include <iostream>
 #include <sstream>
+
+Logger::Sink Logger::sink_;
+
+void Logger::set_sink(Sink sink) {
+    sink_ = std::move(sink);
+}
 
 namespace {
 std::string now_string() {
@@ -17,18 +23,14 @@ std::string now_string() {
 }
 }
 
-void Logger::info(const std::string& msg) {
-    log("INFO", msg);
-}
-
-void Logger::warn(const std::string& msg) {
-    log("WARN", msg);
-}
-
-void Logger::error(const std::string& msg) {
-    log("ERROR", msg);
-}
+void Logger::info(const std::string& msg) { log("INFO",  msg); }
+void Logger::warn(const std::string& msg) { log("WARN",  msg); }
+void Logger::error(const std::string& msg){ log("ERROR", msg); }
 
 void Logger::log(const std::string& level, const std::string& msg) {
-    std::cerr << "[" << now_string() << "] " << level << ": " << msg << "\n";
+    if (sink_) {
+        sink_(level, msg);
+    } else {
+        std::fprintf(stderr, "[%s] %s: %s\n", now_string().c_str(), level.c_str(), msg.c_str());
+    }
 }

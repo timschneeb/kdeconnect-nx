@@ -3,6 +3,7 @@
 #include <atomic>
 #include <memory>
 #include <mutex>
+#include <queue>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -49,8 +50,9 @@ public:
 
       std::unique_ptr<TlsSession> tls;
       int fd = -1;
-      std::thread reader;
-      std::mutex send_mutex;
+      std::thread io_thread;
+      std::mutex send_queue_mutex;
+      std::queue<std::string> send_queue;
       std::atomic<bool> disconnected{false};
 
       std::vector<std::unique_ptr<Plugin>> plugins;
@@ -76,7 +78,7 @@ private:
                               const std::string &host, int port);
   void handle_new_connection(const DeviceInfo &identity, int fd,
                              bool tcp_server_side);
-  void read_loop(const std::shared_ptr<DeviceSession> &session);
+  void io_loop(const std::shared_ptr<DeviceSession> &session);
 
   void handle_packet(const std::shared_ptr<DeviceSession> &session,
                      const std::string &line);

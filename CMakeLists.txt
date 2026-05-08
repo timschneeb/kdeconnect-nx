@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 4.2)
-project(MiniKDEConnect)
+
+project(MiniKDEConnect VERSION 0.0.1)
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -22,8 +23,14 @@ pkg_check_modules(MBEDTLS REQUIRED IMPORTED_TARGET mbedtls mbedx509 mbedcrypto)
 
 find_package(Threads REQUIRED)
 
+if(CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch")
+    set(PLATFORM_MAIN main_switch.cpp)
+else()
+    set(PLATFORM_MAIN main.cpp)
+endif()
+
 add_executable(MiniKDEConnect
-  main.cpp
+  ${PLATFORM_MAIN}
   src/kdeconnect_client.cpp
         src/mdns/mdns_discovery.cpp
   src/network_packet.cpp
@@ -44,3 +51,20 @@ add_executable(MiniKDEConnect
 target_include_directories(MiniKDEConnect PRIVATE src)
 
 target_link_libraries(MiniKDEConnect PRIVATE nlohmann_json::nlohmann_json PkgConfig::MBEDTLS Threads::Threads)
+
+if(CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch")
+
+nx_generate_nacp(MiniKDEConnect.nacp
+   NAME "kdeconnect-nx"
+   AUTHOR "timschneeb"
+   VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}"
+)
+
+nx_create_nro(MiniKDEConnect
+    NACP MiniKDEConnect.nacp
+    # ICON ${CMAKE_CURRENT_SOURCE_DIR}/icon.jpg
+)
+
+INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/kdeconnect-nx.nro DESTINATION . COMPONENT kdeconnect-nx)
+
+endif()

@@ -12,11 +12,13 @@
 
 #include <array>
 #include <atomic>
+#include <cerrno>
 #include <chrono>
 #include <cstring>
 #include <iostream>
 #include <memory>
 #include <optional>
+#include <sys/select.h>
 #include <thread>
 
 #include "plugins/plugin_registry.h"
@@ -29,6 +31,7 @@ constexpr int kUdpPort = 1716;
 constexpr int kMinTcpPort = 1716;
 constexpr int kMaxTcpPort = 1764;
 constexpr size_t kMaxPacketSize = 512 * 1024;
+constexpr size_t kMaxUdpPacketSize = 8 * 1024;
 constexpr int kPairingWindowSeconds = 1800;
 constexpr int kKeepaliveIdleSeconds = 8;
 constexpr int kKeepaliveIntervalSeconds = 3;
@@ -134,22 +137,27 @@ void KdeConnectClient::stop() {
         broadcast_thread_.join();
     }
 
-    std::lock_guard lock(session_mutex_);
-    for (auto& [id, session] : sessions_) {
+    std::vector<std::shared_ptr<DeviceSession>> to_stop;
+    {
+        std::lock_guard lock(session_mutex_);
+        for (auto& [id, session] : sessions_) {
+            to_stop.push_back(session);
+        }
+        sessions_.clear();
+    }
+    for (auto& session : to_stop) {
+        session->disconnected.store(true);
         if (session->fd >= 0) {
             shutdown(session->fd, SHUT_RDWR);
             close(session->fd);
             session->fd = -1;
         }
-        if (session->reader.joinable()) {
-            session->reader.join();
-        }
+        if (session->io_thread.joinable()) session->io_thread.join();
         if (session->tls) {
             mbedtls_ssl_close_notify(&session->tls->ssl);
             session->tls.reset();
         }
     }
-    sessions_.clear();
 }
 
 void KdeConnectClient::send_udp_identity_probe(const std::string& device_id, const std::string& host) {
@@ -217,7 +225,7 @@ void KdeConnectClient::tcp_accept_loop() {
 
 void KdeConnectClient::udp_listen_loop() {
     while (running_.load()) {
-        std::array<char, kMaxPacketSize> buffer{};
+        std::array<char, kMaxUdpPacketSize> buffer{};
         sockaddr_in from{};
         socklen_t from_len = sizeof(from);
         ssize_t len = recvfrom(udp_fd_, buffer.data(), buffer.size(), 0, reinterpret_cast<sockaddr*>(&from), &from_len);
@@ -371,29 +379,35 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, int fd,
 
     PluginRegistry::instantiate_plugins(this, session->info.id, session->plugins);
 
+    std::shared_ptr<DeviceSession> old_session;
     {
         std::lock_guard lock(session_mutex_);
         auto it = sessions_.find(session->info.id);
         if (it != sessions_.end()) {
-            if (it->second->fd >= 0) {
-                shutdown(it->second->fd, SHUT_RDWR);
-                close(it->second->fd);
-                it->second->fd = -1;
-            }
-            if (it->second->reader.joinable()) {
-                it->second->reader.join();
-            }
-            if (it->second->tls) {
-                mbedtls_ssl_close_notify(&it->second->tls->ssl);
-                it->second->tls.reset();
-            }
+            old_session = it->second;
         }
         sessions_[session->info.id] = session;
     }
 
+    // Clean up the old session outside the lock. Joining under the lock would
+    // deadlock: the old read_loop calls send_packet → device() → session_mutex_.
+    if (old_session) {
+        old_session->disconnected.store(true);
+        if (old_session->fd >= 0) {
+            shutdown(old_session->fd, SHUT_RDWR);
+            close(old_session->fd);
+            old_session->fd = -1;
+        }
+        if (old_session->io_thread.joinable()) old_session->io_thread.join();
+        if (old_session->tls) {
+            mbedtls_ssl_close_notify(&old_session->tls->ssl);
+            old_session->tls.reset();
+        }
+    }
+
     Logger::info("Connected to " + session->info.name + " (" + session->info.id + ", " + (tcp_server_side ? "server-side" : "client-side") + ", " + (session->paired ? "paired" : "unpaired") + ").");
 
-    session->reader = std::thread(&KdeConnectClient::read_loop, this, session);
+    session->io_thread = std::thread(&KdeConnectClient::io_loop, this, session);
 
     // Quirk: the desktop client will not display us as connected, until we send another packet, so just resend the identity packet.
     send_packet(identity.id, NetworkUtil::make_identity_packet(local_device_, identity.id, identity.protocol_version, tcp_port_));
@@ -403,26 +417,6 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, int fd,
     }
 }
 
-void KdeConnectClient::read_loop(const std::shared_ptr<DeviceSession>& session) {
-    while (running_.load()) {
-        auto line = NetworkUtil::read_line_tls(*session->tls, kMaxPacketSize);
-        if (!line) {
-            break;
-        }
-        handle_packet(session, *line);
-    }
-    session->disconnected.store(true);
-    if (session->fd >= 0) {
-        shutdown(session->fd, SHUT_RDWR);
-        close(session->fd);
-        session->fd = -1;
-    }
-    if (session->tls) {
-        mbedtls_ssl_close_notify(&session->tls->ssl);
-        session->tls.reset();
-    }
-    Logger::info("Disconnected from " + session->info.name + " (" + session->info.id + ")");
-}
 
 void KdeConnectClient::handle_packet(const std::shared_ptr<DeviceSession>& session, const std::string& line) {
     auto packet = NetworkPacket::parse(line);
@@ -618,24 +612,68 @@ void KdeConnectClient::unpair(const std::string& device_id) {
 
 bool KdeConnectClient::send_packet(const std::string& device_id, const NetworkPacket& pkt) {
     auto session = device(device_id);
-    if (!session) return false;
-    
-    std::string payload = pkt.serialize();
-    std::lock_guard lock(session->send_mutex);
-    if (!NetworkUtil::send_all_tls(*session->tls, payload)) {
-        session->disconnected.store(true);
-        if (session->fd >= 0) {
-            shutdown(session->fd, SHUT_RDWR);
-            close(session->fd);
-            session->fd = -1;
-        }
-        if (session->tls) {
-            mbedtls_ssl_close_notify(&session->tls->ssl);
-            session->tls.reset();
-        }
-        return false;
-    }
+    if (!session || session->disconnected.load()) return false;
+    std::lock_guard lock(session->send_queue_mutex);
+    session->send_queue.push(pkt.serialize());
     return true;
+}
+
+void KdeConnectClient::io_loop(const std::shared_ptr<DeviceSession>& session) {
+    while (running_.load() && !session->disconnected.load()) {
+        // Drain the send queue before blocking on receive. All TLS access
+        // is serialized in this single thread, so read and write never race.
+        while (!session->disconnected.load()) {
+            std::string payload;
+            {
+                std::lock_guard lock(session->send_queue_mutex);
+                if (session->send_queue.empty()) break;
+                payload = std::move(session->send_queue.front());
+                session->send_queue.pop();
+            }
+            if (!NetworkUtil::send_all_tls(*session->tls, payload)) {
+                session->disconnected.store(true);
+                if (session->fd >= 0) {
+                    shutdown(session->fd, SHUT_RDWR);
+                    close(session->fd);
+                    session->fd = -1;
+                }
+                goto done;
+            }
+        }
+
+        // Wait up to 5 ms for incoming data. The short timeout ensures queued
+        // sends are never delayed more than one tick even when idle.
+        if (session->fd < 0) break;
+        {
+            fd_set rfds;
+            FD_ZERO(&rfds);
+            FD_SET(session->fd, &rfds);
+            timeval tv{0, 5'000};
+            int ret = select(session->fd + 1, &rfds, nullptr, nullptr, &tv);
+            if (ret < 0) {
+                if (errno == EINTR) continue;
+                break;
+            }
+            if (ret == 0) continue; // timeout — loop back to drain sends
+        }
+
+        auto line = NetworkUtil::read_line_tls(*session->tls, kMaxPacketSize);
+        if (!line) break;
+        handle_packet(session, *line);
+    }
+
+done:
+    session->disconnected.store(true);
+    if (session->fd >= 0) {
+        shutdown(session->fd, SHUT_RDWR);
+        close(session->fd);
+        session->fd = -1;
+    }
+    if (session->tls) {
+        mbedtls_ssl_close_notify(&session->tls->ssl);
+        session->tls.reset();
+    }
+    Logger::info("Disconnected from " + session->info.name + " (" + session->info.id + ")");
 }
 
 
