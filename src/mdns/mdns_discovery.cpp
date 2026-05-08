@@ -1,14 +1,24 @@
 #include "mdns_discovery.h"
 
+// Must be defined before mdns.h when ifaddrs is unavailable
+#if !__has_include(<ifaddrs.h>)
+#  define MDNS_NO_IPV6 1
+#  define NEED_IOCTL_IFCONF 1
+#endif
+
 #include "mdns.h"
 #include "../utils/logger.h"
 
 #include <arpa/inet.h>
-#include <ifaddrs.h>
-#include <net/if.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#if defined(NEED_IOCTL_IFCONF)
+#  include <sys/ioctl.h>
+#else
+#  include <ifaddrs.h>
+#endif
+#include <net/if.h>
 #include <array>
 #include <atomic>
 #include <chrono>
@@ -34,6 +44,7 @@ std::string hostname_or_default() {
 }
 std::vector<in_addr> collect_ipv4_addresses() {
     std::vector<in_addr> addresses;
+#if !defined(NEED_IOCTL_IFCONF)
     ifaddrs* ifaddr = nullptr;
     if (getifaddrs(&ifaddr) != 0) {
         return addresses;
@@ -50,6 +61,30 @@ std::vector<in_addr> collect_ipv4_addresses() {
         addresses.push_back(addr->sin_addr);
     }
     freeifaddrs(ifaddr);
+#else
+    // Use SIOCGIFCONF ioctl (available on BSD/libnx where ifaddrs is absent)
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        return addresses;
+    }
+    std::array<char, 4096> buf{};
+    struct ifconf ifc{};
+    ifc.ifc_len = static_cast<int>(buf.size());
+    ifc.ifc_buf = buf.data();
+    if (ioctl(sock, SIOCGIFCONF, &ifc) == 0) {
+        const int n = ifc.ifc_len / static_cast<int>(sizeof(struct ifreq));
+        for (int i = 0; i < n; ++i) {
+            struct ifreq* ifr = &ifc.ifc_req[i];
+            if (ifr->ifr_addr.sa_family != AF_INET) continue;
+            struct ifreq flags_req = *ifr;
+            if (ioctl(sock, SIOCGIFFLAGS, &flags_req) != 0) continue;
+            const unsigned int flags = static_cast<unsigned int>(flags_req.ifr_flags);
+            if (!(flags & IFF_UP) || !(flags & IFF_MULTICAST) || (flags & IFF_LOOPBACK)) continue;
+            addresses.push_back(reinterpret_cast<sockaddr_in*>(&ifr->ifr_addr)->sin_addr);
+        }
+    }
+    close(sock);
+#endif
     return addresses;
 }
 std::string ipv4_to_string(const in_addr& addr) {

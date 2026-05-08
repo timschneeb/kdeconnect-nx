@@ -29,6 +29,8 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+ // ReSharper disable once CppUnusedIncludeDirective
+#include <arpa/inet.h>
 #endif
 
 #ifdef __cplusplus
@@ -448,6 +450,7 @@ mdns_socket_setup_ipv4(int sock, const struct sockaddr_in* saddr) {
 	return 0;
 }
 
+#ifndef MDNS_NO_IPV6
 static inline int
 mdns_socket_open_ipv6(const struct sockaddr_in6* saddr) {
 	int sock = (int)socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
@@ -511,6 +514,7 @@ mdns_socket_setup_ipv6(int sock, const struct sockaddr_in6* saddr) {
 
 	return 0;
 }
+#endif /* MDNS_NO_IPV6 */
 
 static inline void
 mdns_socket_close(int sock) {
