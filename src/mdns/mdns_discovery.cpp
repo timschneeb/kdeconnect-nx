@@ -11,6 +11,7 @@
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <sys/select.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #if defined(NEED_IOCTL_IFCONF)
@@ -22,9 +23,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
-#include <functional>
 #include <memory>
-#include <mutex>
 #include <thread>
 #include <unordered_map>
 #include <utility>
@@ -309,8 +308,7 @@ struct MdnsDiscovery::Impl {
         announced = build_announced_info();
         announce(false);
         send_query();
-        service_thread = std::thread(&Impl::service_loop, this);
-        discovery_thread = std::thread(&Impl::discovery_loop, this);
+        mdns_thread = std::thread(&Impl::mdns_loop, this);
         return true;
     }
     void stop() {
@@ -326,11 +324,8 @@ struct MdnsDiscovery::Impl {
             mdns_socket_close(discovery_socket);
             discovery_socket = -1;
         }
-        if (service_thread.joinable()) {
-            service_thread.join();
-        }
-        if (discovery_thread.joinable()) {
-            discovery_thread.join();
+        if (mdns_thread.joinable()) {
+            mdns_thread.join();
         }
     }
     AnnouncedInfo build_announced_info() {
@@ -377,38 +372,40 @@ struct MdnsDiscovery::Impl {
         mdns_query_send(discovery_socket, MDNS_RECORDTYPE_PTR, announced.service_type.c_str(),
                         announced.service_type.size(), buffer.data(), buffer.size() * sizeof(uint32_t), 0);
     }
-    void service_loop() {
-        std::array<uint32_t, 512> buffer{};
-        while (running.load()) {
-            mdns_socket_listen(service_socket, buffer.data(), buffer.size() * sizeof(uint32_t), service_callback,
-                               &announced);
-            std::this_thread::sleep_for(kIdleSleep);
-        }
-    }
-    void discovery_loop() const {
-        std::array<uint32_t, 512> buffer{};
+    void mdns_loop() {
+        std::array<uint32_t, 512> svc_buf{};
+        std::array<uint32_t, 512> disc_buf{};
         auto next_query = std::chrono::steady_clock::now();
+
         while (running.load()) {
             const auto now = std::chrono::steady_clock::now();
             if (now >= next_query) {
                 send_query();
                 next_query = now + kQueryRepeat;
             }
-            QueryState state;
-            mdns_query_recv(discovery_socket, buffer.data(), buffer.size() * sizeof(uint32_t), discovery_callback,
-                            &state, 0);
-            if (!state.saw_ptr || state.instance_id.empty() || state.host.empty() || state.txt_records.contains("id") == false) {
-                std::this_thread::sleep_for(kIdleSleep);
-                continue;
-            }
 
-            auto device_id = state.txt_records["id"];
-            if (device_id == local_device.id) {
-                continue;
-            }
+            fd_set rfds;
+            FD_ZERO(&rfds);
+            int nfds = 0;
+            if (service_socket >= 0)   { FD_SET(service_socket,   &rfds); nfds = std::max(nfds, service_socket   + 1); }
+            if (discovery_socket >= 0) { FD_SET(discovery_socket, &rfds); nfds = std::max(nfds, discovery_socket + 1); }
+            if (nfds == 0) break;
 
-            if (on_peer_found) {
-                on_peer_found(device_id, state.host);
+            timeval tv{0, 100'000}; // 100 ms
+            if (select(nfds, &rfds, nullptr, nullptr, &tv) <= 0) continue;
+
+            if (service_socket >= 0 && FD_ISSET(service_socket, &rfds)) {
+                mdns_socket_listen(service_socket, svc_buf.data(), svc_buf.size() * sizeof(uint32_t),
+                                   service_callback, &announced);
+            }
+            if (discovery_socket >= 0 && FD_ISSET(discovery_socket, &rfds)) {
+                QueryState state;
+                mdns_query_recv(discovery_socket, disc_buf.data(), disc_buf.size() * sizeof(uint32_t),
+                                discovery_callback, &state, 0);
+                if (state.saw_ptr && !state.instance_id.empty() && !state.host.empty() &&
+                    state.txt_records.count("id") && state.txt_records.at("id") != local_device.id) {
+                    if (on_peer_found) on_peer_found(state.txt_records.at("id"), state.host);
+                }
             }
         }
     }
@@ -420,8 +417,7 @@ struct MdnsDiscovery::Impl {
     int discovery_socket = -1;
     sockaddr_in service_addr{};
     AnnouncedInfo announced;
-    std::thread service_thread;
-    std::thread discovery_thread;
+    std::thread mdns_thread;
 };
 MdnsDiscovery::MdnsDiscovery(const DeviceInfo& local_device, int tcp_port, PeerFoundCallback on_peer_found)
     : impl_(std::make_unique<Impl>(local_device, tcp_port, std::move(on_peer_found))) {}

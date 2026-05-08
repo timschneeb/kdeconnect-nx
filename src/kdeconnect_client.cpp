@@ -95,8 +95,7 @@ bool KdeConnectClient::start() {
     });
 
     running_.store(true);
-    tcp_thread_ = std::thread(&KdeConnectClient::tcp_accept_loop, this);
-    udp_thread_ = std::thread(&KdeConnectClient::udp_listen_loop, this);
+    network_thread_ = std::thread(&KdeConnectClient::network_loop, this);
     broadcast_thread_ = std::thread(&KdeConnectClient::udp_broadcast_loop, this);
 
     Logger::info("Listening on TCP port " + std::to_string(tcp_port_) + ".");
@@ -127,11 +126,8 @@ void KdeConnectClient::stop() {
         udp_fd_ = -1;
     }
 
-    if (tcp_thread_.joinable()) {
-        tcp_thread_.join();
-    }
-    if (udp_thread_.joinable()) {
-        udp_thread_.join();
+    if (network_thread_.joinable()) {
+        network_thread_.join();
     }
     if (broadcast_thread_.joinable()) {
         broadcast_thread_.join();
@@ -179,75 +175,66 @@ void KdeConnectClient::send_udp_identity_probe(const std::string& device_id, con
     sendto(udp_fd_, payload.data(), payload.size(), 0, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
 }
 
-void KdeConnectClient::tcp_accept_loop() {
+void KdeConnectClient::network_loop() {
     while (running_.load()) {
-        sockaddr_in client_addr{};
-        socklen_t addr_len = sizeof(client_addr);
-        int fd = accept(tcp_fd_, reinterpret_cast<sockaddr*>(&client_addr), &addr_len);
-        if (fd < 0) {
-            if (running_.load()) {
-                Logger::warn("TCP accept failed.");
+        fd_set rfds;
+        FD_ZERO(&rfds);
+        int nfds = 0;
+        if (tcp_fd_ >= 0) { FD_SET(tcp_fd_, &rfds); nfds = std::max(nfds, tcp_fd_ + 1); }
+        if (udp_fd_ >= 0) { FD_SET(udp_fd_, &rfds); nfds = std::max(nfds, udp_fd_ + 1); }
+        if (nfds == 0) break;
+
+        if (select(nfds, &rfds, nullptr, nullptr, nullptr) < 0) {
+            if (errno == EINTR) continue;
+            break;
+        }
+
+        if (tcp_fd_ >= 0 && FD_ISSET(tcp_fd_, &rfds)) {
+            sockaddr_in client_addr{};
+            socklen_t addr_len = sizeof(client_addr);
+            int fd = accept(tcp_fd_, reinterpret_cast<sockaddr*>(&client_addr), &addr_len);
+            if (fd < 0) {
+                if (running_.load()) Logger::warn("TCP accept failed.");
+            } else {
+                configure_tcp_keepalive(fd);
+                auto line = NetworkUtil::read_line_fd(fd, kMaxPacketSize);
+                auto packet = line ? NetworkPacket::parse(*line) : std::optional<NetworkPacket>{};
+                bool valid = packet && packet->type == PacketTypes::Identity;
+                if (valid && packet->body.contains("targetDeviceId")) {
+                    const auto tid = packet->body.value("targetDeviceId", "");
+                    if (!tid.empty() && tid != local_device_.id) valid = false;
+                }
+                if (valid && packet->body.contains("targetProtocolVersion")) {
+                    if (packet->body.value("targetProtocolVersion", kProtocolVersion) != kProtocolVersion)
+                        valid = false;
+                }
+                if (!valid) {
+                    close(fd);
+                } else {
+                    handle_new_connection(NetworkUtil::info_from_identity(*packet), fd, true);
+                }
             }
-            continue;
-        }
-        configure_tcp_keepalive(fd);
-
-        auto line = NetworkUtil::read_line_fd(fd, kMaxPacketSize);
-        if (!line) {
-            close(fd);
-            continue;
-        }
-        auto packet = NetworkPacket::parse(*line);
-        if (!packet || packet->type != "kdeconnect.identity") {
-            close(fd);
-            continue;
         }
 
-        if (packet->body.contains("targetDeviceId")) {
-            std::string target_id = packet->body.value("targetDeviceId", "");
-            if (!target_id.empty() && target_id != local_device_.id) {
-                close(fd);
-                continue;
+        if (udp_fd_ >= 0 && FD_ISSET(udp_fd_, &rfds)) {
+            std::array<char, kMaxUdpPacketSize> buffer{};
+            sockaddr_in from{};
+            socklen_t from_len = sizeof(from);
+            ssize_t len = recvfrom(udp_fd_, buffer.data(), buffer.size(), 0,
+                                   reinterpret_cast<sockaddr*>(&from), &from_len);
+            if (len > 0) {
+                auto packet = NetworkPacket::parse(std::string(buffer.data(), static_cast<size_t>(len)));
+                if (packet && packet->type == PacketTypes::Identity) {
+                    DeviceInfo identity = NetworkUtil::info_from_identity(*packet);
+                    if (!identity.id.empty() && identity.id != local_device_.id) {
+                        char addr_str[INET_ADDRSTRLEN] = {};
+                        inet_ntop(AF_INET, &from.sin_addr, addr_str, sizeof(addr_str));
+                        identity.protocol_version = packet->body.value("protocolVersion", kProtocolVersion);
+                        handle_discovered_peer(identity, addr_str, packet->body.value("tcpPort", kMinTcpPort));
+                    }
+                }
             }
         }
-        if (packet->body.contains("targetProtocolVersion")) {
-            int target_protocol = packet->body.value("targetProtocolVersion", kProtocolVersion);
-            if (target_protocol != kProtocolVersion) {
-                close(fd);
-                continue;
-            }
-        }
-
-        DeviceInfo identity = NetworkUtil::info_from_identity(*packet);
-        handle_new_connection(identity, fd, true);
-    }
-}
-
-void KdeConnectClient::udp_listen_loop() {
-    while (running_.load()) {
-        std::array<char, kMaxUdpPacketSize> buffer{};
-        sockaddr_in from{};
-        socklen_t from_len = sizeof(from);
-        ssize_t len = recvfrom(udp_fd_, buffer.data(), buffer.size(), 0, reinterpret_cast<sockaddr*>(&from), &from_len);
-        if (len <= 0) {
-            continue;
-        }
-        std::string data(buffer.data(), static_cast<size_t>(len));
-        auto packet = NetworkPacket::parse(data);
-        if (!packet || packet->type != "kdeconnect.identity") {
-            continue;
-        }
-        DeviceInfo identity = NetworkUtil::info_from_identity(*packet);
-        if (identity.id.empty() || identity.id == local_device_.id) {
-            continue;
-        }
-        int tcp_port = packet->body.value("tcpPort", kMinTcpPort);
-        char addr_str[INET_ADDRSTRLEN] = {0};
-        inet_ntop(AF_INET, &from.sin_addr, addr_str, sizeof(addr_str));
-        std::string address(addr_str);
-        identity.protocol_version = packet->body.value("protocolVersion", kProtocolVersion);
-
-        handle_discovered_peer(identity, address, tcp_port);
     }
 }
 
