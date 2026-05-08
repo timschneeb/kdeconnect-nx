@@ -1,13 +1,25 @@
 #include "plugin_registry.h"
 #include "ping_plugin.h"
+#include "battery_plugin.h"
+#include "notification_plugin.h"
+#include "find_my_phone_plugin.h"
+#include "mpris_plugin.h"
+#include "system_volume_plugin.h"
+#include "share_plugin.h"
 
 namespace PluginRegistry {
     void instantiate_plugins(DeviceProvider* provider, const std::string& device_id, std::vector<std::unique_ptr<Plugin>>& plugins) {
-        auto ping_plugin = std::make_unique<PingPlugin>();
-        ping_plugin->init(provider, device_id);
-        plugins.push_back(std::move(ping_plugin));
-        
-        // Add more plugins here in the future
+        auto add = [&](auto plugin) {
+            plugin->init(provider, device_id);
+            plugins.push_back(std::move(plugin));
+        };
+        add(std::make_unique<PingPlugin>());
+        add(std::make_unique<BatteryPlugin>());
+        add(std::make_unique<NotificationPlugin>());
+        add(std::make_unique<FindMyPhonePlugin>());
+        add(std::make_unique<MprisPlugin>());
+        add(std::make_unique<SystemVolumePlugin>());
+        add(std::make_unique<SharePlugin>());
     }
 
     static std::vector<std::string> caps;
@@ -18,12 +30,8 @@ namespace PluginRegistry {
             std::vector<std::unique_ptr<Plugin>> plugins;
             instantiate_plugins(provider, "dummy", plugins);
             for (const auto& p : plugins) {
-                for (const auto& t : p->supported_packet_types()) {
-                    caps.push_back(t);
-                }
-                for (const auto& t : p->outgoing_packet_types()) {
-                    caps_out.push_back(t);
-                }
+                for (const auto& t : p->supported_packet_types()) caps.push_back(t);
+                for (const auto& t : p->outgoing_packet_types()) caps_out.push_back(t);
             }
         }
     }

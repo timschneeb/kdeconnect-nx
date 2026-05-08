@@ -397,6 +397,10 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, int fd,
 
     // Quirk: the desktop client will not display us as connected, until we send another packet, so just resend the identity packet.
     send_packet(identity.id, NetworkUtil::make_identity_packet(local_device_, identity.id, identity.protocol_version, tcp_port_));
+
+    for (auto& plugin : session->plugins) {
+        plugin->on_connected(session->paired);
+    }
 }
 
 void KdeConnectClient::read_loop(const std::shared_ptr<DeviceSession>& session) {

@@ -32,6 +32,12 @@ add_executable(MiniKDEConnect
   src/utils/network_util.cpp
   src/utils/logger.cpp
   src/plugins/ping_plugin.cpp
+  src/plugins/battery_plugin.cpp
+  src/plugins/notification_plugin.cpp
+  src/plugins/find_my_phone_plugin.cpp
+  src/plugins/mpris_plugin.cpp
+  src/plugins/system_volume_plugin.cpp
+  src/plugins/share_plugin.cpp
   src/plugins/plugin_registry.cpp
 )
 

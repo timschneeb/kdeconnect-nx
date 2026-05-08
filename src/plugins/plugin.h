@@ -40,6 +40,7 @@ public:
     }
 
     virtual void on_create() {}
+    virtual void on_connected(bool paired) {}
     virtual void on_destroy() {}
 
 protected:
