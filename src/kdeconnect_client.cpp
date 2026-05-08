@@ -30,8 +30,8 @@ constexpr int kMinTcpPort = 1716;
 constexpr int kMaxTcpPort = 1764;
 constexpr size_t kMaxPacketSize = 512 * 1024;
 constexpr int kPairingWindowSeconds = 1800;
-constexpr int kKeepaliveIdleSeconds = 10;
-constexpr int kKeepaliveIntervalSeconds = 5;
+constexpr int kKeepaliveIdleSeconds = 8;
+constexpr int kKeepaliveIntervalSeconds = 3;
 constexpr int kKeepaliveProbeCount = 3;
 
 void configure_tcp_keepalive(int fd) {
