@@ -1,0 +1,6 @@
+kdeconnect-android/
+kdeconnect-kde/
+build/
+.idea/
+CMakeFiles/
+cmake-build-*
