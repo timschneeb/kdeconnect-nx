@@ -51,53 +51,14 @@ bool KdeConnectClient::start() {
     }
     local_device_.id = tls_.device_id();
 
-    tcp_fd_ = socket(AF_INET, SOCK_STREAM, 0);
+    tcp_fd_ = NetworkUtil::create_tcp_server_socket(kMinTcpPort, kMaxTcpPort, tcp_port_);
     if (tcp_fd_ < 0) {
-        Logger::error("Failed to create TCP socket.");
-        return false;
-    }
-    int reuse = 1;
-    setsockopt(tcp_fd_, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
-
-    sockaddr_in addr{};
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = INADDR_ANY;
-    bool bound = false;
-    for (int port = kMinTcpPort; port <= kMaxTcpPort; ++port) {
-        addr.sin_port = htons(static_cast<uint16_t>(port));
-        if (bind(tcp_fd_, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0) {
-            tcp_port_ = port;
-            bound = true;
-            break;
-        }
-    }
-    if (!bound) {
         Logger::error("Failed to bind TCP socket on ports 1716-1764.");
-        close(tcp_fd_);
-        tcp_fd_ = -1;
         return false;
     }
 
-    if (listen(tcp_fd_, 10) != 0) {
-        Logger::error("Failed to listen on TCP socket.");
-        close(tcp_fd_);
-        tcp_fd_ = -1;
-        return false;
-    }
-
-    udp_fd_ = socket(AF_INET, SOCK_DGRAM, 0);
+    udp_fd_ = NetworkUtil::create_udp_broadcast_socket(kUdpPort);
     if (udp_fd_ < 0) {
-        Logger::error("Failed to create UDP socket.");
-        return false;
-    }
-    setsockopt(udp_fd_, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
-    setsockopt(udp_fd_, SOL_SOCKET, SO_BROADCAST, &reuse, sizeof(reuse));
-
-    sockaddr_in udp_addr{};
-    udp_addr.sin_family = AF_INET;
-    udp_addr.sin_addr.s_addr = INADDR_ANY;
-    udp_addr.sin_port = htons(kUdpPort);
-    if (bind(udp_fd_, reinterpret_cast<sockaddr*>(&udp_addr), sizeof(udp_addr)) != 0) {
         Logger::warn("Unable to bind UDP socket for listening; discovery receive disabled.");
     }
 
@@ -293,15 +254,9 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, int fd,
         return;
     }
 
-    while (true) {
-        int ret = mbedtls_ssl_handshake(&tls_session->ssl);
-        if (ret == 0) {
-            break;
-        }
-        if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
-            close(fd);
-            return;
-        }
+    if (!NetworkUtil::perform_tls_handshake(*tls_session)) {
+        close(fd);
+        return;
     }
 
     std::string peer_pem = TlsContext::peer_cert_pem(*tls_session);

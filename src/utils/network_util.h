@@ -20,4 +20,8 @@ NetworkPacket make_identity_packet(const DeviceInfo& info, std::optional<std::st
 
 std::string uppercase_first8(const std::string& hex);
 
+int create_tcp_server_socket(int min_port, int max_port, int& bound_port);
+int create_udp_broadcast_socket(int port);
+bool perform_tls_handshake(TlsSession& session);
+
 } // namespace NetworkUtil
