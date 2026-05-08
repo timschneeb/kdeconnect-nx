@@ -296,7 +296,7 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, int fd,
     session->tls = std::move(tls_session);
     session->fd = fd;
     session->cert_pem = peer_pem;
-    session->peer_pubkey = tls_.peer_pubkey_bytes(*session->tls);
+    session->peer_pubkey = TlsContext::peer_pubkey_bytes(*session->tls);
 
     PluginRegistry::instantiate_plugins(this, session->info.id, session->plugins);
 
@@ -408,7 +408,7 @@ std::string KdeConnectClient::verification_key(const std::shared_ptr<DeviceSessi
     if (a.empty() || b.empty()) {
         return "--------";
     }
-    bool a_less_than_b = std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end());
+    bool a_less_than_b = std::ranges::lexicographical_compare(a, b);
     std::vector<unsigned char> combined;
     if (a_less_than_b) {
         combined.insert(combined.end(), b.begin(), b.end());
