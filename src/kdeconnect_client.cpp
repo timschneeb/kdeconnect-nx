@@ -84,6 +84,7 @@ bool KdeConnectClient::start() {
                 }
             }
 
+            Logger::info("mDNS: Sending probe to " + device_id + " at " + host);
             send_udp_identity_probe(device_id, host);
         } catch (const std::exception &e) {
             Logger::error("Error handling mDNS discovery for device " + device_id + " at " + host + ": " + e.what());

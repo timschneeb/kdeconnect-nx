@@ -78,7 +78,7 @@ struct AnnouncedInfo {
     std::unordered_map<std::string, std::string> txt_records;
 };
 struct QueryState {
-    std::string device_id;
+    std::string instance_id;
     std::string host;
     std::unordered_map<std::string, std::string> txt_records;
     bool saw_ptr = false;
@@ -224,7 +224,7 @@ int discovery_callback(int sock,
         if (dot != std::string::npos) {
             instance = instance.substr(0, dot);
         }
-        state->device_id = std::move(instance);
+        state->instance_id = std::move(instance);
         state->host = sockaddr_to_ipv4_string(from);
         state->saw_ptr = true;
         return 0;
@@ -353,7 +353,6 @@ struct MdnsDiscovery::Impl {
     void discovery_loop() const {
         std::array<uint32_t, 512> buffer{};
         auto next_query = std::chrono::steady_clock::now();
-        std::unordered_map<std::string, std::string> seen_hosts;
         while (running.load()) {
             const auto now = std::chrono::steady_clock::now();
             if (now >= next_query) {
@@ -363,21 +362,18 @@ struct MdnsDiscovery::Impl {
             QueryState state;
             mdns_query_recv(discovery_socket, buffer.data(), buffer.size() * sizeof(uint32_t), discovery_callback,
                             &state, 0);
-            if (!state.saw_ptr || state.device_id.empty() || state.host.empty()) {
+            if (!state.saw_ptr || state.instance_id.empty() || state.host.empty() || state.txt_records.contains("id") == false) {
                 std::this_thread::sleep_for(kIdleSleep);
                 continue;
             }
-            if (state.device_id == local_device.id) {
+
+            auto device_id = state.txt_records["id"];
+            if (device_id == local_device.id) {
                 continue;
             }
-            auto it = seen_hosts.find(state.device_id);
-            if (it != seen_hosts.end() && it->second == state.host) {
-                continue;
-            }
-            seen_hosts[state.device_id] = state.host;
+
             if (on_peer_found) {
-                Logger::info("mDNS discovered " + state.device_id + " at " + state.host + ".");
-                on_peer_found(state.device_id, state.host);
+                on_peer_found(device_id, state.host);
             }
         }
     }
