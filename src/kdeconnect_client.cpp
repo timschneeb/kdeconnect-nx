@@ -363,6 +363,16 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, int fd,
     session->cert_pem = peer_pem;
     session->peer_pubkey = TlsContext::peer_pubkey_bytes(*session->tls);
 
+    {
+        sockaddr_in peer_addr{};
+        socklen_t peer_addr_len = sizeof(peer_addr);
+        if (getpeername(fd, reinterpret_cast<sockaddr*>(&peer_addr), &peer_addr_len) == 0) {
+            char addr_str[INET_ADDRSTRLEN] = {};
+            if (inet_ntop(AF_INET, &peer_addr.sin_addr, addr_str, sizeof(addr_str)))
+                session->peer_host = addr_str;
+        }
+    }
+
     PluginRegistry::instantiate_plugins(this, session->info.id, session->plugins);
 
     std::shared_ptr<DeviceSession> old_session;
@@ -415,6 +425,9 @@ void KdeConnectClient::handle_packet(const std::shared_ptr<DeviceSession>& sessi
 
     if (!session->paired) return;
 
+    if (packet->payload_port > 0 && packet->payload_size > 0 && !session->peer_host.empty())
+        download_payload(session, *packet);
+
     for (const auto& plugin : session->plugins) {
         for (const auto& supported_type : plugin->supported_packet_types()) {
             if (supported_type == packet->type) {
@@ -424,6 +437,47 @@ void KdeConnectClient::handle_packet(const std::shared_ptr<DeviceSession>& sessi
             }
         }
     }
+}
+
+void KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& session, NetworkPacket& packet) {
+    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (fd < 0) return;
+
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(static_cast<uint16_t>(packet.payload_port));
+    if (inet_pton(AF_INET, session->peer_host.c_str(), &addr.sin_addr) != 1) {
+        close(fd);
+        return;
+    }
+    if (connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
+        close(fd);
+        return;
+    }
+
+    auto tls_session = tls_.create_session(fd, true);
+    if (!tls_session || !NetworkUtil::perform_tls_handshake(*tls_session)) {
+        close(fd);
+        return;
+    }
+
+    const int64_t cap = std::min(packet.payload_size, static_cast<int64_t>(10 * 1024 * 1024));
+    packet.payload.resize(static_cast<size_t>(cap));
+
+    size_t received = 0;
+    while (received < static_cast<size_t>(cap)) {
+        int ret = mbedtls_ssl_read(&tls_session->ssl,
+                                   packet.payload.data() + received,
+                                   static_cast<size_t>(cap) - received);
+        if (ret <= 0) break;
+        received += static_cast<size_t>(ret);
+    }
+    packet.payload.resize(received);
+
+    mbedtls_ssl_close_notify(&tls_session->ssl);
+    close(fd);
+
+    Logger::info("Downloaded payload: " + std::to_string(received) + " bytes for " + packet.type);
 }
 
 void KdeConnectClient::handle_pair_packet(const std::shared_ptr<DeviceSession>& session, const nlohmann::json& body) {

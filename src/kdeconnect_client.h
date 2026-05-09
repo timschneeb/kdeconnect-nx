@@ -47,6 +47,7 @@ public:
       bool paired = false;
       std::string cert_pem;
       std::vector<unsigned char> peer_pubkey;
+      std::string peer_host;
 
       std::unique_ptr<TlsSession> tls;
       int fd = -1;
@@ -83,6 +84,8 @@ private:
                      const std::string &line);
   void handle_pair_packet(const std::shared_ptr<DeviceSession> &session,
                           const nlohmann::json &body);
+  void download_payload(const std::shared_ptr<DeviceSession> &session,
+                        NetworkPacket &packet);
 
   std::string verification_key(const std::shared_ptr<DeviceSession> &session,
                                long timestamp) const;

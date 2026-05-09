@@ -1,7 +1,9 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <nlohmann/json.hpp>
 
@@ -26,6 +28,13 @@ namespace PacketTypes {
 struct NetworkPacket {
     std::string type;
     nlohmann::json body;
+
+    // Populated by parse() when the sender advertises a binary payload.
+    int64_t payload_size = -1;
+    int     payload_port = -1;
+
+    // Filled in by the transport layer before the packet reaches plugins.
+    std::vector<uint8_t> payload;
 
     [[nodiscard]] std::string serialize() const;
     static std::optional<NetworkPacket> parse(const std::string& line);
