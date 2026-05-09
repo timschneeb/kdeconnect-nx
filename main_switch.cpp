@@ -16,6 +16,8 @@
 #include "src/plugins/mpris_plugin.h"
 #include "src/plugins/share_plugin.h"
 
+#define NO_UI
+
 // ---------------------------------------------------------------------------
 // Log ring buffer (written from any thread, read by the main/UI thread)
 // ---------------------------------------------------------------------------
@@ -122,7 +124,9 @@ static void draw_ui(KdeConnectClient& client, int selected) {
 
 int main() {
     consoleInit(NULL);
+#ifndef NO_UI
     Logger::set_sink(log_sink);
+#endif
 
     Result rc = socketInitializeDefault();
     if (R_FAILED(rc)) {
@@ -133,7 +137,7 @@ int main() {
         return 1;
     }
 
-    // nxlinkStdio();
+    nxlinkStdio();
 
     Storage storage;
     KdeConnectClient client(storage);
@@ -270,7 +274,9 @@ int main() {
         // Open any URL shared from the desktop (blocks while browser is open).
         SharePlugin::open_pending_url();
 
+#ifndef NO_UI
         draw_ui(client, selected);
+#endif
         svcSleepThread(100'000'000LL); // 100 ms
     }
 
