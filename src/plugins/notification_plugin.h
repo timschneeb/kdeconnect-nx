@@ -1,6 +1,7 @@
 #pragma once
 #include "plugin.h"
 #include <string>
+#include <unordered_map>
 
 class NotificationPlugin : public Plugin {
 public:
@@ -16,7 +17,13 @@ public:
     void request_active_notifications() const;
 
 private:
-    void post_notification(const std::string& title,
+    void post_notification(const std::string& app_id,
+                           const std::string& title,
                            const std::string& body,
                            const std::string& id);
+    static void write_app_icon(const std::string& app_id,
+                               const std::vector<uint8_t>& png_data);
+
+    // Maps iconHash -> app_id so icons can be reused across notifications.
+    std::unordered_map<std::string, std::string> m_icon_cache;
 };

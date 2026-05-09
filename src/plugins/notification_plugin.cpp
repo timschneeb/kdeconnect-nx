@@ -7,6 +7,9 @@
 #include <string>
 
 #ifdef __SWITCH__
+#define STB_IMAGE_IMPLEMENTATION
+#include "../stb_image.h"
+#include <dirent.h>
 #include <sys/stat.h>
 #endif
 
@@ -24,15 +27,22 @@ static std::string sanitize_filename(const std::string& s) {
 }
 
 #ifdef __SWITCH__
+static void clear_our_icons() {
+    static constexpr const char* kIconDir = "/config/ultrahand/assets/notifications";
+    DIR* d = opendir(kIconDir);
+    if (!d) return;
+    struct dirent* entry;
+    while ((entry = readdir(d)) != nullptr) {
+        std::string name = entry->d_name;
+        if (name.rfind("kdeconnect", 0) == 0 && name.size() > 5 &&
+                name.compare(name.size() - 5, 5, ".rgba") == 0) {
+            remove((std::string(kIconDir) + "/" + name).c_str());
+        }
+    }
+    closedir(d);
+}
+
 static void write_icon() {
-    static bool done = false;
-    if (done) return;
-    done = true;
-
-    // Skip if icon already exists.
-    FILE* probe = fopen(kIconPath, "rb");
-    if (probe) { fclose(probe); return; }
-
     mkdir("/config/ultrahand", 0755);
     mkdir("/config/ultrahand/assets", 0755);
     mkdir("/config/ultrahand/assets/notifications", 0755);
@@ -100,6 +110,7 @@ std::vector<std::string> NotificationPlugin::outgoing_packet_types() const {
 
 void NotificationPlugin::on_create() {
 #ifdef __SWITCH__
+    clear_our_icons();
     write_icon();
 #endif
 }
@@ -136,11 +147,27 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
     else
         body = text;
 
-    post_notification(app, body, id);
+    std::string icon_hash = np.body.value("iconHash", "");
+    std::string app_id = kAppId;
+
+    if (!np.payload.empty()) {
+        std::string candidate = sanitize_filename(app);
+        if (!candidate.empty()) app_id = "kdeconnect_" + candidate;
+        write_app_icon(app_id, np.payload);
+        if (!icon_hash.empty())
+            m_icon_cache[icon_hash] = app_id;
+    } else if (!icon_hash.empty()) {
+        auto it = m_icon_cache.find(icon_hash);
+        if (it != m_icon_cache.end())
+            app_id = it->second;
+    }
+
+    post_notification(app_id, app, body, id);
     return true;
 }
 
-void NotificationPlugin::post_notification(const std::string& title,
+void NotificationPlugin::post_notification(const std::string& app_id,
+                                           const std::string& title,
                                            const std::string& body,
                                            const std::string& id) {
 #ifdef __SWITCH__
@@ -150,10 +177,9 @@ void NotificationPlugin::post_notification(const std::string& title,
     std::string uid = sanitize_filename(id);
     if (uid.empty()) uid = std::to_string(s_counter.fetch_add(1));
 
-    std::string path     = std::string(kNotifyDir) + "/" + kAppId + "-" + uid + ".notify";
-    std::string tmp_path = path + ".tmp";
+    std::string path     = std::string(kNotifyDir) + "/" + app_id + "-" + uid + ".notify";
 
-    nlohmann::json payload = {
+    nlohmann::json notify_json = {
         {"title",      title},
         {"text",       body},
         {"duration",   4000},
@@ -162,16 +188,58 @@ void NotificationPlugin::post_notification(const std::string& title,
         {"alignment",  "left"},
     };
 
-    std::ofstream f(tmp_path);
+    std::ofstream f(path);
     if (f.is_open()) {
-        f << payload.dump(2);
+        f << notify_json.dump(2);
         f.close();
-        rename(tmp_path.c_str(), path.c_str());
     } else {
-        Logger::error("[NOTIFICATION] Failed to write notify file: " + tmp_path);
+        Logger::error("[NOTIFICATION] Failed to write notify file: " + path);
     }
 #endif
-    (void)title; (void)body; (void)id;
+    (void)app_id; (void)title; (void)body; (void)id;
+}
+
+void NotificationPlugin::write_app_icon(const std::string& app_id, const std::vector<uint8_t>& png_data) {
+#ifdef __SWITCH__
+    int w, h, channels;
+    uint8_t* img = stbi_load_from_memory(png_data.data(), static_cast<int>(png_data.size()),
+                                         &w, &h, &channels, 4);
+    if (!img) {
+        Logger::warn("[NOTIFICATION] Failed to decode icon PNG for " + app_id);
+        return;
+    }
+
+    mkdir("/config/ultrahand", 0755);
+    mkdir("/config/ultrahand/assets", 0755);
+    mkdir("/config/ultrahand/assets/notifications", 0755);
+
+    std::string icon_path = "/config/ultrahand/assets/notifications/" + app_id + ".rgba";
+
+    static constexpr int OUT = 50;
+    uint8_t px[OUT * OUT * 4];
+    for (int oy = 0; oy < OUT; oy++) {
+        int sy = oy * h / OUT;
+        for (int ox = 0; ox < OUT; ox++) {
+            int sx = ox * w / OUT;
+            int si = (sy * w + sx) * 4;
+            int di = (oy * OUT + ox) * 4;
+            px[di]   = img[si];
+            px[di+1] = img[si+1];
+            px[di+2] = img[si+2];
+            px[di+3] = img[si+3];
+        }
+    }
+    stbi_image_free(img);
+
+    FILE* f = fopen(icon_path.c_str(), "wb");
+    if (f) {
+        fwrite(px, 1, sizeof(px), f);
+        fclose(f);
+    } else {
+        Logger::error("[NOTIFICATION] Failed to write icon: " + icon_path);
+    }
+#endif
+    (void)app_id; (void)png_data;
 }
 
 void NotificationPlugin::request_active_notifications() const {

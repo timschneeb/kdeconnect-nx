@@ -26,7 +26,8 @@ find_package(Threads REQUIRED)
 if(CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch")
     set(PLATFORM_MAIN main_switch.cpp)
 else()
-    set(PLATFORM_MAIN main.cpp)
+    set(PLATFORM_MAIN main.cpp
+            src/stb_image.cpp)
 endif()
 
 add_executable(MiniKDEConnect
