@@ -123,7 +123,9 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
     if (np.type != PacketTypes::Notification) return false;
 
     if (np.body.value("isCancel", false)) {
-        Logger::info("[NOTIFICATION] Dismissed: " + np.body.value("id", ""));
+        std::string cancel_id = np.body.value("id", "");
+        Logger::info("[NOTIFICATION] Dismissed: " + cancel_id);
+        m_posted_ids.erase(cancel_id);
         return true;
     }
 
@@ -132,6 +134,7 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
     std::string title = np.body.value("title", "");
     std::string text  = np.body.value("text", "");
     std::string id    = np.body.value("id", "");
+    std::string time  = np.body.value("time", "");
 
     std::string log_msg = "[NOTIFICATION] " + app + ": " + title;
     if (!text.empty()) log_msg += " - " + text;
@@ -148,9 +151,34 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
     Logger::info("[NOTIFICATION] Body: " + np.body.dump(1));
 
     std::string icon_hash = np.body.value("payloadHash", "");
+    if (icon_hash.empty()) {
+        auto it = m_app_icon_hash.find(app);
+        if (it != m_app_icon_hash.end())
+            icon_hash = it->second;
+    } else {
+        m_app_icon_hash[app] = icon_hash;
+    }
 
     if (!np.payload.empty() && !icon_hash.empty())
         write_app_icon(icon_hash, np.payload);
+
+    if (!id.empty()) {
+        auto it = m_posted_ids.find(id);
+        if (it != m_posted_ids.end() && it->second.time == time) {
+            if (it->second.has_icon || icon_hash.empty())
+                return true; // skip weaker or equal duplicate
+            // Upgrade: old was posted with default icon, now we have the real one.
+            // Remove the old notify file so Ultrahand will process the new one.
+            std::string uid = sanitize_filename(id);
+#ifdef __SWITCH__
+            if (!uid.empty())
+                remove((std::string(kNotifyDir) + "/" + kAppId + "-" + uid + ".notify").c_str());
+#endif
+            it->second.has_icon = true;
+        } else {
+            m_posted_ids[id] = {!icon_hash.empty(), time};
+        }
+    }
 
     if (silent) return true;
     Logger::info("[NOTIFICATION] Posting: " + icon_hash + "-" + id);
