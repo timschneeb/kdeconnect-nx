@@ -19,6 +19,8 @@ namespace PacketTypes {
     constexpr const char* SystemVolume = "kdeconnect.systemvolume";
     constexpr const char* SystemVolumeRequest = "kdeconnect.systemvolume.request";
     constexpr const char* ShareRequest = "kdeconnect.share.request";
+    constexpr const char* RunCommand = "kdeconnect.runcommand";
+    constexpr const char* RunCommandRequest = "kdeconnect.runcommand.request";
 }
 
 struct NetworkPacket {

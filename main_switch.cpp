@@ -15,7 +15,6 @@
 #include "src/plugins/find_my_phone_plugin.h"
 #include "src/plugins/mpris_plugin.h"
 #include "src/plugins/share_plugin.h"
-#include "src/plugins/system_volume_plugin.h"
 
 // ---------------------------------------------------------------------------
 // Log ring buffer (written from any thread, read by the main/UI thread)

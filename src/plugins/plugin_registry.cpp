@@ -6,6 +6,7 @@
 #include "mpris_plugin.h"
 #include "system_volume_plugin.h"
 #include "share_plugin.h"
+#include "run_command_plugin.h"
 
 namespace PluginRegistry {
     void instantiate_plugins(DeviceProvider* provider, const std::string& device_id, std::vector<std::unique_ptr<Plugin>>& plugins) {
@@ -20,6 +21,7 @@ namespace PluginRegistry {
         add(std::make_unique<MprisPlugin>());
         add(std::make_unique<SystemVolumePlugin>());
         add(std::make_unique<SharePlugin>());
+        add(std::make_unique<RunCommandPlugin>());
     }
 
     static std::vector<std::string> caps;

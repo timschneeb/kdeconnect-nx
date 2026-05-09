@@ -45,6 +45,7 @@ add_executable(MiniKDEConnect
   src/plugins/mpris_plugin.cpp
   src/plugins/system_volume_plugin.cpp
   src/plugins/share_plugin.cpp
+  src/plugins/run_command_plugin.cpp
   src/plugins/plugin_registry.cpp
 )
 
