@@ -1,8 +1,12 @@
 #include "system_volume_plugin.h"
 #include "../utils/logger.h"
 
-static constexpr const char* kSinkName = "output";
-static constexpr const char* kSinkDescription = "System Audio";
+#ifdef __SWITCH__
+#include <switch.h>
+#endif
+
+static constexpr const char* kSinkName = "Output";
+static constexpr const char* kSinkDescription = "Master Audio Output";
 static constexpr int kMaxVolume = 100;
 
 std::string SystemVolumePlugin::name() const { return "System Volume Plugin"; }
@@ -22,6 +26,28 @@ void SystemVolumePlugin::on_connected(bool paired) {
     }
 }
 
+static int get_system_volume() {
+    int vol = 50;
+#ifdef __SWITCH__
+    if (R_SUCCEEDED(audctlInitialize())) {
+        float vol_f = 0.5f;
+        if (R_SUCCEEDED(audctlGetSystemOutputMasterVolume(&vol_f)))
+            vol = static_cast<int>(vol_f * 100.0f);
+        audctlExit();
+    }
+#endif
+    return vol;
+}
+
+static void set_system_volume(int volume) {
+#ifdef __SWITCH__
+    if (R_SUCCEEDED(audctlInitialize())) {
+        audctlSetSystemOutputMasterVolume(volume / 100.0f);
+        audctlExit();
+    }
+#endif
+}
+
 bool SystemVolumePlugin::on_packet_received(const NetworkPacket& np) {
     if (np.type != PacketTypes::SystemVolumeRequest) return false;
 
@@ -32,10 +58,16 @@ bool SystemVolumePlugin::on_packet_received(const NetworkPacket& np) {
 
     if (!np.body.contains("name")) return false;
 
-    if (np.body.contains("volume") && np.body["volume"].is_number())
+    if (np.body.contains("volume") && np.body["volume"].is_number()) {
         volume_ = np.body["volume"].get<int>();
-    if (np.body.contains("muted") && np.body["muted"].is_boolean())
+        set_system_volume(volume_);
+    }
+    if (np.body.contains("muted") && np.body["muted"].is_boolean()) {
         muted_ = np.body["muted"].get<bool>();
+        // mute not exposed via audctl; lower to 0 when muted
+        if (muted_) set_system_volume(0);
+        else         set_system_volume(volume_);
+    }
 
     Logger::info("[VOLUME] " + std::to_string(volume_) + "%" + (muted_ ? " (muted)" : ""));
 
@@ -52,14 +84,16 @@ bool SystemVolumePlugin::on_packet_received(const NetworkPacket& np) {
 }
 
 void SystemVolumePlugin::send_sink_list() const {
+    int vol = get_system_volume();
+
     NetworkPacket pkt;
     pkt.type = PacketTypes::SystemVolume;
     pkt.body = {
         {"sinkList", nlohmann::json::array({{
             {"name", kSinkName},
             {"description", kSinkDescription},
-            {"muted", muted_},
-            {"volume", volume_},
+            {"muted", false},
+            {"volume", vol},
             {"maxVolume", kMaxVolume},
             {"enabled", true}
         }})}

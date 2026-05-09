@@ -1,6 +1,7 @@
 #include <switch.h>
 
 #include <algorithm>
+#include <atomic>
 #include <deque>
 #include <mutex>
 #include <string>
@@ -13,6 +14,7 @@
 #include "src/plugins/battery_plugin.h"
 #include "src/plugins/find_my_phone_plugin.h"
 #include "src/plugins/mpris_plugin.h"
+#include "src/plugins/share_plugin.h"
 #include "src/plugins/system_volume_plugin.h"
 
 // ---------------------------------------------------------------------------
@@ -28,6 +30,20 @@ static void log_sink(const std::string& level, const std::string& msg) {
     s_log_buf.push_back("[" + level + "] " + msg);
     if (s_log_buf.size() > kMaxLogLines) {
         s_log_buf.pop_front();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Sleep/wake detection via applet hook
+// ---------------------------------------------------------------------------
+
+static std::atomic<bool> s_needs_network_restart{false};
+
+static void applet_hook_cb(AppletHookType type, void* /*param*/) {
+    if (type == AppletHookType_OnResume ||
+        (type == AppletHookType_OnFocusState &&
+         appletGetFocusState() == AppletFocusState_InFocus)) {
+        s_needs_network_restart.store(true);
     }
 }
 
@@ -55,10 +71,10 @@ static void draw_ui(KdeConnectClient& client, int selected) {
         const char* marker = (i == selected) ? ">" : " ";
 
         const char* state;
-        if (sess->disconnected.load())                         state = "disconnected";
-        else if (sess->pair_state == PairState::RequestedByPeer) state = "PAIR REQUEST!";
-        else if (sess->paired)                                 state = "paired";
-        else                                                   state = "unpaired";
+        if (sess->disconnected.load())                             state = "disconnected";
+        else if (sess->pair_state == PairState::RequestedByPeer)  state = "PAIR REQUEST!";
+        else if (sess->paired)                                     state = "paired";
+        else                                                       state = "unpaired";
 
         printf(" %s %-20s (%8.8s) [%s]\n",
             marker,
@@ -77,7 +93,7 @@ static void draw_ui(KdeConnectClient& client, int selected) {
                     const auto ps = mpris->player_state();
                     printf("\n  Media [%s]: %s%s%s\n",
                         player.c_str(),
-                        ps.is_playing ? "▶ " : "⏸ ",
+                        ps.is_playing ? "> " : "|| ",
                         ps.artist.empty() ? "" : (ps.artist + " - ").c_str(),
                         ps.title.c_str());
                 }
@@ -132,6 +148,9 @@ int main() {
         return 1;
     }
 
+    AppletHookCookie hook_cookie;
+    appletHook(&hook_cookie, applet_hook_cb, nullptr);
+
     PadState pad;
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     padInitializeDefault(&pad);
@@ -139,6 +158,19 @@ int main() {
     int selected = 0;
 
     while (appletMainLoop()) {
+        // Restart the network stack on wake from sleep (flag set by applet hook).
+        if (s_needs_network_restart.exchange(false)) {
+            Logger::info("Resuming from sleep, restarting network...");
+            client.stop();
+            socketExit();
+            selected = 0;
+            if (R_FAILED(socketInitializeDefault())) {
+                Logger::error("socketInitializeDefault failed after sleep.");
+            } else if (!client.start()) {
+                Logger::error("Failed to restart client after sleep.");
+            }
+        }
+
         padUpdate(&pad);
         const u64 kDown = padGetButtonsDown(&pad);
 
@@ -236,10 +268,14 @@ int main() {
             }
         }
 
+        // Open any URL shared from the desktop (blocks while browser is open).
+        SharePlugin::open_pending_url();
+
         draw_ui(client, selected);
         svcSleepThread(100'000'000LL); // 100 ms
     }
 
+    appletUnhook(&hook_cookie);
     client.stop();
     socketExit();
     consoleExit(NULL);
