@@ -1,5 +1,6 @@
 #pragma once
 #include "plugin.h"
+#include <chrono>
 #include <string>
 #include <unordered_map>
 
@@ -28,7 +29,11 @@ private:
     // payloadHash for the same icon within a notification's lifetime.
     std::unordered_map<std::string, std::string> m_app_icon_hash;
 
-    // id -> {has_icon, time}: used to debounce duplicate packets.
-    struct PostedEntry { bool has_icon; std::string time; };
+    // id -> {has_icon, time, when}: used to debounce duplicate packets.
+    struct PostedEntry {
+        bool has_icon;
+        std::string time;
+        std::chrono::steady_clock::time_point when;
+    };
     std::unordered_map<std::string, PostedEntry> m_posted_ids;
 };

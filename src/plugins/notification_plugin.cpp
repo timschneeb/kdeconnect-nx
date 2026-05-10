@@ -163,8 +163,10 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
         write_app_icon(icon_hash, np.payload);
 
     if (!id.empty()) {
-        auto it = m_posted_ids.find(id);
-        if (it != m_posted_ids.end() && it->second.time == time) {
+        auto now = std::chrono::steady_clock::now();
+        auto it  = m_posted_ids.find(id);
+        if (it != m_posted_ids.end() && it->second.time == time &&
+                now - it->second.when < std::chrono::seconds(2)) {
             if (it->second.has_icon || icon_hash.empty())
                 return true; // skip weaker or equal duplicate
             // Upgrade: old was posted with default icon, now we have the real one.
@@ -176,7 +178,7 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
 #endif
             it->second.has_icon = true;
         } else {
-            m_posted_ids[id] = {!icon_hash.empty(), time};
+            m_posted_ids[id] = {!icon_hash.empty(), time, now};
         }
     }
 
