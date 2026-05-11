@@ -46,6 +46,7 @@ add_executable(MiniKDEConnect
   src/plugins/system_volume_plugin.cpp
   src/plugins/share_plugin.cpp
   src/plugins/run_command_plugin.cpp
+  src/plugins/mousepad_plugin.cpp
   src/plugins/plugin_registry.cpp
 )
 

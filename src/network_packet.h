@@ -23,6 +23,9 @@ namespace PacketTypes {
     constexpr const char* ShareRequest = "kdeconnect.share.request";
     constexpr const char* RunCommand = "kdeconnect.runcommand";
     constexpr const char* RunCommandRequest = "kdeconnect.runcommand.request";
+    constexpr const char* MousepadRequest = "kdeconnect.mousepad.request";
+    constexpr const char* MousepadEcho = "kdeconnect.mousepad.echo";
+    constexpr const char* MousepadKeyboardState = "kdeconnect.mousepad.keyboardstate";
 }
 
 struct NetworkPacket {

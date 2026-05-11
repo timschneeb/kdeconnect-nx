@@ -15,6 +15,7 @@
 #include "src/plugins/find_my_phone_plugin.h"
 #include "src/plugins/mpris_plugin.h"
 #include "src/plugins/share_plugin.h"
+#include "src/plugins/mousepad_plugin.h"
 
 #define NO_UI
 
@@ -106,6 +107,7 @@ static void draw_ui(KdeConnectClient& client, int selected) {
     printf("[+] Exit   [Up/Down] Navigate\n");
     printf("[A] Pair/Accept  [B] Unpair/Reject  [X] Ping  [Y] Find\n");
     printf("[ZL] Send battery  [ZR] MPRIS list  [L] Prev  [R] Next\n");
+    printf("[-] Type text (keyboard test)\n");
 
     printf("\nLog:\n");
     {
@@ -267,6 +269,22 @@ int main() {
                 if (auto* p = sess->plugin<MprisPlugin>()) {
                     const std::string player = p->current_player();
                     if (!player.empty()) p->send_action(player, "Next");
+                }
+            }
+        }
+
+        // Keyboard test: open swkbd
+        if (kDown & HidNpadButton_Minus) {
+            if (auto sess = get_session(); sess && sess->paired) {
+                if (auto* mp = sess->plugin<MousepadPlugin>()) {
+                    SwkbdConfig kbd;
+                    if (R_SUCCEEDED(swkbdCreate(&kbd, 0))) {
+                        swkbdConfigSetGuideText(&kbd, "Example input");
+                        swkbdConfigSetStringLenMax(&kbd, 256);
+                        char buf[257] = {};
+                        if (R_SUCCEEDED(swkbdShow(&kbd, buf, sizeof(buf))) && buf[0] != '\0') {}
+                        swkbdClose(&kbd);
+                    }
                 }
             }
         }
