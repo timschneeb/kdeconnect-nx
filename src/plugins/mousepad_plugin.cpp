@@ -1,5 +1,6 @@
 #include "mousepad_plugin.h"
 
+#include "notification_plugin.h"
 #include "../utils/logger.h"
 
 #ifdef __SWITCH__
@@ -8,6 +9,7 @@
 
 // Reference-counted hiddbg lifetime so multiple sessions don't conflict.
 static std::atomic<int> s_hiddbg_refcount{0};
+static std::atomic<bool> s_no_mouse_support_hint_shown{false};
 
 struct HidKeyInfo {
     uint8_t hid_code;
@@ -195,6 +197,16 @@ void MousepadPlugin::send_echo(const NetworkPacket &np) const {
 
 bool MousepadPlugin::on_packet_received(const NetworkPacket &np) {
     if (np.type != PacketTypes::MousepadRequest) return false;
+
+    if (!s_no_mouse_support_hint_shown && (np.body.contains("dx") || np.body.contains("dy"))) {
+        s_no_mouse_support_hint_shown.store(true);
+        NotificationPlugin::post_notification("mousepad",
+                                    "Mouse support is not available",
+                                            "You just tried to use the remote touchpad/mouse. Only remote keyboard events are supported.",
+                                            "0",
+                                            8000);
+    }
+
     inject_key(np);
     if (np.body.value("sendAck", false)) send_echo(np);
     return true;

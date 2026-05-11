@@ -17,11 +17,13 @@ public:
 
     void request_active_notifications() const;
 
+    static void post_notification(const std::string& app_id,
+                                  const std::string& title,
+                                  const std::string& body,
+                                  const std::string& id,
+                                  int duration = 4000);
+
 private:
-    void post_notification(const std::string& app_id,
-                           const std::string& title,
-                           const std::string& body,
-                           const std::string& id);
     static void write_app_icon(const std::string& icon_hash,
                                const std::vector<uint8_t>& png_data);
 

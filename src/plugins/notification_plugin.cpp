@@ -191,7 +191,8 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
 void NotificationPlugin::post_notification(const std::string& app_id,
                                            const std::string& title,
                                            const std::string& body,
-                                           const std::string& id) {
+                                           const std::string& id,
+                                           int duration) {
 #ifdef __SWITCH__
     mkdir(kNotifyDir, 0755);
 
@@ -204,7 +205,7 @@ void NotificationPlugin::post_notification(const std::string& app_id,
     nlohmann::json notify_json = {
         {"title",      title},
         {"text",       body},
-        {"duration",   4000},
+        {"duration",   duration},
         {"show_time",  "true"},
         {"split_type", "word"},
         {"alignment",  "left"},
