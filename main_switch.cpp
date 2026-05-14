@@ -7,9 +7,8 @@
 #include <string>
 #include <vector>
 
-//#define NO_UI
-#define MEM_DEBUG
-#define NO_MDNS
+#define NO_UI
+//#define MEM_DEBUG
 
 #include "src/kdeconnect_client.h"
 #include "src/storage.h"
