@@ -17,7 +17,7 @@
 #include "src/plugins/share_plugin.h"
 #include "src/plugins/mousepad_plugin.h"
 
-#define NO_UI
+//#define NO_UI
 
 // ---------------------------------------------------------------------------
 // Log ring buffer (written from any thread, read by the main/UI thread)
@@ -32,20 +32,6 @@ static void log_sink(const std::string& level, const std::string& msg) {
     s_log_buf.push_back("[" + level + "] " + msg);
     if (s_log_buf.size() > kMaxLogLines) {
         s_log_buf.pop_front();
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Sleep/wake detection via applet hook
-// ---------------------------------------------------------------------------
-
-static std::atomic<bool> s_needs_network_restart{false};
-
-static void applet_hook_cb(AppletHookType type, void* /*param*/) {
-    if (type == AppletHookType_OnResume ||
-        (type == AppletHookType_OnFocusState &&
-         appletGetFocusState() == AppletFocusState_InFocus)) {
-        s_needs_network_restart.store(true);
     }
 }
 
@@ -139,12 +125,14 @@ int main() {
         return 1;
     }
 
+#ifdef NO_UI
     nxlinkStdio();
+#endif
 
     Storage storage;
-    KdeConnectClient client(storage);
+    auto client = std::make_unique<KdeConnectClient>(storage);
 
-    if (!client.start()) {
+    if (!client->start()) {
         printf("Failed to start KDE Connect client.\n");
         consoleUpdate(NULL);
         svcSleepThread(3'000'000'000LL);
@@ -153,9 +141,6 @@ int main() {
         return 1;
     }
 
-    AppletHookCookie hook_cookie;
-    appletHook(&hook_cookie, applet_hook_cb, nullptr);
-
     PadState pad;
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     padInitializeDefault(&pad);
@@ -163,16 +148,13 @@ int main() {
     int selected = 0;
 
     while (appletMainLoop()) {
-        // Restart the network stack on wake from sleep (flag set by applet hook).
-        if (s_needs_network_restart.exchange(false)) {
-            Logger::info("Resuming from sleep, restarting network...");
-            client.stop();
-            socketExit();
+        if (client->needs_restart()) {
+            Logger::info("Client requested restart, restarting...");
             selected = 0;
-            if (R_FAILED(socketInitializeDefault())) {
-                Logger::error("socketInitializeDefault failed after sleep.");
-            } else if (!client.start()) {
+            client = std::make_unique<KdeConnectClient>(storage);
+            if (!client->start()) {
                 Logger::error("Failed to restart client after sleep.");
+                svcSleepThread(3'000'000'000LL);
             }
         }
 
@@ -183,7 +165,7 @@ int main() {
         if (kDown & HidNpadButton_Plus) break;
 
         // Build device list snapshot for input handling
-        auto devices_map = client.devices();
+        auto devices_map = client->devices();
         std::vector<std::pair<std::string, std::shared_ptr<KdeConnectClient::DeviceSession>>> devices(
             devices_map.begin(), devices_map.end());
 
@@ -212,9 +194,9 @@ int main() {
             if (!id.empty()) {
                 auto sess = get_session();
                 if (sess->pair_state == PairState::RequestedByPeer)
-                    client.accept_pair(id);
+                    client->accept_pair(id);
                 else
-                    client.request_pair(id);
+                    client->request_pair(id);
             }
         }
         // Reject / Unpair
@@ -222,8 +204,8 @@ int main() {
             const auto id = get_id();
             if (!id.empty()) {
                 auto sess = get_session();
-                if (sess->paired) client.unpair(id);
-                else              client.reject_pair(id);
+                if (sess->paired) client->unpair(id);
+                else              client->reject_pair(id);
             }
         }
         // Ping
@@ -293,13 +275,12 @@ int main() {
         SharePlugin::open_pending_url();
 
 #ifndef NO_UI
-        draw_ui(client, selected);
+        draw_ui(*client, selected);
 #endif
         svcSleepThread(100'000'000LL); // 100 ms
     }
 
-    appletUnhook(&hook_cookie);
-    client.stop();
+    client.reset();
     socketExit();
     consoleExit(NULL);
     return 0;

@@ -17,7 +17,12 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <array>
+#include <cerrno>
 #include <random>
+
+#include <mbedtls/error.h>
+
+#include "utils/logger.h"
 
 namespace {
 std::string generate_device_id() {
@@ -100,6 +105,12 @@ TlsContext::TlsContext() {
     mbedtls_ctr_drbg_init(&ctr_drbg_);
     mbedtls_x509_crt_init(&cert_);
     mbedtls_pk_init(&key_);
+
+    const char* pers = "minikdeconnect";
+    if (mbedtls_ctr_drbg_seed(&ctr_drbg_, mbedtls_entropy_func, &entropy_,
+                              reinterpret_cast<const unsigned char*>(pers), strlen(pers)) != 0) {
+        Logger::error("mbedtls_ctr_drbg_seed failed");
+    }
 }
 
 TlsContext::~TlsContext() {
@@ -110,11 +121,10 @@ TlsContext::~TlsContext() {
 }
 
 bool TlsContext::load_or_create(const std::string& cert_path, const std::string& key_path) {
-    const char* pers = "minikdeconnect";
-    if (mbedtls_ctr_drbg_seed(&ctr_drbg_, mbedtls_entropy_func, &entropy_,
-                              reinterpret_cast<const unsigned char*>(pers), strlen(pers)) != 0) {
-        return false;
-    }
+    mbedtls_x509_crt_free(&cert_);
+    mbedtls_x509_crt_init(&cert_);
+    mbedtls_pk_free(&key_);
+    mbedtls_pk_init(&key_);
 
     if (!load_from_files(cert_path, key_path)) {
         if (!generate_self_signed(cert_path, key_path)) {
