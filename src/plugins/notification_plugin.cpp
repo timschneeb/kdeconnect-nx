@@ -17,6 +17,9 @@ static constexpr const char* kNotifyDir = "/config/ultrahand/notifications";
 static constexpr const char* kIconPath  = "/config/ultrahand/assets/notifications/kdeconnect.rgba";
 static constexpr const char* kAppId     = "kdeconnect";
 
+static constexpr size_t kMaxPostedIds     = 10;
+static constexpr size_t kMaxAppIconHashes = 100;
+
 static std::string sanitize_filename(const std::string& s) {
     std::string out;
     out.reserve(s.size());
@@ -156,6 +159,8 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
         if (it != m_app_icon_hash.end())
             icon_hash = it->second;
     } else {
+        if (m_app_icon_hash.size() >= kMaxAppIconHashes && !m_app_icon_hash.count(app))
+            m_app_icon_hash.erase(m_app_icon_hash.begin());
         m_app_icon_hash[app] = icon_hash;
     }
 
@@ -178,6 +183,12 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
 #endif
             it->second.has_icon = true;
         } else {
+            if (m_posted_ids.size() >= kMaxPostedIds) {
+                auto oldest = m_posted_ids.begin();
+                for (auto it = std::next(oldest); it != m_posted_ids.end(); ++it)
+                    if (it->second.when < oldest->second.when) oldest = it;
+                m_posted_ids.erase(oldest);
+            }
             m_posted_ids[id] = {!icon_hash.empty(), time, now};
         }
     }

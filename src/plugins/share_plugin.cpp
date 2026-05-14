@@ -26,6 +26,7 @@ bool SharePlugin::on_packet_received(const NetworkPacket& np) {
         const std::string url = np.body["url"].get<std::string>();
         Logger::info("[SHARE] URL: " + url);
         std::lock_guard lock(s_url_mutex_);
+        if (s_pending_urls_.size() > 1) s_pending_urls_.pop();
         s_pending_urls_.push(url);
         return true;
     }
