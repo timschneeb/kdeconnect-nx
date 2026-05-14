@@ -138,7 +138,7 @@ void KdeConnectClient::stop() {
     std::vector<std::shared_ptr<DeviceSession>> to_stop;
     {
         std::lock_guard lock(session_mutex_);
-        for (auto& [id, session] : sessions_) {
+        for (auto &session: sessions_ | std::views::values) {
             to_stop.push_back(session);
         }
         sessions_.clear();
@@ -197,15 +197,15 @@ void KdeConnectClient::network_loop() {
         if (tcp_fd_ >= 0 && FD_ISSET(tcp_fd_, &rfds)) {
             sockaddr_in client_addr{};
             socklen_t addr_len = sizeof(client_addr);
-            int fd = accept(tcp_fd_, reinterpret_cast<sockaddr*>(&client_addr), &addr_len);
-            if (fd < 0) {
+            ScopedFd fd{accept(tcp_fd_, reinterpret_cast<sockaddr*>(&client_addr), &addr_len)};
+            if (!fd) {
                 if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) continue;
                 Logger::warn("TCP accept failed (" + std::string(strerror(errno)) + ")");
                 needs_restart_.store(true);
                 break;
             } else {
-                configure_tcp_keepalive(fd);
-                auto line = NetworkUtil::read_line_fd(fd, kMaxPacketSize);
+                configure_tcp_keepalive(fd.raw);
+                auto line = NetworkUtil::read_line_fd(fd.raw, kMaxPacketSize);
                 auto packet = line ? NetworkPacket::parse(*line) : std::optional<NetworkPacket>{};
                 bool valid = packet && packet->type == PacketTypes::Identity;
                 if (valid && packet->body.contains("targetDeviceId")) {
@@ -216,11 +216,8 @@ void KdeConnectClient::network_loop() {
                     if (packet->body.value("targetProtocolVersion", kProtocolVersion) != kProtocolVersion)
                         valid = false;
                 }
-                if (!valid) {
-                    close(fd);
-                } else {
-                    handle_new_connection(NetworkUtil::info_from_identity(*packet), fd, true);
-                }
+                if (valid)
+                    handle_new_connection(NetworkUtil::info_from_identity(*packet), std::move(fd), true);
             }
         }
 
@@ -266,42 +263,30 @@ void KdeConnectClient::udp_broadcast_loop() {
 }
 
 void KdeConnectClient::handle_discovered_peer(const DeviceInfo& identity, const std::string& host, int port) {
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (fd < 0) {
-        return;
-    }
-    configure_tcp_keepalive(fd);
+    ScopedFd fd{socket(AF_INET, SOCK_STREAM, 0)};
+    if (!fd) return;
+    configure_tcp_keepalive(fd.raw);
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(static_cast<uint16_t>(port));
-    if (inet_pton(AF_INET, host.c_str(), &addr.sin_addr) != 1) {
-        close(fd);
-        return;
-    }
-    if (connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
-        close(fd);
-        return;
-    }
+    if (inet_pton(AF_INET, host.c_str(), &addr.sin_addr) != 1) return;
+    if (connect(fd.raw, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) return;
 
     NetworkPacket my_identity = NetworkUtil::make_identity_packet(local_device_, identity.id, identity.protocol_version, std::nullopt);
     std::string payload = my_identity.serialize();
-    send(fd, payload.data(), payload.size(), 0);
+    send(fd.raw, payload.data(), payload.size(), 0);
 
-    handle_new_connection(identity, fd, false);
+    handle_new_connection(identity, std::move(fd), false);
 }
 
-void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, int fd, bool tcp_server_side) {
-    if (identity.id.empty() || identity.id == local_device_.id) {
-        close(fd);
-        return;
-    }
+void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, ScopedFd fd, bool tcp_server_side) {
+    if (identity.id.empty() || identity.id == local_device_.id) return;
 
     {
         std::lock_guard lock(session_mutex_);
         auto it = sessions_.find(identity.id);
         if (it != sessions_.end() && !it->second->disconnected.load()) {
-            // TODO: allow old connections to be replaced?
-            close(fd);
+            // TODO: allow old but alive connections to be replaced?
             return;
         }
     }
@@ -310,56 +295,48 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, int fd,
     bool paired = stored.has_value();
     std::string stored_pem = stored ? stored->certificate_pem : std::string();
 
-    auto tls_session = tls_.create_session(fd, tcp_server_side);
+    auto tls_session = tls_.create_session(fd.raw, tcp_server_side);
     if (!tls_session) {
         Logger::error("Failed to create TLS session for device " + identity.id + (tcp_server_side ? " (server-side)" : " (client-side)"));
-        close(fd);
         return;
     }
 
     if (!NetworkUtil::perform_tls_handshake(*tls_session)) {
         Logger::error("TLS handshake failed for device " + identity.id + (tcp_server_side ? " (server-side)" : " (client-side)"));
-        close(fd);
         return;
     }
 
     std::string peer_pem = TlsContext::peer_cert_pem(*tls_session);
     if (peer_pem.empty() && tcp_server_side) {
         Logger::warn("Peer did not present a TLS certificate for device " + identity.id + (tcp_server_side ? " (server-side)" : " (client-side)"));
-        close(fd);
         return;
     }
 
     if (paired && !stored_pem.empty() && peer_pem != stored_pem && tcp_server_side) {
         Logger::warn("Certificate mismatch for paired device " + identity.id + ", aborting connection");
-        close(fd);
         return;
     }
 
     NetworkPacket secure_identity = NetworkUtil::make_identity_packet(local_device_, std::nullopt, std::nullopt, std::nullopt);
     if (!NetworkUtil::send_all_tls(*tls_session, secure_identity.serialize())) {
         Logger::error("Failed to send identity packet to " + identity.name + " (" + identity.id + ") after TLS handshake.");
-        close(fd);
         return;
     }
 
     auto line = NetworkUtil::read_line_tls(*tls_session, kMaxPacketSize);
     if (!line) {
         Logger::error("Failed to read data from " + identity.name + " (" + identity.id + ") after TLS handshake.");
-        close(fd);
         return;
     }
     auto packet = NetworkPacket::parse(*line);
     if (!packet || packet->type != PacketTypes::Identity) {
         Logger::error("Failed to parse packet from " + identity.name + " (" + identity.id + ") after TLS handshake.");
-        close(fd);
         return;
     }
 
     DeviceInfo secure_info = NetworkUtil::info_from_identity(*packet);
     if (secure_info.id != identity.id || secure_info.protocol_version != identity.protocol_version) {
         Logger::error("Identity mismatch for " + identity.name + " (" + identity.id + ") after TLS handshake.");
-        close(fd);
         return;
     }
 
@@ -368,14 +345,14 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, int fd,
     session->paired = paired;
     session->pair_state = paired ? PairState::Paired : PairState::NotPaired;
     session->tls = std::move(tls_session);
-    session->fd = fd;
+    session->fd = fd.release();
     session->cert_pem = peer_pem;
     session->peer_pubkey = TlsContext::peer_pubkey_bytes(*session->tls);
 
     {
         sockaddr_in peer_addr{};
         socklen_t peer_addr_len = sizeof(peer_addr);
-        if (getpeername(fd, reinterpret_cast<sockaddr*>(&peer_addr), &peer_addr_len) == 0) {
+        if (getpeername(session->fd, reinterpret_cast<sockaddr*>(&peer_addr), &peer_addr_len) == 0) {
             char addr_str[INET_ADDRSTRLEN] = {};
             if (inet_ntop(AF_INET, &peer_addr.sin_addr, addr_str, sizeof(addr_str)))
                 session->peer_host = addr_str;
@@ -449,26 +426,17 @@ void KdeConnectClient::handle_packet(const std::shared_ptr<DeviceSession>& sessi
 }
 
 void KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& session, NetworkPacket& packet) {
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (fd < 0) return;
+    ScopedFd fd{socket(AF_INET, SOCK_STREAM, 0)};
+    if (!fd) return;
 
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(static_cast<uint16_t>(packet.payload_port));
-    if (inet_pton(AF_INET, session->peer_host.c_str(), &addr.sin_addr) != 1) {
-        close(fd);
-        return;
-    }
-    if (connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
-        close(fd);
-        return;
-    }
+    if (inet_pton(AF_INET, session->peer_host.c_str(), &addr.sin_addr) != 1) return;
+    if (connect(fd.raw, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) return;
 
-    auto tls_session = tls_.create_session(fd, true);
-    if (!tls_session || !NetworkUtil::perform_tls_handshake(*tls_session)) {
-        close(fd);
-        return;
-    }
+    auto tls_session = tls_.create_session(fd.raw, true);
+    if (!tls_session || !NetworkUtil::perform_tls_handshake(*tls_session)) return;
 
     const int64_t cap = std::min(packet.payload_size, static_cast<int64_t>(10 * 1024 * 1024));
     packet.payload.resize(static_cast<size_t>(cap));
@@ -484,7 +452,6 @@ void KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
     packet.payload.resize(received);
 
     mbedtls_ssl_close_notify(&tls_session->ssl);
-    close(fd);
 
     Logger::info("Downloaded payload: " + std::to_string(received) + " bytes for " + packet.type);
 }

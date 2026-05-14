@@ -16,6 +16,7 @@
 #include "tls.h"
 #include "plugins/plugin.h"
 #include "utils/logger.h"
+#include "utils/scoped_fd.h"
 
 class KdeConnectClient : public DeviceProvider {
 public:
@@ -77,7 +78,7 @@ private:
   void send_udp_identity_probe(const std::string& device_id, const std::string& host);
   void handle_discovered_peer(const DeviceInfo &identity,
                               const std::string &host, int port);
-  void handle_new_connection(const DeviceInfo &identity, int fd,
+  void handle_new_connection(const DeviceInfo &identity, ScopedFd fd,
                              bool tcp_server_side);
   void io_loop(const std::shared_ptr<DeviceSession> &session);
 
