@@ -146,7 +146,7 @@ std::unique_ptr<TlsSession> TlsContext::create_session(int fd, bool is_client) {
     // Clients keep VERIFY_NONE because they only need the server certificate,
     // which is always sent by the remote side.
     mbedtls_ssl_conf_authmode(&session->config,
-                              is_client ? MBEDTLS_SSL_VERIFY_NONE : MBEDTLS_SSL_VERIFY_REQUIRED);
+                              is_client ? MBEDTLS_SSL_VERIFY_NONE : MBEDTLS_SSL_VERIFY_OPTIONAL);
     mbedtls_ssl_conf_own_cert(&session->config, &cert_, &key_);
 
     ret = mbedtls_ssl_setup(&session->ssl, &session->config);

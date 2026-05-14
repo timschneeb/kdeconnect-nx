@@ -78,7 +78,6 @@ bool KdeConnectClient::start() {
         Logger::warn("Unable to bind UDP socket for listening; discovery receive disabled.");
     }
 
-#ifndef NO_MDNS
     mdns_discovery_ = std::make_unique<MdnsDiscovery>(local_device_, tcp_port_, [this](const std::string& device_id, const std::string& host) {
         try {
             {
@@ -95,7 +94,6 @@ bool KdeConnectClient::start() {
             Logger::error("Error handling mDNS discovery for device " + device_id + " at " + host + ": " + e.what());
         }
     });
-#endif
 
     needs_restart_.store(false);
     running_.store(true);
@@ -104,7 +102,7 @@ bool KdeConnectClient::start() {
 
     Logger::info("Listening on TCP port " + std::to_string(tcp_port_) + ".");
 
-    if (mdns_discovery_ && !mdns_discovery_->start()) {
+    if (!mdns_discovery_->start()) {
         Logger::warn("mDNS discovery could not be started; continuing with UDP broadcast discovery only.");
         mdns_discovery_.reset();
     }
