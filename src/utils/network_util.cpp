@@ -5,6 +5,9 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
+#include <mbedtls/error.h>
+#include "../utils/logger.h"
+
 namespace NetworkUtil {
 
 std::optional<std::string> read_line_fd(int fd, size_t max_bytes) {
@@ -154,6 +157,9 @@ bool perform_tls_handshake(TlsSession& session) {
         int ret = mbedtls_ssl_handshake(&session.ssl);
         if (ret == 0) return true;
         if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
+            char errbuf[128];
+            mbedtls_strerror(ret, errbuf, sizeof(errbuf));
+            Logger::warn(std::string("SSL error: ") + errbuf);
             return false;
         }
     }
