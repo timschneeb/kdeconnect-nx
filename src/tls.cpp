@@ -137,7 +137,11 @@ std::unique_ptr<TlsSession> TlsContext::create_session(int fd, bool is_client) {
     }
     mbedtls_ssl_conf_min_version(&session->config, MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_3);
     mbedtls_ssl_conf_rng(&session->config, mbedtls_ctr_drbg_random, &ctr_drbg_);
-    mbedtls_ssl_conf_authmode(&session->config, MBEDTLS_SSL_VERIFY_NONE);
+    // TLS servers must request the peer certificate so pairing can pin it.
+    // Clients keep VERIFY_NONE because they only need the server certificate,
+    // which is always sent by the remote side.
+    mbedtls_ssl_conf_authmode(&session->config,
+                              is_client ? MBEDTLS_SSL_VERIFY_NONE : MBEDTLS_SSL_VERIFY_REQUIRED);
     mbedtls_ssl_conf_own_cert(&session->config, &cert_, &key_);
 
     ret = mbedtls_ssl_setup(&session->ssl, &session->config);
