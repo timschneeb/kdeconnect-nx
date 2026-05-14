@@ -121,11 +121,6 @@ TlsContext::~TlsContext() {
 }
 
 bool TlsContext::load_or_create(const std::string& cert_path, const std::string& key_path) {
-    mbedtls_x509_crt_free(&cert_);
-    mbedtls_x509_crt_init(&cert_);
-    mbedtls_pk_free(&key_);
-    mbedtls_pk_init(&key_);
-
     if (!load_from_files(cert_path, key_path)) {
         if (!generate_self_signed(cert_path, key_path)) {
             return false;
