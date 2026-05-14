@@ -26,6 +26,7 @@ public:
 
   bool start();
   void stop();
+  bool needs_restart() { return needs_restart_.exchange(false); }
 
   std::unordered_map<std::string, std::shared_ptr<DeviceSession>> devices() const;
   std::shared_ptr<DeviceSession> device(const std::string &device_id) const;
@@ -95,6 +96,7 @@ private:
   TlsContext tls_;
 
   std::atomic<bool> running_{false};
+  std::atomic<bool> needs_restart_{false};
 
   int tcp_fd_ = -1;
   int udp_fd_ = -1;

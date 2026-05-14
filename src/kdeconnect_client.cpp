@@ -61,6 +61,7 @@ bool KdeConnectClient::start() {
 
     if (!tls_.load_or_create(storage_.cert_path(), storage_.key_path())) {
         Logger::error("Failed to load or create TLS identity.");
+        needs_restart_.store(true);
         return false;
     }
     local_device_.id = tls_.device_id();
@@ -68,6 +69,7 @@ bool KdeConnectClient::start() {
     tcp_fd_ = NetworkUtil::create_tcp_server_socket(kMinTcpPort, kMaxTcpPort, tcp_port_);
     if (tcp_fd_ < 0) {
         Logger::error("Failed to bind TCP socket on ports 1716-1764.");
+        needs_restart_.store(true);
         return false;
     }
 
@@ -93,6 +95,7 @@ bool KdeConnectClient::start() {
         }
     });
 
+    needs_restart_.store(false);
     running_.store(true);
     network_thread_ = std::thread(&KdeConnectClient::network_loop, this);
     broadcast_thread_ = std::thread(&KdeConnectClient::udp_broadcast_loop, this);
@@ -183,7 +186,10 @@ void KdeConnectClient::network_loop() {
         if (udp_fd_ >= 0) { FD_SET(udp_fd_, &rfds); nfds = std::max(nfds, udp_fd_ + 1); }
         if (nfds == 0) break;
 
-        if (select(nfds, &rfds, nullptr, nullptr, nullptr) < 0) {
+        // Use a timeout so stop() can set running_=false and have this thread
+        // exit within ~500 ms rather than blocking forever in select().
+        timeval tv{0, 500'000};
+        if (select(nfds, &rfds, nullptr, nullptr, &tv) < 0) {
             if (errno == EINTR) continue;
             break;
         }
@@ -193,7 +199,10 @@ void KdeConnectClient::network_loop() {
             socklen_t addr_len = sizeof(client_addr);
             int fd = accept(tcp_fd_, reinterpret_cast<sockaddr*>(&client_addr), &addr_len);
             if (fd < 0) {
-                if (running_.load()) Logger::warn("TCP accept failed.");
+                if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) continue;
+                Logger::warn("TCP accept failed (" + std::string(strerror(errno)) + ")");
+                needs_restart_.store(true);
+                break;
             } else {
                 configure_tcp_keepalive(fd);
                 auto line = NetworkUtil::read_line_fd(fd, kMaxPacketSize);
@@ -210,7 +219,12 @@ void KdeConnectClient::network_loop() {
                 if (!valid) {
                     close(fd);
                 } else {
-                    handle_new_connection(NetworkUtil::info_from_identity(*packet), fd, true);
+                    auto peer = NetworkUtil::info_from_identity(*packet);
+                    NetworkPacket reply = NetworkUtil::make_identity_packet(
+                        local_device_, peer.id, peer.protocol_version, tcp_port_);
+                    std::string reply_str = reply.serialize();
+                    send(fd, reply_str.data(), reply_str.size(), 0);
+                    handle_new_connection(peer, fd, true);
                 }
             }
         }
