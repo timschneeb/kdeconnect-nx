@@ -24,6 +24,7 @@
 #include <atomic>
 #include <chrono>
 #include <memory>
+#include <string_view>
 #include <thread>
 #include <unordered_map>
 #include <utility>
@@ -114,7 +115,7 @@ struct AnnouncedInfo {
 struct QueryState {
     std::string instance_id;
     std::string host;
-    std::unordered_map<std::string, std::string> txt_records;
+    std::string device_id;
     bool saw_ptr = false;
 };
 mdns_record_t make_record(const AnnouncedInfo& self, mdns_record_type_t type, const in_addr* addr = nullptr,
@@ -175,53 +176,49 @@ int service_callback(int sock,
     }
     char name_buffer[256] = {};
     mdns_string_t name = mdns_string_extract(data, size, &name_offset, name_buffer, sizeof(name_buffer));
-    std::string queried_name(name.str, name.length);
-    auto write_records = [&](const mdns_record_t& answer, const std::vector<mdns_record_t>& additional) {
+    std::string_view queried_name(name.str, name.length);
+    auto write_records = [&](const mdns_record_t& answer, const mdns_record_t* additional, size_t additional_count) {
         static std::array<uint32_t, 512> send_buffer{};
         uint16_t unicast = (rclass & MDNS_UNICAST_RESPONSE);
         if (unicast) {
             return mdns_query_answer_unicast(sock, from, addrlen, send_buffer.data(), send_buffer.size() * sizeof(uint32_t), query_id,
                                              static_cast<mdns_record_type_t>(record_type), name.str, name.length,
-                                             answer, nullptr, 0, additional.data(), additional.size());
+                                             answer, nullptr, 0, additional, additional_count);
         }
         return mdns_query_answer_multicast(sock, send_buffer.data(), send_buffer.size() * sizeof(uint32_t), answer, nullptr, 0,
-                                          additional.data(), additional.size());
+                                          additional, additional_count);
     };
     if (queried_name == self->service_type &&
         (record_type == MDNS_RECORDTYPE_PTR || record_type == MDNS_RECORDTYPE_ANY)) {
         mdns_record_t answer = make_record(*self, MDNS_RECORDTYPE_PTR);
-        std::vector<mdns_record_t> additional;
-        additional.reserve(2 + self->addresses_v4.size() + self->txt_records.size());
-        additional.push_back(make_record(*self, MDNS_RECORDTYPE_SRV));
-        for (const auto& address : self->addresses_v4) {
-            additional.push_back(make_record(*self, MDNS_RECORDTYPE_A, &address));
-        }
-        for (const auto& txt : self->txt_records) {
-            additional.push_back(make_record(*self, MDNS_RECORDTYPE_TXT, nullptr, &txt));
-        }
-        return write_records(answer, additional);
+        mdns_record_t additional[16];
+        size_t additional_count = 0;
+        additional[additional_count++] = make_record(*self, MDNS_RECORDTYPE_SRV);
+        for (const auto& address : self->addresses_v4)
+            additional[additional_count++] = make_record(*self, MDNS_RECORDTYPE_A, &address);
+        for (const auto& txt : self->txt_records)
+            additional[additional_count++] = make_record(*self, MDNS_RECORDTYPE_TXT, nullptr, &txt);
+        return write_records(answer, additional, additional_count);
     }
     if (queried_name == self->service_instance &&
         (record_type == MDNS_RECORDTYPE_SRV || record_type == MDNS_RECORDTYPE_ANY)) {
         mdns_record_t answer = make_record(*self, MDNS_RECORDTYPE_SRV);
-        std::vector<mdns_record_t> additional;
-        additional.reserve(self->addresses_v4.size() + self->txt_records.size());
-        for (const auto& address : self->addresses_v4) {
-            additional.push_back(make_record(*self, MDNS_RECORDTYPE_A, &address));
-        }
-        for (const auto& txt : self->txt_records) {
-            additional.push_back(make_record(*self, MDNS_RECORDTYPE_TXT, nullptr, &txt));
-        }
-        return write_records(answer, additional);
+        mdns_record_t additional[16];
+        size_t additional_count = 0;
+        for (const auto& address : self->addresses_v4)
+            additional[additional_count++] = make_record(*self, MDNS_RECORDTYPE_A, &address);
+        for (const auto& txt : self->txt_records)
+            additional[additional_count++] = make_record(*self, MDNS_RECORDTYPE_TXT, nullptr, &txt);
+        return write_records(answer, additional, additional_count);
     }
     if (queried_name == self->hostname &&
         (record_type == MDNS_RECORDTYPE_A || record_type == MDNS_RECORDTYPE_ANY) && !self->addresses_v4.empty()) {
         mdns_record_t answer = make_record(*self, MDNS_RECORDTYPE_A, &self->addresses_v4.front());
-        std::vector<mdns_record_t> additional;
-        for (const auto& txt : self->txt_records) {
-            additional.push_back(make_record(*self, MDNS_RECORDTYPE_TXT, nullptr, &txt));
-        }
-        return write_records(answer, additional);
+        mdns_record_t additional[16];
+        size_t additional_count = 0;
+        for (const auto& txt : self->txt_records)
+            additional[additional_count++] = make_record(*self, MDNS_RECORDTYPE_TXT, nullptr, &txt);
+        return write_records(answer, additional, additional_count);
     }
     return 0;
 }
@@ -255,9 +252,8 @@ int discovery_callback(int sock,
         mdns_string_t name = mdns_string_extract(data, size, &name_offset, name_buffer, sizeof(name_buffer));
         std::string instance(name.str, name.length);
         auto dot = instance.find('.');
-        if (dot != std::string::npos) {
-            instance = instance.substr(0, dot);
-        }
+        if (dot != std::string::npos)
+            instance.resize(dot);
         state->instance_id = std::move(instance);
         state->host = sockaddr_to_ipv4_string(from);
         state->saw_ptr = true;
@@ -265,17 +261,18 @@ int discovery_callback(int sock,
     }
     if (record_type == MDNS_RECORDTYPE_A) {
         sockaddr_in addr{};
-        if (mdns_record_parse_a(data, size, record_offset, record_length, &addr)) {
+        if (mdns_record_parse_a(data, size, record_offset, record_length, &addr))
             state->host = ipv4_to_string(addr.sin_addr);
-        }
     }
     if (record_type == MDNS_RECORDTYPE_TXT) {
         mdns_record_txt_t records[16];
         const size_t parsed = mdns_record_parse_txt(data, size, record_offset, record_length, records,
                                                     sizeof(records) / sizeof(records[0]));
         for (size_t i = 0; i < parsed; ++i) {
-            state->txt_records.emplace(std::string(records[i].key.str, records[i].key.length),
-                                       std::string(records[i].value.str, records[i].value.length));
+            if (std::string_view(records[i].key.str, records[i].key.length) == "id") {
+                state->device_id.assign(records[i].value.str, records[i].value.length);
+                break;
+            }
         }
     }
     return 0;
@@ -403,8 +400,8 @@ struct MdnsDiscovery::Impl {
                 mdns_query_recv(discovery_socket, disc_buf.data(), disc_buf.size() * sizeof(uint32_t),
                                 discovery_callback, &state, 0);
                 if (state.saw_ptr && !state.instance_id.empty() && !state.host.empty() &&
-                    state.txt_records.count("id") && state.txt_records.at("id") != local_device.id) {
-                    if (on_peer_found) on_peer_found(state.txt_records.at("id"), state.host);
+                    !state.device_id.empty() && state.device_id != local_device.id) {
+                    if (on_peer_found) on_peer_found(state.device_id, state.host);
                 }
             }
         }
