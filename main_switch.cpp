@@ -7,19 +7,20 @@
 #include <string>
 #include <vector>
 
+//#define NO_UI
+#define MEM_DEBUG
+#define NO_MDNS
+
 #include "src/kdeconnect_client.h"
 #include "src/storage.h"
 #include "src/utils/logger.h"
+#include "src/utils/mem_debug.h"
 #include "src/plugins/ping_plugin.h"
 #include "src/plugins/battery_plugin.h"
 #include "src/plugins/find_my_phone_plugin.h"
 #include "src/plugins/mpris_plugin.h"
 #include "src/plugins/share_plugin.h"
 #include "src/plugins/mousepad_plugin.h"
-
-//#define NO_UI
-#define MEM_DEBUG
-#include "src/utils/mem_debug.h"
 
 // ---------------------------------------------------------------------------
 // Log ring buffer (written from any thread, read by the main/UI thread)
