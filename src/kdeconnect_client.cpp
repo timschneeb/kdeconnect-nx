@@ -219,12 +219,7 @@ void KdeConnectClient::network_loop() {
                 if (!valid) {
                     close(fd);
                 } else {
-                    auto peer = NetworkUtil::info_from_identity(*packet);
-                    NetworkPacket reply = NetworkUtil::make_identity_packet(
-                        local_device_, peer.id, peer.protocol_version, tcp_port_);
-                    std::string reply_str = reply.serialize();
-                    send(fd, reply_str.data(), reply_str.size(), 0);
-                    handle_new_connection(peer, fd, true);
+                    handle_new_connection(NetworkUtil::info_from_identity(*packet), fd, true);
                 }
             }
         }
