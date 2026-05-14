@@ -18,6 +18,8 @@
 #include "src/plugins/mousepad_plugin.h"
 
 //#define NO_UI
+#define MEM_DEBUG
+#include "src/utils/mem_debug.h"
 
 // ---------------------------------------------------------------------------
 // Log ring buffer (written from any thread, read by the main/UI thread)
@@ -94,6 +96,21 @@ static void draw_ui(KdeConnectClient& client, int selected) {
     printf("[A] Pair/Accept  [B] Unpair/Reject  [X] Ping  [Y] Find\n");
     printf("[ZL] Send battery  [ZR] MPRIS list  [L] Prev  [R] Next\n");
     printf("[-] Type text (keyboard test)\n");
+
+#ifdef MEM_DEBUG
+    {
+        const auto mem = get_mem_stats();
+        const auto al  = get_alloc_stats();
+        printf("\nMemory:\n");
+        printf("  Proc : %3llu / %3llu MB\n",
+            static_cast<unsigned long long>(mem.proc_used_mb),
+            static_cast<unsigned long long>(mem.proc_total_mb));
+        printf("  Heap : %5zu KB used / %5zu KB total  (peak %5zu KB)\n",
+            mem.heap_used_kb, mem.heap_total_kb, mem.heap_peak_kb);
+        printf("  new  : %5zu KB live  (peak %5zu KB)  allocs: %zu live / %zu total\n",
+            al.live_kb, al.peak_kb, al.live_allocs, al.total_allocs);
+    }
+#endif
 
     printf("\nLog:\n");
     {
