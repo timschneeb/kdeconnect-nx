@@ -88,9 +88,20 @@ bool NxLink::isEnabled() const {
 
 void NxLink::reconnectAndReplay()
 {
+    if (shutting_down_) {
+        reconnect_in_progress_ = false;
+        return;
+    }
+
     if (connectToHost(host_address_) >= 0) {
         // Successfully reconnected, replay cached messages
         std::lock_guard lock(mutex_);
+
+        if (shutting_down_) {
+            reconnect_in_progress_ = false;
+            return;
+        }
+
         while (!message_cache_.empty()) {
             const auto& cached_msg = message_cache_.front();
             if (::write(sock_, cached_msg.c_str(), cached_msg.length()) >= 0) {
@@ -108,17 +119,32 @@ void NxLink::reconnectAndReplay()
 
 NxLink::~NxLink()
 {
-    if (reconnect_thread_.joinable()) {
-        reconnect_thread_.join();
+    shutdown();
+}
+
+void NxLink::shutdown()
+{
+    shutting_down_ = true;
+
+    std::thread thread_to_join;
+    {
+        std::lock_guard lock(mutex_);
+        thread_to_join = std::move(reconnect_thread_);
     }
+
+    if (thread_to_join.joinable()) {
+        thread_to_join.join();
+    }
+
     if (sock_ >= 0) {
         close(sock_);
+        sock_ = -1;
     }
 }
 
 void NxLink::write(const char* message)
 {
-    if (!message || !isEnabled()) {
+    if (!message || !isEnabled() || shutting_down_) {
         return;
     }
 

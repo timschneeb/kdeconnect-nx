@@ -5,12 +5,14 @@
 #include <string>
 #include <mutex>
 #include <thread>
+#include <atomic>
 
 class NxLink {
 public:
     int connectToHost(const std::optional<in_addr>& host_address);
     bool isEnabled() const;
     void write(const char* message);
+    void shutdown();
     ~NxLink();
 private:
     void reconnectAndReplay();
@@ -22,4 +24,5 @@ private:
     std::mutex mutex_;
     bool reconnect_in_progress_ = false;
     std::thread reconnect_thread_;
+    std::atomic<bool> shutting_down_ = false;
 };

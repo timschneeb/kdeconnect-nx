@@ -324,6 +324,7 @@ int main() {
     }
 
     client.reset();
+    Logger::shutdown();
     nifmExit();
     socketExit();
     consoleExit(NULL);

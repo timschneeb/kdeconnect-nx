@@ -12,6 +12,7 @@ public:
     using Sink = std::function<void(const std::string& level, const std::string& msg)>;
     static bool connect_nxlink(const std::optional<in_addr>& host_address = std::nullopt);
     static void set_sink(Sink sink);
+    static void shutdown();
 
     static void info(const std::string& msg);
     static void warn(const std::string& msg);

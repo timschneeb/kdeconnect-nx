@@ -158,5 +158,6 @@ int main() {
     }
 
     client.stop();
+    Logger::shutdown();
     return 0;
 }

@@ -18,6 +18,11 @@ void Logger::set_sink(Sink sink) {
     sink_ = std::move(sink);
 }
 
+void Logger::shutdown() {
+    sink_ = nullptr;
+    nxlink_.shutdown();
+}
+
 namespace {
 std::string now_string() {
     auto now = std::chrono::system_clock::now();
