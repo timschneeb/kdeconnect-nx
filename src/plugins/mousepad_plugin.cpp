@@ -242,13 +242,13 @@ void MousepadPlugin::inject_key(const NetworkPacket &np) const {
         do_inject_hid(hid_code, apply_shift, ctrl, alt, super, needs_altgr);
     };
 
-    if (np.body.contains("specialKey") && np.body["specialKey"].is_number_integer()) {
+    if (np.body.contains("specialKey") && np.body["specialKey"].is_number_integer() && np.body["specialKey"].get<int>() != 0) {
         int special = np.body["specialKey"].get<int>();
         if (special > 0 && special < static_cast<int>(sizeof(kSpecialKeyMap))) {
             uint8_t hid_code = kSpecialKeyMap[special];
             if (hid_code != 0) do_key(hid_code, false);
         }
-    } else if (np.body.contains("key") && np.body["key"].is_string()) {
+    } else if (np.body.contains("key") && np.body["key"].is_string() && np.body["key"].get<std::string>().size() > 0) {
         for (unsigned char c: np.body["key"].get<std::string>()) {
             if (c >= 0x80) continue; // skip non-ASCII / UTF-8 continuation bytes
 
