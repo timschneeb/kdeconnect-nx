@@ -25,7 +25,7 @@ public:
 
   bool start();
   void stop();
-  bool needs_restart() { return needs_restart_.exchange(false); }
+  bool needs_restart() const { return needs_restart_.load(); }
 
   std::unordered_map<std::string, std::shared_ptr<DeviceSession>> devices() const override;
   std::shared_ptr<DeviceSession> device(const std::string &device_id) const override;

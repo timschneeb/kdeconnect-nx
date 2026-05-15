@@ -55,6 +55,8 @@ KdeConnectClient::~KdeConnectClient() {
 }
 
 bool KdeConnectClient::start() {
+    needs_restart_.store(false);
+    
     if (running_.load()) {
         return true;
     }

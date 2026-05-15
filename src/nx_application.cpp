@@ -20,7 +20,9 @@
         exit(1); \
     }
 
-NxApplication::NxApplication() : was_online_(false), storage_(Storage()) {
+NxApplication::NxApplication() : was_online_(false), storage_(Storage()),
+                                last_restart_(std::chrono::steady_clock::now()),
+                                restart_cooldown_(std::chrono::seconds(3)) {
     consoleInit(NULL);
     Logger::connect_nxlink();
 
@@ -45,32 +47,28 @@ NxApplication::~NxApplication() {
     consoleExit(NULL);
 }
 
+void NxApplication::restart_client(const char* reason) {
+    if (std::chrono::steady_clock::now() - last_restart_ < restart_cooldown_) {
+        return;
+    }
+    Logger::info(reason);
+    last_restart_ = std::chrono::steady_clock::now();
+    client_ = std::make_shared<KdeConnectClient>(storage_);
+    if (!client_->start()) {
+        Logger::error("Failed to restart client.");
+    }
+}
+
 void NxApplication::processEvents() {
     if (client_->needs_restart()) {
-        Logger::info("Client requested restart, restarting...");
-        client_ = std::make_shared<KdeConnectClient>(storage_);
-        if (!client_->start()) {
-            Logger::error("Failed to restart client after sleep.");
-            // TODO: add sleep later after conversion to sysmodule
-            // svcSleepThread(3'000'000'000LL);
-        }
+        restart_client("Client requested restart, restarting...");
     }
 
     const bool now_online = isOnline();
     if (was_online_ && !now_online) {
         Logger::info("Network connection lost.");
     } else if (!was_online_ && now_online) {
-        Logger::info("Network restored, restarting client...");
-        client_ = std::make_shared<KdeConnectClient>(storage_);
-        if (!client_->start()) {
-            Logger::error("Failed to restart client after network restore.");
-            // TODO: add sleep later after conversion to sysmodule
-            //svcSleepThread(3'000'000'000LL);
-        }
-    }
-    if (!now_online) {
-        // TODO: add sleep later after conversion to sysmodule
-        //svcSleepThread(2'000'000'000LL);
+        restart_client("Network restored, restarting client...");
     }
     was_online_ = now_online;
 
