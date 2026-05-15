@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#define NO_UI
+//#define NO_UI
 //#define MEM_DEBUG
 
 #include "src/kdeconnect_client.h"
@@ -142,6 +142,9 @@ int main() {
         return 1;
     }
 
+    if (R_FAILED(nifmInitialize(NifmServiceType_User)))
+        Logger::error("nifmInitialize failed");
+
 #ifdef NO_UI
     nxlinkStdio();
 #endif
@@ -164,6 +167,15 @@ int main() {
 
     int selected = 0;
 
+    auto is_net_connected = []() -> bool {
+        NifmInternetConnectionType type;
+        std::uint32_t wifi;
+        NifmInternetConnectionStatus status;
+        nifmGetInternetConnectionStatus(&type, &wifi, &status);
+        return status == NifmInternetConnectionStatus_Connected;
+    };
+    bool net_was_connected = is_net_connected();
+
     while (appletMainLoop()) {
         if (client->needs_restart()) {
             Logger::info("Client requested restart, restarting...");
@@ -171,9 +183,29 @@ int main() {
             client = std::make_unique<KdeConnectClient>(storage);
             if (!client->start()) {
                 Logger::error("Failed to restart client after sleep.");
-                svcSleepThread(3'000'000'000LL);
+                // TODO: add sleep later after conversion to sysmodule
+                // svcSleepThread(3'000'000'000LL);
             }
         }
+
+        const bool net_now = is_net_connected();
+        if (net_was_connected && !net_now) {
+            Logger::info("Network connection lost.");
+        } else if (!net_was_connected && net_now) {
+            Logger::info("Network restored, restarting client...");
+            selected = 0;
+            client = std::make_unique<KdeConnectClient>(storage);
+            if (!client->start()) {
+                Logger::error("Failed to restart client after network restore.");
+                // TODO: add sleep later after conversion to sysmodule
+                //svcSleepThread(3'000'000'000LL);
+            }
+        }
+        if (!net_now) {
+            // TODO: add sleep later after conversion to sysmodule
+            //svcSleepThread(2'000'000'000LL);
+        }
+        net_was_connected = net_now;
 
         padUpdate(&pad);
         const u64 kDown = padGetButtonsDown(&pad);
@@ -298,6 +330,7 @@ int main() {
     }
 
     client.reset();
+    nifmExit();
     socketExit();
     consoleExit(NULL);
     return 0;
