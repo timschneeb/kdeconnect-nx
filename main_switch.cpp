@@ -93,7 +93,7 @@ static void draw_ui(const KdeConnectClient& client, int selected) {
     printf("\n");
     printf("[+] Exit   [Up/Down] Navigate\n");
     printf("[A] Pair/Accept  [B] Unpair/Reject  [X] Ping  [Y] Find\n");
-    printf("[ZL] Send battery  [ZR] MPRIS list  [L] Prev  [R] Next\n");
+    printf("[ZL] Play/Pause  [ZR] MPRIS list    [L] Prev  [R] Next\n");
     printf("[-] Type text (keyboard test)\n");
 
 #ifdef MEM_DEBUG
@@ -203,11 +203,13 @@ int main() {
                     p->find();
             }
         }
-        // Send battery status
+        // Play/Pause
         if (kDown & HidNpadButton_ZL) {
             if (auto sess = get_session()) {
-                if (auto* p = sess->plugin<BatteryPlugin>())
-                    p->send_status();
+                if (auto* p = sess->plugin<MprisPlugin>()) {
+                    const std::string player = p->current_player();
+                    if (!player.empty()) p->send_action(player, "PlayPause");
+                }
             }
         }
         // Request MPRIS player list
