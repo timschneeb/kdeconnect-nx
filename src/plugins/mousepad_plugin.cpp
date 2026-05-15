@@ -3,13 +3,14 @@
 #include "notification_plugin.h"
 #include "../utils/logger.h"
 
+static std::atomic<bool> s_no_mouse_support_hint_shown{false};
+
 #ifdef __SWITCH__
 #include <switch.h>
 #include <atomic>
 
 // Reference-counted hiddbg lifetime so multiple sessions don't conflict.
 static std::atomic<int> s_hiddbg_refcount{0};
-static std::atomic<bool> s_no_mouse_support_hint_shown{false};
 
 struct HidKeyInfo {
     uint8_t hid_code;
@@ -99,7 +100,6 @@ static constexpr uint8_t kSpecialKeyMap[] = {
     0x44, // 31 F11
     0x45, // 32 F12
 };
-#endif // __SWITCH__
 
 // Modifier keys need to be injected as HID key bits (usage IDs 0xE0-0xE3 in keys[3]),
 // not via the modifiers field which only reflects lock-key state.
@@ -140,6 +140,7 @@ static void hiddbg_release() {
         hiddbgExit();
     }
 }
+#endif // __SWITCH__
 
 std::string MousepadPlugin::name() const { return "Mousepad Plugin"; }
 std::string MousepadPlugin::description() const { return "Receives keyboard input from remote devices."; }

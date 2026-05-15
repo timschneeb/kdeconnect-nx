@@ -9,7 +9,13 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#ifdef __SWITCH__
 #include <switch/runtime/nxlink.h>
+#else
+struct in_addr;
+static struct in_addr __nxlink_host;
+#define NXLINK_CLIENT_PORT 28771
+#endif
 
 int NxLink::connectToHost(const std::optional<in_addr>& host_address)
 {

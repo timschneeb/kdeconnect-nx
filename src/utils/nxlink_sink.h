@@ -9,11 +9,11 @@
 
 class NxLink {
 public:
+    ~NxLink();
     int connectToHost(const std::optional<in_addr>& host_address);
     bool isEnabled() const;
     void write(const char* message);
     void shutdown();
-    ~NxLink();
 private:
     void reconnectAndReplay();
 
