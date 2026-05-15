@@ -77,7 +77,7 @@ std::string extract_class_name(std::string_view function) {
 }
 
 std::string with_context(const std::string& msg, const std::source_location& loc) {
-    const std::string cls = loc.function_name(); // extract_class_name(loc.function_name());
+    const std::string cls = extract_class_name(loc.function_name());
     if (!cls.empty()) {
         return cls + ": " + msg;
     }
@@ -91,10 +91,11 @@ void Logger::log(const std::string& level, const std::string& msg,
 }
 
 void Logger::log(const std::string& level, const std::string& msg) {
+    auto now = now_string();
     if (sink_) {
         sink_(level, msg);
     } else {
-        std::fprintf(stderr, "[%s] %s: %s\n", now_string().c_str(), level.c_str(), msg.c_str());
+        std::fprintf(stderr, "[%s] %s: %s\n", now.c_str(), level.c_str(), msg.c_str());
     }
-    nxlink_.write(("[" + level + "] " + msg + "\n").c_str());
+    nxlink_.write(("[" + now + "][" + level + "] " + msg + "\n").c_str());
 }

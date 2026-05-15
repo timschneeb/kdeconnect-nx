@@ -95,7 +95,7 @@ static void write_icon() {
         fwrite(px, 1, sizeof(px), f);
         fclose(f);
     } else {
-        Logger::error("[NOTIFICATION] Failed to write icon: " + std::string(kIconPath));
+        Logger::error("Failed to write icon: " + std::string(kIconPath));
     }
 }
 #endif
@@ -127,7 +127,7 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
 
     if (np.body.value("isCancel", false)) {
         std::string cancel_id = np.body.value("id", "");
-        Logger::info("[NOTIFICATION] Dismissed: " + cancel_id);
+        Logger::info("Dismissed: " + cancel_id);
         m_posted_ids.erase(cancel_id);
         return true;
     }
@@ -139,7 +139,7 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
     std::string id    = np.body.value("id", "");
     std::string time  = np.body.value("time", "");
 
-    std::string log_msg = "[NOTIFICATION] " + app + ": " + title;
+    std::string log_msg = "" + app + ": " + title;
     Logger::info(log_msg);
 
     std::string body;
@@ -191,7 +191,7 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
     }
 
     if (silent) return true;
-    Logger::info("[NOTIFICATION] Posting: " + icon_hash + "-" + id);
+    Logger::info("Posting: " + icon_hash + "-" + id);
     post_notification(icon_hash.empty() ? kAppId : std::string(kAppId) + "_" + icon_hash, app, body, id);
     return true;
 }
@@ -224,7 +224,7 @@ void NotificationPlugin::post_notification(const std::string& app_id,
         f << notify_json.dump(2);
         f.close();
     } else {
-        Logger::error("[NOTIFICATION] Failed to write notify file: " + path);
+        Logger::error("Failed to write notify file: " + path);
     }
 #endif
     (void)app_id; (void)title; (void)body; (void)id;
@@ -236,7 +236,7 @@ void NotificationPlugin::write_app_icon(const std::string& icon_hash, const std:
     uint8_t* img = stbi_load_from_memory(png_data.data(), static_cast<int>(png_data.size()),
                                          &w, &h, &channels, 4);
     if (!img) {
-        Logger::warn("[NOTIFICATION] Failed to decode icon PNG for hash " + icon_hash);
+        Logger::warn("Failed to decode icon PNG for hash " + icon_hash);
         return;
     }
 
@@ -267,7 +267,7 @@ void NotificationPlugin::write_app_icon(const std::string& icon_hash, const std:
         fwrite(px, 1, sizeof(px), f);
         fclose(f);
     } else {
-        Logger::error("[NOTIFICATION] Failed to write icon: " + icon_path);
+        Logger::error("Failed to write icon: " + icon_path);
     }
 #endif
     (void)icon_hash; (void)png_data;

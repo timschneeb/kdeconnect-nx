@@ -2,6 +2,7 @@
 
 #include <arpa/inet.h>
 #include <cerrno>
+#include <cstring>
 #include <fcntl.h>
 #include <poll.h>
 #include <optional>
@@ -183,12 +184,7 @@ void NxLink::write(const char* message)
         } else if (sock_ < 0) {
             return;
         } else {
-            size_t len = 0;
-            while (message[len] != '\0') {
-                len++;
-            }
-
-            if (::write(sock_, message, len) < 0) {
+            if (::write(sock_, message, std::strlen(message)) < 0) {
                 // Connection lost, reset socket
                 close(sock_);
                 sock_ = -1;
