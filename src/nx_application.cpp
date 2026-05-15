@@ -6,7 +6,7 @@
 #include <string>
 
 #include "plugins/share_plugin.h"
-#include "kdeconnect_client.h"
+#include "net/kdeconnect_client.h"
 #include "storage.h"
 #include "utils/logger.h"
 #include "utils/mem_debug.h"

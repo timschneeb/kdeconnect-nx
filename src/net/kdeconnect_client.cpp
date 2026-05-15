@@ -1,6 +1,6 @@
 #include "kdeconnect_client.h"
 
-#include "network_packet.h"
+#include "../network_packet.h"
 
 #include <mbedtls/ssl.h>
 
@@ -20,10 +20,10 @@
 #include <sys/select.h>
 #include <thread>
 
-#include "plugins/plugin_registry.h"
+#include "../plugins/plugin_registry.h"
 
-#include "utils/logger.h"
-#include "utils/network_util.h"
+#include "../utils/logger.h"
+#include "../utils/network_util.h"
 
 namespace {
 constexpr int kUdpPort = 1716;

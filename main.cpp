@@ -2,7 +2,7 @@
 #include <sstream>
 #include <string>
 
-#include "kdeconnect_client.h"
+#include "src/net/kdeconnect_client.h"
 #include "src/utils/logger.h"
 #include "plugins/ping_plugin.h"
 #include "plugins/find_my_phone_plugin.h"

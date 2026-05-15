@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "kdeconnect_types.h"
-#include "../network_packet.h"
+#include "../net/network_packet.h"
 #include "utils/logger.h"
 
 class Plugin;

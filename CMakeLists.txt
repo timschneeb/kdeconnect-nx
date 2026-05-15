@@ -31,11 +31,11 @@ endif()
 
 add_executable(MiniKDEConnect
   ${PLATFORM_MAIN}
-  src/kdeconnect_client.cpp
   src/mdns/mdns_discovery.cpp
-  src/network_packet.cpp
+  src/net/kdeconnect_client.cpp
+  src/net/network_packet.cpp
+  src/net/tls.cpp
   src/storage.cpp
-  src/tls.cpp
   src/utils/network_util.cpp
   src/utils/logger.cpp
   src/utils/nxlink_sink.cpp

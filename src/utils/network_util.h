@@ -4,8 +4,8 @@
 #include <string>
 
 #include "../kdeconnect_types.h"
-#include "../network_packet.h"
-#include "../tls.h"
+#include "../net/network_packet.h"
+#include "../net/tls.h"
 
 namespace NetworkUtil {
 

@@ -10,7 +10,7 @@
 //#define MEM_DEBUG
 
 #include "nx_application.h"
-#include "src/kdeconnect_client.h"
+#include "src/net/kdeconnect_client.h"
 #include "src/utils/logger.h"
 #include "src/utils/mem_debug.h"
 #include "src/plugins/ping_plugin.h"
