@@ -1,6 +1,6 @@
 #include "kdeconnect_client.h"
 
-#include "../network_packet.h"
+#include "network_packet.h"
 
 #include <mbedtls/ssl.h>
 

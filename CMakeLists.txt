@@ -51,7 +51,7 @@ add_executable(MiniKDEConnect
   src/plugins/plugin_registry.cpp
 )
 
-target_include_directories(MiniKDEConnect PRIVATE src)
+target_include_directories(MiniKDEConnect PRIVATE src libs)
 
 target_link_libraries(MiniKDEConnect PRIVATE nlohmann_json::nlohmann_json PkgConfig::MBEDTLS Threads::Threads)
 

@@ -4,14 +4,15 @@
 #include <string>
 
 #include <nlohmann/json.hpp>
-#include <switch/services/set.h>
+
+#ifdef __SWITCH__
+#include <switch.h>
+#else
+#include <unistd.h>
+#endif
 
 #include "net/network_packet.h"
 #include "plugins/plugin_registry.h"
-
-#ifndef __SWITCH__
-#include <unistd.h>
-#endif
 
 namespace {
 
@@ -105,4 +106,3 @@ std::filesystem::path Storage::cert_path() const {
 std::filesystem::path Storage::key_path() const {
     return base_path_ / "key.pem";
 }
-
