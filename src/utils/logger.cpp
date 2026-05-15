@@ -5,6 +5,7 @@
 #include <cstdarg>
 #include <iomanip>
 #include <sstream>
+#include <string_view>
 #include <vector>
 
 #include "nxlink_sink.h"
@@ -59,11 +60,35 @@ std::string now_string() {
     oss << std::put_time(&tm, "%H:%M:%S");
     return oss.str();
 }
+
+std::string extract_class_name(std::string_view function) {
+    if (function.empty()) return {};
+    const auto paren = function.find('(');
+    if (paren != std::string_view::npos) {
+        function = function.substr(0, paren);
+    }
+    const auto scope = function.rfind("::");
+    if (scope == std::string_view::npos) {
+        return {};
+    }
+    const auto start = function.rfind(' ', scope);
+    const size_t name_start = (start == std::string_view::npos) ? 0 : start + 1;
+    return std::string(function.substr(name_start, scope - name_start));
 }
 
-void Logger::info(const std::string& msg) { log("INFO",  msg); }
-void Logger::warn(const std::string& msg) { log("WARN",  msg); }
-void Logger::error(const std::string& msg){ log("ERROR", msg); }
+std::string with_context(const std::string& msg, const std::source_location& loc) {
+    const std::string cls = loc.function_name(); // extract_class_name(loc.function_name());
+    if (!cls.empty()) {
+        return cls + ": " + msg;
+    }
+    return msg;
+}
+}
+
+void Logger::log(const std::string& level, const std::string& msg,
+                 const std::source_location& loc) {
+    log(level, with_context(msg, loc));
+}
 
 void Logger::log(const std::string& level, const std::string& msg) {
     if (sink_) {

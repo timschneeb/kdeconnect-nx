@@ -67,7 +67,7 @@ void RunCommandPlugin::send_command_list() const {
 }
 
 void RunCommandPlugin::execute(const std::string& key) const {
-    Logger::info("[RUNCOMMAND] " + key);
+    Logger::info("Executing command: %s", key);
 
 #ifdef __SWITCH__
     // --- Power ---

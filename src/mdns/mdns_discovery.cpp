@@ -30,7 +30,6 @@
 
 namespace {
 constexpr const char* kServiceType = "_kdeconnect._udp.local.";
-constexpr const char* kLogTag = "MdnsDiscovery";
 constexpr auto kIdleSleep = std::chrono::milliseconds(100);
 constexpr auto kQueryRepeat = std::chrono::seconds(15);
 std::string hostname_or_default() {
@@ -267,13 +266,13 @@ struct MdnsDiscovery::Impl {
         service_addr.sin_port = htons(MDNS_PORT);
         service_socket = mdns_socket_open_ipv4(&service_addr);
         if (service_socket < 0) {
-            Logger::warn(std::string(kLogTag) + ": unable to open service socket.");
+            Logger::warn("unable to open service socket.");
             running = false;
             return false;
         }
         discovery_socket = mdns_socket_open_ipv4(nullptr);
         if (discovery_socket < 0) {
-            Logger::warn(std::string(kLogTag) + ": unable to open discovery socket.");
+            Logger::warn("unable to open discovery socket.");
             mdns_socket_close(service_socket);
             service_socket = -1;
             running = false;

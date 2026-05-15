@@ -24,18 +24,18 @@ bool SharePlugin::on_packet_received(const NetworkPacket& np) {
 
     if (np.body.contains("url") && np.body["url"].is_string()) {
         const std::string url = np.body["url"].get<std::string>();
-        Logger::info("[SHARE] URL: " + url);
+        Logger::info("URL: " + url);
         std::lock_guard lock(s_url_mutex_);
         if (s_pending_urls_.size() > 1) s_pending_urls_.pop();
         s_pending_urls_.push(url);
         return true;
     }
     if (np.body.contains("text") && np.body["text"].is_string()) {
-        Logger::info("[SHARE] Text: " + np.body["text"].get<std::string>());
+        Logger::info("Text: " + np.body["text"].get<std::string>());
         return true;
     }
     if (np.body.contains("filename") && np.body["filename"].is_string()) {
-        Logger::info("[SHARE] File: " + np.body["filename"].get<std::string>() + " (not supported)");
+        Logger::info("File: " + np.body["filename"].get<std::string>() + " (not supported)");
         return true;
     }
     return false;
@@ -71,8 +71,7 @@ bool SharePlugin::open_pending_url() {
     WebCommonReply ret{};
     webConfigShow(&config, &ret);
 #else
-    Logger::info("[SHARE] Would open URL: " + url);
+    Logger::info("Would open URL: " + url);
 #endif
-
     return true;
 }

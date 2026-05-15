@@ -130,7 +130,7 @@ static void hiddbg_retain() {
         Result rc = hiddbgInitialize();
         if (R_FAILED(rc)) {
             s_hiddbg_refcount.fetch_sub(1);
-            Logger::error("[MOUSEPAD] hiddbgInitialize failed: " + std::to_string(rc));
+            Logger::error("hiddbgInitialize failed: " + std::to_string(rc));
         }
     }
 }
@@ -216,7 +216,7 @@ bool MousepadPlugin::on_packet_received(const NetworkPacket &np) {
 void MousepadPlugin::inject_key(const NetworkPacket &np) const {
 #ifdef __SWITCH__
     if (s_hiddbg_refcount.load() == 0) {
-        Logger::error("[MOUSEPAD] inject_key: hiddbg not initialized");
+        Logger::error("inject_key: hiddbg not initialized");
         return;
     }
 
@@ -233,7 +233,7 @@ void MousepadPlugin::inject_key(const NetworkPacket &np) const {
 
     auto do_key = [&](uint8_t hid_code, bool needs_shift, bool needs_altgr = false) {
         bool apply_shift = shift || needs_shift;
-        Logger::info("[MOUSEPAD] Key inject: hid=0x" + [&] {
+        Logger::info("Key inject: hid=0x" + [&] {
             char buf[40];
             snprintf(buf, sizeof(buf), "%02X shift=%d ctrl=%d alt=%d gui=%d altgr=%d",
                      hid_code, apply_shift, ctrl, alt, super, needs_altgr);
@@ -262,6 +262,6 @@ void MousepadPlugin::inject_key(const NetworkPacket &np) const {
     }
     setsysExit();
 #else
-    Logger::info("[MOUSEPAD] Key event received: " + np.body.dump(-1));
+    Logger::info("Key event received: " + np.body.dump(-1));
 #endif
 }

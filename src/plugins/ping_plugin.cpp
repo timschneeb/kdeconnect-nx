@@ -31,7 +31,7 @@ bool PingPlugin::on_packet_received(const NetworkPacket& np) {
     }
 
     NotificationPlugin::post_notification(device_id_ + "_ping", "From " + device_name, msg, std::to_string(id++));
-    Logger::info("[PING RECEIVED] From " + device_id_ + ": " + msg);
+    Logger::info("Ping from " + device_id_ + ": " + msg);
     return true;
 }
 

@@ -140,7 +140,6 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
     std::string time  = np.body.value("time", "");
 
     std::string log_msg = "[NOTIFICATION] " + app + ": " + title;
-    if (!text.empty()) log_msg += " - " + text;
     Logger::info(log_msg);
 
     std::string body;
@@ -150,8 +149,6 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
         body = title;
     else
         body = text;
-
-    Logger::info("[NOTIFICATION] Body: " + np.body.dump(1));
 
     std::string icon_hash = np.body.value("payloadHash", "");
     if (icon_hash.empty()) {
