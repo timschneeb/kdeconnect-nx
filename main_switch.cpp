@@ -9,8 +9,8 @@
 
 //#define MEM_DEBUG
 
+#include "nx_application.h"
 #include "src/kdeconnect_client.h"
-#include "src/storage.h"
 #include "src/utils/logger.h"
 #include "src/utils/mem_debug.h"
 #include "src/plugins/ping_plugin.h"
@@ -40,7 +40,7 @@ static void log_sink(const std::string& level, const std::string& msg) {
 // UI helpers
 // ---------------------------------------------------------------------------
 
-static void draw_ui(KdeConnectClient& client, int selected) {
+static void draw_ui(const KdeConnectClient& client, int selected) {
     consoleClear();
 
     printf("MiniKDEConnect for Nintendo Switch\n");
@@ -127,81 +127,17 @@ static void draw_ui(KdeConnectClient& client, int selected) {
 // ---------------------------------------------------------------------------
 
 int main() {
-    consoleInit(NULL);
-
     Logger::set_sink(log_sink);
-    Logger::connect_nxlink();
-
-
-    Result rc = socketInitializeDefault();
-    if (R_FAILED(rc)) {
-        printf("socketInitializeDefault failed: 0x%x\n", rc);
-        consoleUpdate(NULL);
-        svcSleepThread(3'000'000'000LL);
-        consoleExit(NULL);
-        return 1;
-    }
-
-    if (R_FAILED(nifmInitialize(NifmServiceType_User)))
-        Logger::error("nifmInitialize failed");
-
-    Storage storage;
-    auto client = std::make_unique<KdeConnectClient>(storage);
-
-    if (!client->start()) {
-        printf("Failed to start KDE Connect client.\n");
-        consoleUpdate(NULL);
-        svcSleepThread(3'000'000'000LL);
-        socketExit();
-        consoleExit(NULL);
-        return 1;
-    }
+    auto app = NxApplication();
+    auto client = app.client();
 
     PadState pad;
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
     padInitializeDefault(&pad);
 
     int selected = 0;
-
-    auto is_net_connected = []() -> bool {
-        NifmInternetConnectionType type;
-        std::uint32_t wifi;
-        NifmInternetConnectionStatus status;
-        nifmGetInternetConnectionStatus(&type, &wifi, &status);
-        return status == NifmInternetConnectionStatus_Connected;
-    };
-    bool net_was_connected = is_net_connected();
-
     while (appletMainLoop()) {
-        if (client->needs_restart()) {
-            Logger::info("Client requested restart, restarting...");
-            selected = 0;
-            client = std::make_unique<KdeConnectClient>(storage);
-            if (!client->start()) {
-                Logger::error("Failed to restart client after sleep.");
-                // TODO: add sleep later after conversion to sysmodule
-                // svcSleepThread(3'000'000'000LL);
-            }
-        }
-
-        const bool net_now = is_net_connected();
-        if (net_was_connected && !net_now) {
-            Logger::info("Network connection lost.");
-        } else if (!net_was_connected && net_now) {
-            Logger::info("Network restored, restarting client...");
-            selected = 0;
-            client = std::make_unique<KdeConnectClient>(storage);
-            if (!client->start()) {
-                Logger::error("Failed to restart client after network restore.");
-                // TODO: add sleep later after conversion to sysmodule
-                //svcSleepThread(3'000'000'000LL);
-            }
-        }
-        if (!net_now) {
-            // TODO: add sleep later after conversion to sysmodule
-            //svcSleepThread(2'000'000'000LL);
-        }
-        net_was_connected = net_now;
+        app.processEvents();
 
         padUpdate(&pad);
         const u64 kDown = padGetButtonsDown(&pad);
@@ -316,17 +252,9 @@ int main() {
             }
         }
 
-        // Open any URL shared from the desktop (blocks while browser is open).
-        SharePlugin::open_pending_url();
-
         draw_ui(*client, selected);
         svcSleepThread(100'000'000LL); // 100 ms
     }
 
-    client.reset();
-    Logger::shutdown();
-    nifmExit();
-    socketExit();
-    consoleExit(NULL);
     return 0;
 }

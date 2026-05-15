@@ -24,7 +24,7 @@ pkg_check_modules(MBEDTLS REQUIRED IMPORTED_TARGET mbedtls mbedx509 mbedcrypto)
 find_package(Threads REQUIRED)
 
 if(CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch")
-    set(PLATFORM_MAIN main_switch.cpp)
+    set(PLATFORM_MAIN main_switch.cpp src/nx_application.cpp)
 else()
     set(PLATFORM_MAIN main.cpp)
 endif()
