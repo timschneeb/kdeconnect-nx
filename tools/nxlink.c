@@ -697,7 +697,7 @@ int main(int argc, char **argv) {
 
 		if (listenfd >= 0) {
 			// Try to accept a new connection with a short timeout
-			if (pollSocket(listenfd, POLLIN, 1000) == 0) {
+			if (pollSocket(listenfd, POLLIN, 50) == 0) {
 				socklen_t addrlen = sizeof(sa_remote);
 				datafd = accept(listenfd, (struct sockaddr*)&sa_remote, &addrlen);
 
@@ -713,7 +713,7 @@ int main(int argc, char **argv) {
 
 		if (datafd >= 0) {
 			// Check for data from client with a short timeout
-			if (pollSocket(datafd, POLLIN, 1000) == 0) {
+			if (pollSocket(datafd, POLLIN, 50) == 0) {
 				char recvbuf[256];
 				int len = recv(datafd, recvbuf, sizeof(recvbuf), 0);
 
