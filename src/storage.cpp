@@ -4,10 +4,12 @@
 #include <string>
 
 #include <nlohmann/json.hpp>
-#include "network_packet.h"
+#include <switch/services/set.h>
+
+#include "net/network_packet.h"
 #include "plugins/plugin_registry.h"
 
-#if __has_include(<unistd.h>)
+#ifndef __SWITCH__
 #include <unistd.h>
 #endif
 
@@ -15,7 +17,13 @@ namespace {
 
 
 std::string hostname_or_default() {
-#if __has_include(<unistd.h>)
+#if __SWITCH__
+    setInitialize();
+    SetSysDeviceNickName name;
+    setGetDeviceNickname(&name);
+    setExit();
+    return name.nickname;
+#else
     char buffer[256] = {};
     if (gethostname(buffer, sizeof(buffer) - 1) == 0) {
         return std::string(buffer) + "-mini";
