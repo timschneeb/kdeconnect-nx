@@ -55,6 +55,9 @@ target_include_directories(MiniKDEConnect PRIVATE src)
 
 target_link_libraries(MiniKDEConnect PRIVATE nlohmann_json::nlohmann_json PkgConfig::MBEDTLS Threads::Threads)
 
+# Build tools
+add_subdirectory(tools)
+
 if(CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch")
 
 nx_generate_nacp(MiniKDEConnect.nacp
