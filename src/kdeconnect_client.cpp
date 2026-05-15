@@ -56,7 +56,7 @@ KdeConnectClient::~KdeConnectClient() {
 
 bool KdeConnectClient::start() {
     needs_restart_.store(false);
-    
+
     if (running_.load()) {
         return true;
     }
@@ -289,6 +289,7 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, ScopedF
         auto it = sessions_.find(identity.id);
         if (it != sessions_.end() && !it->second->disconnected.load()) {
             // TODO: allow old but alive connections to be replaced?
+            Logger::warn("Already connected to " + identity.name + " (" + identity.id + ") but a new connection was received.");
             return;
         }
     }
