@@ -5,7 +5,14 @@
 #include <iomanip>
 #include <sstream>
 
+#include "nxlink_sink.h"
+
 Logger::Sink Logger::sink_;
+NxLink Logger::nxlink_;
+
+bool Logger::connect_nxlink(const std::optional<in_addr> &host_address) {
+    return nxlink_.connectToHost(host_address) >= 0;
+}
 
 void Logger::set_sink(Sink sink) {
     sink_ = std::move(sink);
@@ -33,4 +40,5 @@ void Logger::log(const std::string& level, const std::string& msg) {
     } else {
         std::fprintf(stderr, "[%s] %s: %s\n", now_string().c_str(), level.c_str(), msg.c_str());
     }
+    nxlink_.write(("[" + level + "] " + msg + "\n").c_str());
 }

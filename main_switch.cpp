@@ -7,7 +7,6 @@
 #include <string>
 #include <vector>
 
-//#define NO_UI
 //#define MEM_DEBUG
 
 #include "src/kdeconnect_client.h"
@@ -129,9 +128,10 @@ static void draw_ui(KdeConnectClient& client, int selected) {
 
 int main() {
     consoleInit(NULL);
-#ifndef NO_UI
+
     Logger::set_sink(log_sink);
-#endif
+    Logger::connect_nxlink();
+
 
     Result rc = socketInitializeDefault();
     if (R_FAILED(rc)) {
@@ -144,10 +144,6 @@ int main() {
 
     if (R_FAILED(nifmInitialize(NifmServiceType_User)))
         Logger::error("nifmInitialize failed");
-
-#ifdef NO_UI
-    nxlinkStdio();
-#endif
 
     Storage storage;
     auto client = std::make_unique<KdeConnectClient>(storage);
@@ -323,9 +319,7 @@ int main() {
         // Open any URL shared from the desktop (blocks while browser is open).
         SharePlugin::open_pending_url();
 
-#ifndef NO_UI
         draw_ui(*client, selected);
-#endif
         svcSleepThread(100'000'000LL); // 100 ms
     }
 

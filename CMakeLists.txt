@@ -38,6 +38,7 @@ add_executable(MiniKDEConnect
   src/tls.cpp
   src/utils/network_util.cpp
   src/utils/logger.cpp
+  src/utils/nxlink_sink.cpp
   src/plugins/ping_plugin.cpp
   src/plugins/battery_plugin.cpp
   src/plugins/notification_plugin.cpp
