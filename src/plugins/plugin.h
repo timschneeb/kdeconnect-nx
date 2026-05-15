@@ -1,16 +1,57 @@
 #pragma once
 
+#include <queue>
 #include <string>
+#include <thread>
 #include <vector>
+
+#include "kdeconnect_types.h"
 #include "../network_packet.h"
+#include "utils/logger.h"
+
+class Plugin;
+struct TlsSession;
 
 // Interface for plugins to interact with the device session
 class DeviceProvider {
 public:
+    struct DeviceSession;
     virtual ~DeviceProvider() = default;
     
     // Send a packet to this specific device
     virtual bool send_packet(const std::string& device_id, const NetworkPacket& pkt) = 0;
+    virtual std::shared_ptr<DeviceSession> device(const std::string &device_id) const = 0;
+    virtual std::unordered_map<std::string, std::shared_ptr<DeviceSession>> devices() const = 0;
+
+    struct DeviceSession {
+        DeviceInfo info;
+        PairState pair_state = PairState::NotPaired;
+        long pairing_timestamp = 0;
+        bool paired = false;
+        std::string cert_pem;
+        std::vector<unsigned char> peer_pubkey;
+        std::string peer_host;
+
+        std::unique_ptr<TlsSession> tls;
+        int fd = -1;
+        std::thread io_thread;
+        std::mutex send_queue_mutex;
+        std::queue<std::string> send_queue;
+        std::atomic<bool> disconnected{false};
+
+        std::vector<std::unique_ptr<Plugin>> plugins;
+
+        template<typename T>
+        T* plugin() {
+            for (const auto& plugin : plugins) {
+                if (auto typed_plugin = dynamic_cast<T*>(plugin.get())) {
+                    return typed_plugin;
+                }
+            }
+            Logger::error("Plugin of requested type not found for device " + info.name + " (" + info.id + ")");
+            return nullptr;
+        }
+    };
 };
 
 // Base class for all MiniKDEConnect plugins

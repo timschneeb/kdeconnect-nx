@@ -12,4 +12,7 @@ public:
     bool on_packet_received(const NetworkPacket& np) override;
 
     void ping(const std::string& message) const;
+
+private:
+    uint32_t id = 0;
 };

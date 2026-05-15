@@ -20,8 +20,6 @@
 
 class KdeConnectClient : public DeviceProvider {
 public:
-  struct DeviceSession;
-
   explicit KdeConnectClient(Storage storage);
   ~KdeConnectClient() override;
 
@@ -29,8 +27,8 @@ public:
   void stop();
   bool needs_restart() { return needs_restart_.exchange(false); }
 
-  std::unordered_map<std::string, std::shared_ptr<DeviceSession>> devices() const;
-  std::shared_ptr<DeviceSession> device(const std::string &device_id) const;
+  std::unordered_map<std::string, std::shared_ptr<DeviceSession>> devices() const override;
+  std::shared_ptr<DeviceSession> device(const std::string &device_id) const override;
 
   void request_pair(const std::string &device_id);
   void accept_pair(const std::string &device_id);
@@ -41,36 +39,6 @@ public:
 
   const DeviceInfo &local_device() const { return local_device_; }
   int tcp_port() const { return tcp_port_; }
-
-  struct DeviceSession {
-      DeviceInfo info;
-      PairState pair_state = PairState::NotPaired;
-      long pairing_timestamp = 0;
-      bool paired = false;
-      std::string cert_pem;
-      std::vector<unsigned char> peer_pubkey;
-      std::string peer_host;
-
-      std::unique_ptr<TlsSession> tls;
-      int fd = -1;
-      std::thread io_thread;
-      std::mutex send_queue_mutex;
-      std::queue<std::string> send_queue;
-      std::atomic<bool> disconnected{false};
-
-      std::vector<std::unique_ptr<Plugin>> plugins;
-
-      template<typename T>
-      T* plugin() {
-          for (const auto& plugin : plugins) {
-              if (auto typed_plugin = dynamic_cast<T*>(plugin.get())) {
-                  return typed_plugin;
-              }
-          }
-          Logger::error("Plugin of requested type not found for device " + info.name + " (" + info.id + ")");
-          return nullptr;
-      }
-  };
 
 private:
   void network_loop();

@@ -1,4 +1,6 @@
 #include "ping_plugin.h"
+
+#include "notification_plugin.h"
 #include "../utils/logger.h"
 
 std::string PingPlugin::name() const {
@@ -22,7 +24,13 @@ bool PingPlugin::on_packet_received(const NetworkPacket& np) {
     if (np.body.contains("message") && np.body["message"].is_string()) {
         msg = np.body["message"].get<std::string>();
     }
-    
+
+    std::string device_name = device_id_;
+    if (const auto session = provider_->device(device_id_)) {
+        device_name = session->info.name;
+    }
+
+    NotificationPlugin::post_notification(device_id_ + "_ping", "From " + device_name, msg, std::to_string(id++));
     Logger::info("[PING RECEIVED] From " + device_id_ + ": " + msg);
     return true;
 }
