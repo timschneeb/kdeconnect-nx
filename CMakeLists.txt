@@ -4,6 +4,8 @@ project(MiniKDEConnect VERSION 0.0.1)
 
 set(CMAKE_CXX_STANDARD 20)
 
+add_compile_definitions(MINIKDECONNECT_VERSION=\"${PROJECT_VERSION}\")
+
 include(FetchContent)
 
 find_package(nlohmann_json QUIET)
@@ -23,54 +25,7 @@ pkg_check_modules(MBEDTLS REQUIRED IMPORTED_TARGET mbedtls mbedx509 mbedcrypto)
 
 find_package(Threads REQUIRED)
 
-if(CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch")
-    set(PLATFORM_MAIN main_switch.cpp src/nx_application.cpp)
-else()
-    set(PLATFORM_MAIN main.cpp)
-endif()
-
-add_executable(MiniKDEConnect
-  ${PLATFORM_MAIN}
-  src/mdns/mdns_discovery.cpp
-  src/net/kdeconnect_client.cpp
-  src/net/network_packet.cpp
-  src/net/tls.cpp
-  src/storage.cpp
-  src/utils/network_util.cpp
-  src/utils/logger.cpp
-  src/utils/nxlink_sink.cpp
-  src/plugins/ping_plugin.cpp
-  src/plugins/battery_plugin.cpp
-  src/plugins/notification_plugin.cpp
-  src/plugins/find_my_phone_plugin.cpp
-  src/plugins/mpris_plugin.cpp
-  src/plugins/system_volume_plugin.cpp
-  src/plugins/share_plugin.cpp
-  src/plugins/run_command_plugin.cpp
-  src/plugins/mousepad_plugin.cpp
-  src/plugins/plugin_registry.cpp
-)
-
-target_include_directories(MiniKDEConnect PRIVATE src libs)
-
-target_link_libraries(MiniKDEConnect PRIVATE nlohmann_json::nlohmann_json PkgConfig::MBEDTLS Threads::Threads)
-
-# Build tools
+add_subdirectory(common)
+add_subdirectory(sysmodule)
+add_subdirectory(overlay)
 add_subdirectory(tools)
-
-if(CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch")
-
-nx_generate_nacp(MiniKDEConnect.nacp
-   NAME "kdeconnect-nx"
-   AUTHOR "timschneeb"
-   VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}"
-)
-
-nx_create_nro(MiniKDEConnect
-    NACP MiniKDEConnect.nacp
-    # ICON ${CMAKE_CURRENT_SOURCE_DIR}/icon.jpg
-)
-
-INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/kdeconnect-nx.nro DESTINATION . COMPONENT kdeconnect-nx)
-
-endif()

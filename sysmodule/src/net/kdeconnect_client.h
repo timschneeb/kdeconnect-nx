@@ -10,12 +10,12 @@
 
 #include <nlohmann/json.hpp>
 
-#include "../kdeconnect_types.h"
+#include "kdeconnect_types.h"
 #include "../mdns/mdns_discovery.h"
-#include "../storage.h"
+#include "../utils/storage.h"
 #include "tls.h"
 #include "../plugins/plugin.h"
-#include "../utils/logger.h"
+#include "../../../common/src/utils/logger.h"
 #include "../utils/scoped_fd.h"
 
 class KdeConnectClient : public DeviceProvider {

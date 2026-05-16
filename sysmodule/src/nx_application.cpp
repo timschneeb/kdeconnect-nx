@@ -1,4 +1,4 @@
-#include "nx_application.h"
+#include "src/nx_application.h"
 
 #include <switch.h>
 
@@ -7,7 +7,7 @@
 
 #include "plugins/share_plugin.h"
 #include "net/kdeconnect_client.h"
-#include "storage.h"
+#include "utils/storage.h"
 #include "utils/logger.h"
 #include "utils/mem_debug.h"
 

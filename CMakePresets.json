@@ -1,0 +1,34 @@
+{
+  "version": 4,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 20,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Default",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build"
+    },
+    {
+      "name": "switch",
+      "displayName": "Nintendo Switch",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/cmake-build-debug-devkita64",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/Switch.cmake"
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "default",
+      "configurePreset": "default"
+    },
+    {
+      "name": "switch",
+      "configurePreset": "switch"
+    }
+  ]
+}
+

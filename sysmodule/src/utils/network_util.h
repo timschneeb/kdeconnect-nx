@@ -3,7 +3,7 @@
 #include <optional>
 #include <string>
 
-#include "../kdeconnect_types.h"
+#include "../net/kdeconnect_types.h"
 #include "../net/network_packet.h"
 #include "../net/tls.h"
 

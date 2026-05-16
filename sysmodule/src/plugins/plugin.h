@@ -5,7 +5,7 @@
 #include <thread>
 #include <vector>
 
-#include "kdeconnect_types.h"
+#include "../net/kdeconnect_types.h"
 #include "../net/network_packet.h"
 #include "utils/logger.h"
 

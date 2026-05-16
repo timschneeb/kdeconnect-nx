@@ -11,8 +11,8 @@
 #include <unistd.h>
 #endif
 
-#include "net/network_packet.h"
-#include "plugins/plugin_registry.h"
+#include "../net/network_packet.h"
+#include "../plugins/plugin_registry.h"
 
 namespace {
 

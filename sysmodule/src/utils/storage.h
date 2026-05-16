@@ -4,8 +4,8 @@
 #include <optional>
 #include <string>
 
-#include "kdeconnect_types.h"
-#include "plugins/plugin.h"
+#include "../net/kdeconnect_types.h"
+#include "../plugins/plugin.h"
 
 struct PairedDeviceInfo {
     DeviceInfo info;

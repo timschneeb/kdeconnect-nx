@@ -8,8 +8,6 @@
 #include <string_view>
 #include <vector>
 
-#include "nxlink_sink.h"
-
 Logger::Sink Logger::sink_;
 NxLink Logger::nxlink_;
 

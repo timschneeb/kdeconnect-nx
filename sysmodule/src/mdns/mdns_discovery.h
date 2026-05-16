@@ -2,7 +2,7 @@
 #include <functional>
 #include <memory>
 #include <string>
-#include "../kdeconnect_types.h"
+#include "../net/kdeconnect_types.h"
 class MdnsDiscovery {
 public:
     // device_id may be empty if not resolved; host is IPv4 string

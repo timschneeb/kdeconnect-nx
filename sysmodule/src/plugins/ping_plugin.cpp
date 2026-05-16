@@ -1,7 +1,7 @@
 #include "ping_plugin.h"
 
 #include "notification_plugin.h"
-#include "../utils/logger.h"
+#include "../../../common/src/utils/logger.h"
 
 std::string PingPlugin::name() const {
     return "Ping Plugin";
