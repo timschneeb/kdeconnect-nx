@@ -1,22 +1,21 @@
 #include "storage.h"
 
-#include <fstream>
+#include <cstdio>
+#include <cstdlib>
 #include <string>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <nlohmann/json.hpp>
 
 #ifdef __SWITCH__
 #include <switch.h>
-#else
-#include <unistd.h>
 #endif
 
 #include "../net/network_packet.h"
 #include "../plugins/plugin_registry.h"
 
 namespace {
-
-
 std::string hostname_or_default() {
 #if __SWITCH__
     setInitialize();
@@ -65,9 +64,11 @@ std::optional<PairedDeviceInfo> Storage::load_paired_device(const std::string& d
     if (!std::filesystem::exists(path)) {
         return std::nullopt;
     }
-    std::ifstream in(path);
-    nlohmann::json data;
-    in >> data;
+    const std::string content = read_file(path);
+    if (content.empty()) return std::nullopt;
+    const auto data = nlohmann::json::parse(content, nullptr, false);
+    if (data.is_discarded()) return std::nullopt;
+
     PairedDeviceInfo info;
     info.info.id = data.value("deviceId", device_id);
     info.info.name = data.value("deviceName", std::string("unknown"));
@@ -84,8 +85,7 @@ void Storage::save_paired_device(const DeviceInfo& info, const std::string& cert
     data["deviceType"] = info.type;
     data["protocolVersion"] = info.protocol_version;
     data["certificatePem"] = certificate_pem;
-    std::ofstream out(paired_path(base_path_, info.id));
-    out << data.dump(2);
+    write_file(paired_path(base_path_, info.id), data.dump(2));
 }
 
 auto Storage::remove_paired_device(const std::string &device_id) const -> void {
@@ -105,4 +105,25 @@ std::filesystem::path Storage::cert_path() const {
 
 std::filesystem::path Storage::key_path() const {
     return base_path_ / "key.pem";
+}
+
+std::string Storage::read_file(const std::string &path) {
+    FILE* f = fopen(path.c_str(), "rb");
+    if (!f) return {};
+    fseek(f, 0, SEEK_END);
+    const long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    if (size <= 0) { fclose(f); return {}; }
+    std::string out(static_cast<size_t>(size), '\0');
+    fread(out.data(), 1, static_cast<size_t>(size), f);
+    fclose(f);
+    return out;
+}
+
+bool Storage::write_file(const std::string &path, const std::string &data) {
+    FILE* f = fopen(path.c_str(), "wb");
+    if (!f) return false;
+    const size_t written = fwrite(data.data(), 1, data.size(), f);
+    fclose(f);
+    return written == data.size();
 }

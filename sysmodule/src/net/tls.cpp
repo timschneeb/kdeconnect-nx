@@ -9,19 +9,15 @@
 #include <mbedtls/x509_crt.h>
 #include <mbedtls/x509.h>
 
-#include <fstream>
+#include <cstdio>
 #include <cstring>
-#include <sstream>
 #include <vector>
 
 #include <sys/socket.h>
-#include <unistd.h>
 #include <array>
-#include <cerrno>
 #include <random>
 
-#include <mbedtls/error.h>
-
+#include "storage.h"
 #include "utils/logger.h"
 
 namespace {
@@ -31,30 +27,14 @@ std::string generate_device_id() {
     for (auto& b : bytes) {
         b = static_cast<unsigned char>(rd());
     }
-    std::ostringstream oss;
-    oss << std::hex;
+    static constexpr char hex[] = "0123456789abcdef";
+    std::string out;
+    out.reserve(32);
     for (const auto b : bytes) {
-        oss.width(2);
-        oss.fill('0');
-        oss << static_cast<int>(b);
+        out.push_back(hex[(b >> 4) & 0xF]);
+        out.push_back(hex[b & 0xF]);
     }
-    return oss.str();
-}
-
-std::string read_file(const std::string& path) {
-    std::ifstream in(path, std::ios::binary);
-    std::ostringstream ss;
-    ss << in.rdbuf();
-    return ss.str();
-}
-
-bool write_file(const std::string& path, const std::string& data) {
-    std::ofstream out(path, std::ios::binary | std::ios::trunc);
-    if (!out) {
-        return false;
-    }
-    out << data;
-    return true;
+    return out;
 }
 
 int socket_send(void* ctx, const unsigned char* buf, size_t len) {
@@ -189,8 +169,8 @@ std::vector<unsigned char> TlsContext::peer_pubkey_bytes(const TlsSession& sessi
 }
 
 bool TlsContext::load_from_files(const std::string& cert_path, const std::string& key_path) {
-    std::string cert_pem = read_file(cert_path);
-    std::string key_pem = read_file(key_path);
+    std::string cert_pem = Storage::read_file(cert_path);
+    std::string key_pem = Storage::read_file(key_path);
     if (cert_pem.empty() || key_pem.empty()) {
         return false;
     }
@@ -269,7 +249,7 @@ bool TlsContext::generate_self_signed(const std::string& cert_path, const std::s
     }
     cert_pem_.assign(reinterpret_cast<char*>(cert_buf));
 
-    if (!write_file(cert_path, cert_pem_)) {
+    if (!Storage::write_file(cert_path, cert_pem_)) {
         mbedtls_x509write_crt_free(&write_cert);
         return false;
     }
@@ -280,7 +260,7 @@ bool TlsContext::generate_self_signed(const std::string& cert_path, const std::s
         mbedtls_x509write_crt_free(&write_cert);
         return false;
     }
-    if (!write_file(key_path, reinterpret_cast<char*>(key_buf))) {
+    if (!Storage::write_file(key_path, reinterpret_cast<char*>(key_buf))) {
         mbedtls_mpi_free(&serial);
         mbedtls_x509write_crt_free(&write_cert);
         return false;

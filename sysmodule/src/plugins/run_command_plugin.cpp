@@ -37,32 +37,25 @@ bool RunCommandPlugin::on_packet_received(const NetworkPacket& np) {
 }
 
 void RunCommandPlugin::send_command_list() const {
-    // commandList must be a serialized JSON string, not a nested object.
-    nlohmann::json commands = {
-        // Power
-        {"nx-sleep",              {{"name", "Sleep"},                  {"command", "Enter sleep mode (will disconnect)"}}},
-        {"nx-reboot",             {{"name", "Reboot"},                 {"command", "Restart console"}}},
-        {"nx-shutdown",           {{"name", "Shutdown"},               {"command", "Turn off console"}}},
-        // Screen
-        {"nx-screen-off",         {{"name", "Screen Off"},             {"command", "Turn screen backlight off"}}},
-        {"nx-screen-on",          {{"name", "Screen On"},              {"command", "Turn screen backlight on"}}},
-        {"nx-bright-max",         {{"name", "Brightness Max"},         {"command", "Set brightness to maximum strength"}}},
-        {"nx-bright-min",         {{"name", "Brightness Min"},         {"command", "Set brightness to minimum strength"}}},
-        {"nx-auto-bright-on",     {{"name", "Auto Brightness On"},     {"command", "Enable auto brightness"}}},
-        {"nx-auto-bright-off",    {{"name", "Auto Brightness Off"},    {"command", "Disable auto brightness"}}},
-         // Bluetooth
-        {"nx-bluetooth-off",      {{"name", "Bluetooth Off"},          {"command", "Turn Bluetooth radio off"}}},
-        {"nx-bluetooth-on",       {{"name", "Bluetooth On"},           {"command", "Turn Bluetooth radio on"}}},
-        // Capture
-        {"nx-screenshot",         {{"name", "Screenshot"},             {"command", "Take screenshot"}}},
-    };
+    static constexpr const char *kCommandList =
+            R"({"canAddCommand":false,"commandList":")"
+            R"({\"nx-auto-bright-off\":{\"command\":\"Disable auto brightness\",\"name\":\"Auto Brightness Off\"},)"
+            R"(\"nx-auto-bright-on\":{\"command\":\"Enable auto brightness\",\"name\":\"Auto Brightness On\"},)"
+            R"(\"nx-bluetooth-off\":{\"command\":\"Turn Bluetooth radio off\",\"name\":\"Bluetooth Off\"},)"
+            R"(\"nx-bluetooth-on\":{\"command\":\"Turn Bluetooth radio on\",\"name\":\"Bluetooth On\"},)"
+            R"(\"nx-bright-max\":{\"command\":\"Set brightness to maximum strength\",\"name\":\"Brightness Max\"},)"
+            R"(\"nx-bright-min\":{\"command\":\"Set brightness to minimum strength\",\"name\":\"Brightness Min\"},)"
+            R"(\"nx-reboot\":{\"command\":\"Restart console\",\"name\":\"Reboot\"},)"
+            R"(\"nx-screen-off\":{\"command\":\"Turn screen backlight off\",\"name\":\"Screen Off\"},)"
+            R"(\"nx-screen-on\":{\"command\":\"Turn screen backlight on\",\"name\":\"Screen On\"},)"
+            R"(\"nx-screenshot\":{\"command\":\"Take screenshot\",\"name\":\"Screenshot\"},)"
+            R"(\"nx-shutdown\":{\"command\":\"Turn off console\",\"name\":\"Shutdown\"},)"
+            R"(\"nx-sleep\":{\"command\":\"Enter sleep mode (will disconnect)\",\"name\":\"Sleep\"}})"
+            R"("})";
 
     NetworkPacket pkt;
     pkt.type = PacketTypes::RunCommand;
-    pkt.body = {
-        {"commandList", commands.dump()},
-        {"canAddCommand", false}
-    };
+    pkt.body = nlohmann::json::parse(kCommandList);
     send_packet(pkt);
 }
 
@@ -73,13 +66,11 @@ void RunCommandPlugin::execute(const std::string& key) const {
     // --- Power ---
     if (key == "nx-sleep") {
         appletRequestToSleep();
-
     } else if (key == "nx-reboot") {
         if (R_SUCCEEDED(bpcInitialize())) {
             bpcRebootSystem();
             bpcExit();
         }
-
     } else if (key == "nx-shutdown") {
         if (R_SUCCEEDED(bpcInitialize())) {
             bpcShutdownSystem();
@@ -92,33 +83,28 @@ void RunCommandPlugin::execute(const std::string& key) const {
             lblSwitchBacklightOff(0);
             lblExit();
         }
-
     } else if (key == "nx-screen-on") {
         if (R_SUCCEEDED(lblInitialize())) {
             lblSwitchBacklightOn(0);
             lblExit();
         }
-
     } else if (key == "nx-bright-max") {
         if (R_SUCCEEDED(lblInitialize())) {
             lblSetCurrentBrightnessSetting(1.0f);
             lblApplyCurrentBrightnessSettingToBacklight();
             lblExit();
         }
-
     } else if (key == "nx-bright-min") {
         if (R_SUCCEEDED(lblInitialize())) {
             lblSetCurrentBrightnessSetting(0.0f);
             lblApplyCurrentBrightnessSettingToBacklight();
             lblExit();
         }
-
     } else if (key == "nx-auto-bright-on") {
         if (R_SUCCEEDED(lblInitialize())) {
             lblEnableAutoBrightnessControl();
             lblExit();
         }
-
     } else if (key == "nx-auto-bright-off") {
         if (R_SUCCEEDED(lblInitialize())) {
             lblDisableAutoBrightnessControl();
@@ -131,7 +117,6 @@ void RunCommandPlugin::execute(const std::string& key) const {
             btmDisableRadio();
             btmExit();
         }
-
     } else if (key == "nx-bluetooth-on") {
         if (R_SUCCEEDED(btmInitialize())) {
             btmEnableRadio();

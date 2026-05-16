@@ -3,7 +3,6 @@
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
-#include <fstream>
 #include <string>
 
 #ifdef __SWITCH__
@@ -220,10 +219,11 @@ void NotificationPlugin::post_notification(const std::string& app_id,
         {"alignment",  "left"},
     };
 
-    std::ofstream f(path);
-    if (f.is_open()) {
-        f << notify_json.dump(2);
-        f.close();
+    FILE* f = fopen(path.c_str(), "w");
+    if (f) {
+        const std::string content = notify_json.dump(2);
+        fwrite(content.data(), 1, content.size(), f);
+        fclose(f);
     } else {
         Logger::error("Failed to write notify file: " + path);
     }
