@@ -22,7 +22,7 @@
 
 #include <mbedtls/error.h>
 
-#include "../utils/logger.h"
+#include "utils/logger.h"
 
 namespace {
 std::string generate_device_id() {

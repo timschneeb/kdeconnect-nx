@@ -1,7 +1,7 @@
 #include "mousepad_plugin.h"
 
 #include "notification_plugin.h"
-#include "../utils/logger.h"
+#include "utils/logger.h"
 
 static std::atomic<bool> s_no_mouse_support_hint_shown{false};
 

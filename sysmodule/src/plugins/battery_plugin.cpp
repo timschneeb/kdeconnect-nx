@@ -1,5 +1,5 @@
 #include "battery_plugin.h"
-#include "../utils/logger.h"
+#include "utils/logger.h"
 #include <chrono>
 #include <thread>
 

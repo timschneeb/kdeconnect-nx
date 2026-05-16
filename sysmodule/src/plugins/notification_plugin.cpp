@@ -1,5 +1,5 @@
 #include "notification_plugin.h"
-#include "../utils/logger.h"
+#include "utils/logger.h"
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
@@ -8,6 +8,7 @@
 
 #ifdef __SWITCH__
 #define STB_IMAGE_IMPLEMENTATION
+#define STBI_ONLY_PNG
 #include "stb_image.h"
 #include <dirent.h>
 #include <sys/stat.h>

@@ -1,5 +1,5 @@
 #include "share_plugin.h"
-#include "../utils/logger.h"
+#include "utils/logger.h"
 
 #ifdef __SWITCH__
 #include <switch.h>

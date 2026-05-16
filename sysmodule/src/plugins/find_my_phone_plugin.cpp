@@ -1,5 +1,5 @@
 #include "find_my_phone_plugin.h"
-#include "../utils/logger.h"
+#include "utils/logger.h"
 
 std::string FindMyPhonePlugin::name() const { return "Find My Phone Plugin"; }
 std::string FindMyPhonePlugin::description() const { return "Sends find request to remote devices."; }

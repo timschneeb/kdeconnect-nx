@@ -1,5 +1,5 @@
 #include "mpris_plugin.h"
-#include "../utils/logger.h"
+#include "utils/logger.h"
 
 std::string MprisPlugin::name() const { return "MPRIS Plugin"; }
 std::string MprisPlugin::description() const { return "Remote control for media players on other devices."; }

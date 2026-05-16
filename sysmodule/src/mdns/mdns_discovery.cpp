@@ -7,7 +7,7 @@
 #endif
 
 #include "mdns.h"
-#include "../utils/logger.h"
+#include "utils/logger.h"
 
 #include <arpa/inet.h>
 #include <netinet/in.h>

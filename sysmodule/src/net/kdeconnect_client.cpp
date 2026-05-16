@@ -22,7 +22,7 @@
 
 #include "../plugins/plugin_registry.h"
 
-#include "../../../common/src/utils/logger.h"
+#include "utils/logger.h"
 #include "../utils/network_util.h"
 
 namespace {
