@@ -1,10 +1,9 @@
 #include "logger.h"
 
 #include <chrono>
-#include <cstdio>
 #include <cstdarg>
-#include <iomanip>
-#include <sstream>
+#include <cstdio>
+#include <ctime>
 #include <string_view>
 #include <vector>
 
@@ -54,9 +53,9 @@ std::string now_string() {
     auto tt = std::chrono::system_clock::to_time_t(now);
     std::tm tm{};
     localtime_r(&tt, &tm);
-    std::ostringstream oss;
-    oss << std::put_time(&tm, "%H:%M:%S");
-    return oss.str();
+    char buf[9];
+    strftime(buf, sizeof(buf), "%H:%M:%S", &tm);
+    return buf;
 }
 
 std::string extract_class_name(std::string_view function) {

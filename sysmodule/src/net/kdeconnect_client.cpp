@@ -81,20 +81,16 @@ bool KdeConnectClient::start() {
     }
 
     mdns_discovery_ = std::make_unique<MdnsDiscovery>(local_device_, tcp_port_, [this](const std::string& device_id, const std::string& host) {
-        try {
-            {
-                std::lock_guard lock(session_mutex_);
-                if (sessions_.contains(device_id) && !sessions_[device_id]->disconnected.load()) {
-                    // already connected
-                    return;
-                }
+        {
+            std::lock_guard lock(session_mutex_);
+            if (sessions_.contains(device_id) && !sessions_[device_id]->disconnected.load()) {
+                // already connected
+                return;
             }
-
-            Logger::info("mDNS: Sending probe to " + device_id + " at " + host);
-            send_udp_identity_probe(device_id, host);
-        } catch (const std::exception &e) {
-            Logger::error("Error handling mDNS discovery for device " + device_id + " at " + host + ": " + e.what());
         }
+
+        Logger::info("mDNS: Sending probe to " + device_id + " at " + host);
+        send_udp_identity_probe(device_id, host);
     });
 
     needs_restart_.store(false);
