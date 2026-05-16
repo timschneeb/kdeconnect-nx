@@ -17,6 +17,7 @@ private:
     void restart_client(const char* reason);
 
     bool was_online_;
+    bool has_initialized_nxlink_;
     Storage storage_;
     std::shared_ptr<KdeConnectClient> client_;
     std::chrono::steady_clock::time_point last_restart_;

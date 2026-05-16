@@ -30,3 +30,13 @@ target_include_directories(libstratosphere INTERFACE
     ${LIBSTRATOSPHERE_DIR}/include
     ${ATMOSPHERE_LIBS_DIR}/libvapours/include
 )
+
+target_compile_definitions(libstratosphere INTERFACE
+        ATMOSPHERE
+        ATMOSPHERE_IS_STRATOSPHERE
+        ATMOSPHERE_OS_HORIZON
+        ATMOSPHERE_BOARD_NINTENDO_NX
+        ATMOSPHERE_ARCH_ARM64
+        ATMOSPHERE_ARCH_ARM_V8A
+        ATMOSPHERE_CPU_ARM_CORTEX_A57
+        _GNU_SOURCE)

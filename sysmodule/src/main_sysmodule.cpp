@@ -1,130 +1,92 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include <switch.h>
+#include <stratosphere.hpp>
 
-#include "logger.h"
+#include "nx_application.h"
+#include "utils/logger.h"
 
-// Size of the inner heap (adjust as necessary).
-#define INNER_HEAP_SIZE 0x80000
+namespace ams {
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+    ncm::ProgramId CurrentProgramId = {0x4DE000000C011EC7};
 
-// Sysmodules should not use applet*.
-u32 __nx_applet_type = AppletType_None;
-
-// Sysmodules will normally only want to use one FS session.
-u32 __nx_fs_num_sessions = 1;
-
-extern void __libnx_init_time(void);
-
-// Newlib heap configuration function (makes malloc/free work).
-void __libnx_initheap(void)
-{
-    static u8 inner_heap[INNER_HEAP_SIZE];
-    extern void* fake_heap_start;
-    extern void* fake_heap_end;
-
-    // Configure the newlib heap.
-    fake_heap_start = inner_heap;
-    fake_heap_end   = inner_heap + sizeof(inner_heap);
-}
-
-// Service initialization.
-void __appInit(void)
-{
-    Result rc;
-
-    // Open a service manager session.
-    rc = smInitialize();
-    if (R_FAILED(rc))
-        diagAbortWithResult(MAKERESULT(Module_Libnx, LibnxError_InitFail_SM));
-
-    // Retrieve the current version of Horizon OS.
-    rc = setsysInitialize();
-    if (R_SUCCEEDED(rc)) {
-        SetSysFirmwareVersion fw;
-        rc = setsysGetFirmwareVersion(&fw);
-        if (R_SUCCEEDED(rc))
-            hosversionSet(MAKEHOSVERSION(fw.major, fw.minor, fw.micro));
-        setsysExit();
+    namespace result {
+        bool CallFatalOnResultAssertion = true;
     }
 
-    // Enable this if you want to use HID.
-    /*rc = hidInitialize();
-    if (R_FAILED(rc))
-        diagAbortWithResult(MAKERESULT(Module_Libnx, LibnxError_InitFail_HID));*/
+    namespace {
 
-    // Enable this if you want to use time.
-    rc = timeInitialize();
-    if (R_FAILED(rc))
-        diagAbortWithResult(MAKERESULT(Module_Libnx, LibnxError_InitFail_Time));
+        alignas(0x40) constinit u8 g_heap_memory[2_MB];
+        constinit lmem::HeapHandle g_heap_handle;
+        constinit bool g_heap_initialized;
+        constinit os::SdkMutex g_heap_init_mutex;
 
-    __libnx_init_time();
+        lmem::HeapHandle GetHeapHandle() {
+            if (AMS_UNLIKELY(!g_heap_initialized)) {
+                std::scoped_lock lk(g_heap_init_mutex);
+                if (AMS_LIKELY(!g_heap_initialized)) {
+                    g_heap_handle = lmem::CreateExpHeap(g_heap_memory, sizeof(g_heap_memory), lmem::CreateOption_ThreadSafe);
+                    g_heap_initialized = true;
+                }
+            }
+            return g_heap_handle;
+        }
 
-    // Disable this if you don't want to use the filesystem.
-    rc = fsInitialize();
-    if (R_FAILED(rc))
-        diagAbortWithResult(MAKERESULT(Module_Libnx, LibnxError_InitFail_FS));
+        void *Allocate(size_t size) {
+            return lmem::AllocateFromExpHeap(GetHeapHandle(), size);
+        }
 
-    // Disable this if you don't want to use the SD card filesystem.
-    fsdevMountSdmc();
+        void *AllocateWithAlign(size_t sz, size_t align) {
+            return lmem::AllocateFromExpHeap(GetHeapHandle(), sz, align);
+        }
 
-    // Add other services you want to use here.
+        void Deallocate(void *p, size_t size) {
+            AMS_UNUSED(size);
+            return lmem::FreeToExpHeap(GetHeapHandle(), p);
+        }
 
-    // Close the service manager session.
-    smExit();
-}
+    } // namespace
 
-// Service deinitialization.
-void __appExit(void)
-{
-    // Close extra services you added to __appInit here.
-    fsdevUnmountAll();
-    fsExit();
-    timeExit();
-    //hidExit(); // Enable this if you want to use HID.
-}
+    namespace init {
 
-#ifdef __cplusplus
-}
-#endif
+        void InitializeSystemModule() {
+            R_ABORT_UNLESS(sm::Initialize());
+            R_ABORT_UNLESS(timeInitialize());
+            R_ABORT_UNLESS(fsInitialize());
+            R_ABORT_UNLESS(fsdevMountSdmc());
+            R_ABORT_UNLESS(socketInitializeDefault());
+            R_ABORT_UNLESS(nifmInitialize(NifmServiceType_System));
+        }
 
-alignas(16) u8 __nx_exception_stack[0x1000];
-u64 __nx_exception_stack_size = sizeof(__nx_exception_stack);
-__attribute__((weak)) u32 __nx_exception_ignoredebug = 1;
+        void FinalizeSystemModule() {
+            nifmExit();
+            socketExit();
+            fsdevUnmountAll();
+            fsExit();
+            timeExit();
+        }
 
-void __libnx_exception_handler(ThreadExceptionDump *ctx) {
-    Logger::error("Crashed with error 0x%x\n", ctx->error_desc);
+        void Startup() {}
 
-    for (int i = 0; i < 29; i++) {
-        Logger::error("[X%d]: 0x%lx\n", i, ctx->cpu_gprs[i].x);
+    } // namespace init
+
+    void Main() {
+        Logger::connect_nxlink();
+
+        auto app = NxApplication();
+        while (true) {
+            app.processEvents();
+            svcSleepThread(100'000'000LL);
+        }
     }
-    Logger::error("fp: 0x%lx\n", ctx->fp.x);
-    Logger::error("lr: 0x%lx\n", ctx->lr.x);
-    Logger::error("sp: 0x%lx\n", ctx->sp.x);
-    Logger::error("pc: 0x%lx\n", ctx->pc.x);
 
-    Logger::error("pstate: 0x%x\n", ctx->pstate);
-    Logger::error("afsr0: 0x%x\n", ctx->afsr0);
-    Logger::error("afsr1: 0x%x\n", ctx->afsr1);
-    Logger::error("esr: 0x%x\n", ctx->esr);
+} // namespace ams
 
-    Logger::error("far: 0x%lx\n", ctx->far.x);
-}
-
-
-// Main program entrypoint
-int main(int argc, char* argv[])
-{
-    // Initialization code can go here.
-
-    // Your code / main loop goes here.
-    // If you need threads, you can use threadCreate etc.
-
-    // Deinitialization and resources clean up code can go here.
-    return 0;
-}
+void *operator new(size_t size) { return ams::Allocate(size); }
+void *operator new(size_t size, const std::nothrow_t &) noexcept { return ams::Allocate(size); }
+void operator delete(void *p) noexcept { return ams::Deallocate(p, 0); }
+void operator delete(void *p, size_t size) noexcept { return ams::Deallocate(p, size); }
+void *operator new[](size_t size) { return ams::Allocate(size); }
+void *operator new[](size_t size, const std::nothrow_t &) noexcept { return ams::Allocate(size); }
+void operator delete[](void *p) noexcept { return ams::Deallocate(p, 0); }
+void operator delete[](void *p, size_t size) noexcept { return ams::Deallocate(p, size); }
+void *operator new(size_t size, std::align_val_t align) { return ams::AllocateWithAlign(size, static_cast<size_t>(align)); }
+void operator delete(void *p, std::align_val_t align) noexcept { AMS_UNUSED(align); return ams::Deallocate(p, 0); }

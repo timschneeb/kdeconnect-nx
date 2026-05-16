@@ -75,7 +75,9 @@ if(CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch")
             ${MINIKDECONNECT_NX_SOURCES}
         )
         target_include_directories(MiniKDEConnect_sysmodule PRIVATE ${MINIKDECONNECT_INCLUDE_DIRS})
+        target_compile_definitions(MiniKDEConnect_sysmodule PRIVATE MINIKDECONNECT_SYSMODULE)
         target_link_libraries(MiniKDEConnect_sysmodule PRIVATE ${MINIKDECONNECT_LINK_LIBS} libstratosphere)
+        target_link_options(MiniKDEConnect_sysmodule PRIVATE -Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/MiniKDEConnect_sysmodule.map)
 
         file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${MINIKDECONNECT_TID})
         file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${MINIKDECONNECT_TID}/flags)

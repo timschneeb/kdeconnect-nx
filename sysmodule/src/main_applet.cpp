@@ -127,7 +127,25 @@ static void draw_ui(const KdeConnectClient& client, int selected) {
 // ---------------------------------------------------------------------------
 
 int main() {
+    consoleInit(NULL);
     Logger::set_sink(log_sink);
+
+    if (Result rc = socketInitializeDefault(); R_FAILED(rc)) {
+        printf("socketInitializeDefault failed: 0x%x\n", rc);
+        consoleUpdate(NULL);
+        svcSleepThread(5'000'000'000LL);
+        consoleExit(NULL);
+        return 1;
+    }
+
+    if (R_FAILED(nifmInitialize(NifmServiceType_User))) {
+        printf("nifmInitialize failed\n");
+        consoleUpdate(NULL);
+        svcSleepThread(5'000'000'000LL);
+        consoleExit(NULL);
+        return 1;
+    }
+
     auto app = NxApplication();
     auto client = app.client();
 
@@ -258,5 +276,8 @@ int main() {
         svcSleepThread(100'000'000LL); // 100 ms
     }
 
+    nifmExit();
+    socketExit();
+    consoleExit(NULL);
     return 0;
 }

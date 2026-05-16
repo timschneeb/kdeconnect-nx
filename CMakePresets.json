@@ -14,10 +14,23 @@
     },
     {
       "name": "switch",
-      "displayName": "Nintendo Switch",
+      "displayName": "Nintendo Switch (Debug)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/cmake-build-debug-devkita64",
-      "toolchainFile": "${sourceDir}/cmake/toolchains/Switch.cmake"
+      "toolchainFile": "${sourceDir}/cmake/toolchains/Switch.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "switch-release",
+      "displayName": "Nintendo Switch (Release)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/cmake-build-release-devkita64",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/Switch.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "MinSizeRel"
+      }
     }
   ],
   "buildPresets": [
@@ -28,6 +41,10 @@
     {
       "name": "switch",
       "configurePreset": "switch"
+    },
+    {
+      "name": "switch-release",
+      "configurePreset": "switch-release"
     }
   ]
 }
