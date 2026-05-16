@@ -19,9 +19,10 @@ if (NOT ${nlohmann_json_FOUND})
     FetchContent_MakeAvailable(nlohmann_json)
 endif()
 
-# Use pkg-config to find MbedTLS (for devkitpro compatibility)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(MBEDTLS REQUIRED IMPORTED_TARGET mbedtls mbedx509 mbedcrypto)
+# Custom in-tree MbedTLS build for size optimization and Switch compatibility
+add_subdirectory(sysmodule/libs/mbedtls)
+set(MBEDTLS_LIBRARIES MBEDTLS::mbedtls MBEDTLS::mbedx509 MBEDTLS::mbedcrypto)
+set(MBEDTLS_INCLUDE_DIRS "") # Handled by target_link_libraries
 
 find_package(Threads REQUIRED)
 

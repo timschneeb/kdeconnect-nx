@@ -1,0 +1,1 @@
+Adapted from devkitPro's PKGBUILD: https://github.com/devkitPro/pacman-packages/tree/master/switch/mbedtls

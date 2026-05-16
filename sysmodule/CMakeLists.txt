@@ -40,7 +40,7 @@ set(MINIKDECONNECT_INCLUDE_DIRS
 set(MINIKDECONNECT_LINK_LIBS
     minikdeconnect_common
     nlohmann_json::nlohmann_json
-    PkgConfig::MBEDTLS
+    ${MBEDTLS_LIBRARIES}
     Threads::Threads
 )
 
