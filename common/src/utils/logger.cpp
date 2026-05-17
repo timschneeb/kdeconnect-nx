@@ -5,22 +5,39 @@
 #include <cstdio>
 #include <ctime>
 #include <string_view>
+#include <sys/stat.h>
 #include <vector>
 
 Logger::Sink Logger::sink_;
 NxLink Logger::nxlink_;
+FILE* Logger::log_file_ = nullptr;
 
 bool Logger::connect_nxlink(const std::optional<in_addr> &host_address) {
     return nxlink_.connectToHost(host_address) >= 0;
 }
 
-void Logger::set_sink(Sink sink) {
+void Logger::set_custom_sink(Sink sink) {
     sink_ = std::move(sink);
+}
+
+void Logger::open_log_file(const char* name) {
+    if (!name) return;
+
+    constexpr auto dir = "sdmc:/atmosphere/logs/";
+    mkdir(dir, 0777);
+
+    log_file_ = fopen((std::string(dir) + name + ".log").c_str(), "a");
+    if (log_file_)
+        fputs("======================\n", log_file_);
 }
 
 void Logger::shutdown() {
     sink_ = nullptr;
     nxlink_.shutdown();
+    if (log_file_) {
+        fclose(log_file_);
+        log_file_ = nullptr;
+    }
 }
 
 std::string Logger::format(const char* fmt, ...) {
@@ -89,10 +106,13 @@ void Logger::log(const std::string& level, const std::string& msg,
 
 void Logger::log(const std::string& level, const std::string& msg) {
     auto now = now_string();
+    auto formatted = "[" + now + "][" + level + "] " + msg + "\n";
     if (sink_) {
         sink_(level, msg);
-    } else {
-        std::fprintf(stderr, "[%s] %s: %s\n", now.c_str(), level.c_str(), msg.c_str());
     }
-    nxlink_.write(("[" + now + "][" + level + "] " + msg + "\n").c_str());
+    if (log_file_) {
+        fputs(formatted.c_str(), log_file_);
+        fflush(log_file_);
+    }
+    nxlink_.write(formatted.c_str());
 }

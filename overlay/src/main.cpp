@@ -2,6 +2,7 @@
 #include <tesla.hpp>
 #include <kdec/ipc.h>
 #include <kdec/ipc_client.h>
+#include <src/utils/logger.h>
 
 static constexpr uint32_t MAX_DEVICES = 16;
 
@@ -75,8 +76,14 @@ private:
 
 class OverlayMain : public tsl::Overlay {
 public:
-    void initServices() override { kdecIpcInitialize(); }
-    void exitServices() override { kdecIpcExit(); }
+    void initServices() override {
+        Logger::open_log_file("kdeconnect_overlay");
+        kdecIpcInitialize();
+    }
+    void exitServices() override {
+        kdecIpcExit();
+        Logger::shutdown();
+    }
     void onShow() override {}
     void onHide() override {}
 

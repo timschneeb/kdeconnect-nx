@@ -69,6 +69,7 @@ namespace ams {
     } // namespace init
 
     void Main() {
+        Logger::open_log_file("kdeconnect_sysmodule");
         Logger::connect_nxlink();
 
         auto app = NxApplication();

@@ -128,7 +128,8 @@ static void draw_ui(const KdeConnectClient& client, int selected) {
 
 int main() {
     consoleInit(NULL);
-    Logger::set_sink(log_sink);
+    Logger::open_log_file("kdeconnect_applet");
+    Logger::set_custom_sink(log_sink);
 
     if (Result rc = socketInitializeDefault(); R_FAILED(rc)) {
         printf("socketInitializeDefault failed: 0x%x\n", rc);

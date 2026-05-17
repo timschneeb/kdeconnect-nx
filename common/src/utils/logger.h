@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdio>
 #include <functional>
 #include <source_location>
 #include <string>
@@ -14,7 +15,8 @@ public:
     // Set once before starting any threads. Pass nullptr to reset.
     using Sink = std::function<void(const std::string& level, const std::string& msg)>;
     static bool connect_nxlink(const std::optional<in_addr>& host_address = std::nullopt);
-    static void set_sink(Sink sink);
+    static void set_custom_sink(Sink sink);
+    static void open_log_file(const char* name);
     static void shutdown();
 
     static void log(const std::string& level, const std::string& msg);
@@ -52,6 +54,7 @@ public:
 private:
     static Sink sink_;
     static NxLink nxlink_;
+    static FILE* log_file_;
 
     static std::string format(const char* fmt, ...);
 };
