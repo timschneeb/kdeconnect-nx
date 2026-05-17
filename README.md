@@ -15,8 +15,8 @@ cmake --build cmake-build-release-devkita64 -j 6
 
 ## Remote logging
 
-This projects uses a modified version of nxlink which implements custom port support, reconnection support, and support for sysmodules.
-With it, you can use multiple nxlink session simultaneously for the overlay and sysmodule.
+This project uses a modified version of nxlink which implements custom port support, reconnection support, and support for sysmodules.
+With it, you can use multiple nxlink sessions simultaneously for the overlay and sysmodule.
 
 Build the nxlink tool:
 ```
@@ -26,7 +26,7 @@ cmake --build cmake-build-debug-host --target nxlink -j 6
 
 > [!IMPORTANT]
 > nxlink support is only enabled in debug builds. 
-> You must set the `NXLINK_HOST` CMake build option to your computer's IP address which hosts the log servers before building the sysmodule and overlay!
+> You must set the `NXLINK_HOST` CMake build option to your computer's IP address which hosts the log servers!
 
 Edit `CMakeUserPresets.json` and set `NXLINK_HOST` to IP address of the log server (your host computer).
 Then use that user preset to build the project:
