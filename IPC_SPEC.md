@@ -123,10 +123,9 @@ Commands that return variable-length data use a single out buffer (`SfBufferAttr
 
 | Value | Name |
 |-------|------|
-| `0` | `Bool` |
-| `1` | `Int` |
-| `2` | `Float` |
-| `3` | `String` |
+| `0`   | `Bool` |
+| `1`   | `Int` |
+| `2`   | `String` |
 
 ### `KdecSettingEntry`
 

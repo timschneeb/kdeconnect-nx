@@ -3,8 +3,7 @@
 #include <kdec/ipc.h>
 #include <kdec/ipc_client.h>
 #include <src/utils/logger.h>
-
-static constexpr uint32_t MAX_DEVICES = 16;
+#include <vector>
 
 static const char* pairStateLabel(const KdecDeviceInfo& dev) {
     switch (dev.pair_state) {
@@ -23,7 +22,7 @@ public:
         const char* subtitle = running ? "KDE Connect NX" : "Sysmodule not running";
         if (running) {
             uint32_t ver = 0;
-            if (R_SUCCEEDED(kdecIpcGetApiVersion(&ver)))
+            if (R_SUCCEEDED(kdecIpcGetApiVersion(ver)))
                 snprintf(subtitle_buf_, sizeof(subtitle_buf_), "KDE Connect NX · API v%u", ver);
             subtitle = subtitle_buf_;
         }
@@ -34,19 +33,18 @@ public:
         if (!running) {
             list->addItem(new tsl::elm::ListItem("Sysmodule is not active"));
         } else {
-            KdecDeviceInfo devices[MAX_DEVICES];
-            uint32_t count = 0;
-            Result rc = kdecIpcGetDevices(devices, MAX_DEVICES, &count);
+            std::vector<KdecDeviceInfo> devices;
+            Result rc = kdecIpcGetDevices(devices);
 
             if (R_FAILED(rc)) {
                 char buf[48];
                 snprintf(buf, sizeof(buf), "IPC error: 0x%08X", rc);
                 list->addItem(new tsl::elm::ListItem(buf));
-            } else if (count == 0) {
+            } else if (devices.empty()) {
                 list->addItem(new tsl::elm::ListItem("No devices found"));
             } else {
-                for (uint32_t i = 0; i < count; i++)
-                    list->addItem(new tsl::elm::ListItem(devices[i].name, pairStateLabel(devices[i])));
+                for (const auto& dev : devices)
+                    list->addItem(new tsl::elm::ListItem(dev.name, pairStateLabel(dev)));
             }
         }
 
