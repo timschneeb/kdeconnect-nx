@@ -11,10 +11,13 @@ public:
         bool can_go_next = false;
         bool can_go_previous = false;
         bool is_playing = false;
+        bool can_seek = false;
         std::string title;
         std::string artist;
         std::string album;
         int volume = 0;
+        int64_t position = 0;
+        int64_t length   = 0;
     };
 
     std::string name() const override;
@@ -29,6 +32,8 @@ public:
     void request_status(const std::string& player) const;
     void send_action(const std::string& player, const std::string& action) const;
     void set_volume(const std::string& player, int volume) const;
+    void seek(const std::string& player, int64_t offset_ms) const;
+    void set_position(const std::string& player, int64_t position_ms) const;
 
     std::vector<std::string> player_list() const;
     std::string current_player() const;

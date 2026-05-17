@@ -57,10 +57,13 @@ bool MprisPlugin::on_packet_received(const NetworkPacket& np) {
             if (np.body.contains("canPlay"))      state_.can_play      = np.body["canPlay"].get<bool>();
             if (np.body.contains("canGoNext"))    state_.can_go_next   = np.body["canGoNext"].get<bool>();
             if (np.body.contains("canGoPrevious"))state_.can_go_previous = np.body["canGoPrevious"].get<bool>();
+            if (np.body.contains("canSeek"))      state_.can_seek        = np.body["canSeek"].get<bool>();
             if (np.body.contains("title")  && np.body["title"].is_string())  state_.title  = np.body["title"].get<std::string>();
             if (np.body.contains("artist") && np.body["artist"].is_string()) state_.artist = np.body["artist"].get<std::string>();
             if (np.body.contains("album")  && np.body["album"].is_string())  state_.album  = np.body["album"].get<std::string>();
             if (np.body.contains("volume") && np.body["volume"].is_number()) state_.volume = np.body["volume"].get<int>();
+            if (np.body.contains("pos")    && np.body["pos"].is_number())    state_.position = np.body["pos"].get<int64_t>();
+            if (np.body.contains("length") && np.body["length"].is_number()) state_.length   = np.body["length"].get<int64_t>();
         }
 
         std::string who = state_.artist.empty() ? state_.title : state_.artist + " - " + state_.title;
@@ -100,6 +103,20 @@ void MprisPlugin::set_volume(const std::string& player, int volume) const {
     NetworkPacket pkt;
     pkt.type = PacketTypes::MprisRequest;
     pkt.body = { {"player", player}, {"setVolume", volume} };
+    send_packet(pkt);
+}
+
+void MprisPlugin::seek(const std::string& player, int64_t offset_ms) const {
+    NetworkPacket pkt;
+    pkt.type = PacketTypes::MprisRequest;
+    pkt.body = { {"player", player}, {"Seek", offset_ms} };
+    send_packet(pkt);
+}
+
+void MprisPlugin::set_position(const std::string& player, int64_t position_ms) const {
+    NetworkPacket pkt;
+    pkt.type = PacketTypes::MprisRequest;
+    pkt.body = { {"player", player}, {"SetPosition", position_ms} };
     send_packet(pkt);
 }
 
