@@ -24,7 +24,7 @@ cmake --preset "default"
 cmake --build cmake-build-debug-host --target nxlink -j 6
 ```
 
-> [!INFO]
+> [!IMPORTANT]
 > nxlink support is only enabled in debug builds. 
 > You must set the `NXLINK_HOST` CMake build option to your computer's IP address which hosts the log servers before building the sysmodule and overlay!
 
