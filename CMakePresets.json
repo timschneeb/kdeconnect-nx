@@ -8,9 +8,9 @@
   "configurePresets": [
     {
       "name": "default",
-      "displayName": "Default",
+      "displayName": "Default (Debug, Host)",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build"
+      "binaryDir": "${sourceDir}/cmake-build-debug-host"
     },
     {
       "name": "switch",

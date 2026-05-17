@@ -1,39 +1,46 @@
-# MiniKDEConnect Prototype
-
-This is a minimal KDE Connect client prototype that implements discovery, pairing, and the ping plugin. It is based on the protocol reference and the Android LAN backend behavior.
-
-## Features
-- UDP discovery broadcast/listen on port 1716
-- mDNS discovery advertise/query for `_kdeconnect._udp`
-- TCP identity handshake and TLS upgrade
-- Pairing (`kdeconnect.pair`) with verification key
-- Ping send/receive (`kdeconnect.ping`)
+# kdeconnect-nx
 
 ## Build
 
-This project uses CMake and FetchContent for `nlohmann/json`, and links with MbedTLS.
-
-```bash
-cmake -S . -B build
-cmake --build build
+Prerequisites:
+* devkitPro
+  * devkitA64
+  * switch-curl
+  * switch-zlib
+ 
+```
+cmake --preset "switch-release"
+cmake --build cmake-build-release-devkita64 -j 6
 ```
 
-## Run
+## Remote logging
 
-```bash
-./build/MiniKDEConnect
+This projects uses a modified version of nxlink which implements custom port support, reconnection support, and support for sysmodules.
+With it, you can use multiple nxlink session simultaneously for the overlay and sysmodule.
+
+Build the nxlink tool:
+```
+cmake --preset "default"
+cmake --build cmake-build-debug-host --target nxlink -j 6
 ```
 
-## Commands
+> [!INFO]
+> nxlink support is only enabled in debug builds. 
+> You must set the `NXLINK_HOST` CMake build option to your computer's IP address which hosts the log servers before building the sysmodule and overlay!
 
-- `list`
-- `pair <deviceId>`
-- `accept <deviceId>`
-- `reject <deviceId>`
-- `ping <deviceId> [message]`
-- `quit`
+Edit `CMakeUserPresets.json` and set `NXLINK_HOST` to IP address of the log server (your host computer).
+Then use that user preset to build the project:
+```
+cmake --preset "switch-dev"
+cmake --build cmake-build-debug-devkita64-dev -j 6
+```
 
-## Notes
-- Pairing stores peer certificates in `~/.config/minikdeconnect/paired/`.
-- Discovery uses both UDP broadcast and mDNS.
-- Only paired devices will accept or send ping packets.
+Connect to the Switch processes:
+```
+# Run server for the sysmodule (or test applet) to connect to:
+cmake-build-debug-host/tools/nxtool -l -P 28771
+
+# In another terminal window:
+# Run server for the overlay to connect to:
+cmake-build-debug-host/tools/nxlink -l -P 28772
+```

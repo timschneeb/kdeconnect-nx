@@ -77,6 +77,26 @@ private:
 class OverlayMain : public tsl::Overlay {
 public:
     void initServices() override {
+#ifdef NXLINK_ENABLED
+        constexpr SocketInitConfig socketInitConfig = {
+            // TCP buffers
+            .tcp_tx_buf_size     = 16 * 1024,   // 16 KB default
+            .tcp_rx_buf_size     = 16 * 1024,   // 16 KB default
+            .tcp_tx_buf_max_size = 32 * 1024,   // 32 KB max
+            .tcp_rx_buf_max_size = 32 * 1024,   // 32 KB max
+
+            // Disable UDP buffers
+            .udp_tx_buf_size = 0,
+            .udp_rx_buf_size = 0,
+
+            .sb_efficiency       = 1, // Only one buffer
+            .bsd_service_type    = BsdServiceType_Auto // Auto-select service
+        };
+        socketInitialize(&socketInitConfig);
+        ASSERT_FATAL(timeInitialize());
+#endif
+        ASSERT_FATAL(smInitialize());
+
         Logger::open_log_file("kdeconnect_overlay");
 #if defined(NXLINK_ENABLED)
         Logger::set_nxlink_host(NXLINK_HOST, NxLink::kDefaultPort + 1);
@@ -90,6 +110,11 @@ public:
     void exitServices() override {
         kdecIpcExit();
         Logger::shutdown();
+#ifdef NXLINK_ENABLED
+        socketExit();
+        timeExit();
+#endif
+        smExit();
     }
     void onShow() override {}
     void onHide() override {}
