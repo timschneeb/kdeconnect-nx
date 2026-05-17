@@ -28,7 +28,7 @@ cmake --build cmake-build-debug-host --target nxlink -j 6
 > nxlink support is only enabled in debug builds. 
 > You must set the `NXLINK_HOST` CMake build option to your computer's IP address which hosts the log servers!
 
-Edit `CMakeUserPresets.json` and set `NXLINK_HOST` to IP address of the log server (your host computer).
+Edit `CMakeUserPresets.json` and set `NXLINK_HOST` to the IP address of the log server (your host computer).
 Then use that user preset to build the project:
 ```
 cmake --preset "switch-dev"
