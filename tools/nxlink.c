@@ -38,6 +38,7 @@ typedef uint32_t in_addr_t;
 
 #define NETLOADER_SERVER_PORT 28280
 #define NETLOADER_CLIENT_PORT 28771
+#define DEFAULT_LOG_PORT 28771
 
 
 static char cmdbuf[3072];
@@ -420,12 +421,14 @@ error:
 static void showHelp() {
 //---------------------------------------------------------------------------------
 	puts("Usage: nxlink [options] nrofile\n");
-	puts("--help,    -h   Display this information");
-	puts("--address, -a   Hostname or IPv4 address of Switch");
-	puts("--retries, -r   number of times to ping before giving up");
-	puts("--path   , -p   set upload path for file");
-	puts("--args          args to send to nro");
-	puts("--server , -s   start server after completed upload");
+	puts("--help,     -h   Display this information");
+	puts("--address,  -a   Hostname or IPv4 address of Switch");
+	puts("--retries,  -r   Number of times to ping before giving up");
+	puts("--path,     -p   Set upload path for file");
+	puts("--args           Args to send to nro");
+	puts("--server,   -s   Start log server after completed upload");
+	puts("--log-only, -l   Start log server without uploading an NRO");
+	puts("--port,     -P   Log server listen port (default: 28771)");
 	puts("\n");
 }
 
@@ -492,6 +495,8 @@ int main(int argc, char **argv) {
 	char *extra_args = NULL;
 	int retries = 10;
 	static int server = 0;
+	static int log_only = 0;
+	int log_port = DEFAULT_LOG_PORT;
 
 	if (argc < 2) {
 		showHelp();
@@ -500,19 +505,21 @@ int main(int argc, char **argv) {
 
 	while (1) {
 		static struct option long_options[] = {
-			{"address", required_argument, 0,	'a'},
-			{"retries", required_argument, 0,	'r'},
-			{"path",    required_argument, 0,	'p'},
-			{"args",    required_argument, 0,  NRO_ARGS},
-			{"help",    no_argument,       0,	'h'},
-			{"server",  no_argument,       &server,  1 },
+			{"address",  required_argument, 0,         'a'},
+			{"retries",  required_argument, 0,         'r'},
+			{"path",     required_argument, 0,         'p'},
+			{"args",     required_argument, 0,         NRO_ARGS},
+			{"help",     no_argument,       0,         'h'},
+			{"server",   no_argument,       &server,   1},
+			{"log-only", no_argument,       &log_only, 1},
+			{"port",     required_argument, 0,         'P'},
 			{0, 0, 0, 0}
 		};
 
 		/* getopt_long stores the option index here. */
 		int option_index = 0, c;
 
-		c = getopt_long (argc, argv, "a:r:hp:s", long_options, &option_index);
+		c = getopt_long(argc, argv, "a:r:hp:sP:l", long_options, &option_index);
 
 		/* Detect the end of the options. */
 		if (c == -1)
@@ -538,18 +545,35 @@ int main(int argc, char **argv) {
 		case 's':
 			server = 1;
 			break;
+		case 'l':
+			log_only = 1;
+			break;
+		case 'P':
+			errno = 0;
+			log_port = strtoul(optarg, &endarg, 0);
+			if (endarg == optarg) errno = EINVAL;
+			if (errno != 0 || log_port <= 0 || log_port > 65535) {
+				fprintf(stderr, "--port: invalid port number\n");
+				exit(1);
+			}
+			break;
 		case 'h':
 			showHelp();
 			return EXIT_FAILURE;
 		case NRO_ARGS:
-			extra_args=optarg;
+			extra_args = optarg;
 			break;
 		}
 
 	}
 
+	if (log_only) {
+		server = 1;
+		goto start_server;
+	}
+
 	char *filename = argv[optind++];
-	if (filename== NULL) {
+	if (filename == NULL) {
 		showHelp();
 		return EXIT_FAILURE;
 	}
@@ -651,14 +675,15 @@ int main(int argc, char **argv) {
 	if (!server)
 		return EXIT_SUCCESS;
 
-	printf("starting server\n");
+start_server:
+	printf("starting log server on port %d\n", log_port);
 
 	struct sockaddr_in serv_addr;
 
 	memset(&serv_addr, '0', sizeof(serv_addr));
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	serv_addr.sin_port = htons(NETLOADER_CLIENT_PORT);
+	serv_addr.sin_port = htons(log_port);
 
 	int listenfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (listenfd < 0) {

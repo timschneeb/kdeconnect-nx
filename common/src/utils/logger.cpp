@@ -7,13 +7,26 @@
 #include <string_view>
 #include <sys/stat.h>
 #include <vector>
+#include <arpa/inet.h>
+#include <sys/socket.h>
 
 Logger::Sink Logger::sink_;
 NxLink Logger::nxlink_;
 FILE* Logger::log_file_ = nullptr;
 
-bool Logger::connect_nxlink(const std::optional<in_addr> &host_address) {
-    return nxlink_.connectToHost(host_address) >= 0;
+void Logger::set_nxlink_host(const std::string &host_address_str, uint16_t port) {
+    if (host_address_str.empty()) {
+        nxlink_.setHost(std::nullopt, port);
+        return;
+    }
+
+    in_addr host_addr{};
+    inet_pton(AF_INET, host_address_str.c_str(), &host_addr.s_addr);
+    nxlink_.setHost(host_addr, port);
+}
+
+bool Logger::connect_nxlink() {
+    return nxlink_.connectToHost() >= 0;
 }
 
 void Logger::set_custom_sink(Sink sink) {

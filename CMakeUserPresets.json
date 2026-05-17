@@ -1,0 +1,20 @@
+{
+  "version": 4,
+  "configurePresets": [
+    {
+      "name": "switch-dev",
+      "displayName": "Nintendo Switch (Debug, nxlink via 192.168.178.72)",
+      "inherits": "switch",
+      "binaryDir": "${sourceDir}/cmake-build-debug-devkita64-dev",
+      "cacheVariables": {
+        "NXLINK_HOST": "192.168.178.72"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "switch-dev",
+      "configurePreset": "switch-dev"
+    }
+  ]
+}

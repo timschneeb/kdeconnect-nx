@@ -11,10 +11,11 @@
 
 class Logger {
 public:
-    // Called in addition to (or instead of) the default stderr output.
+    // Sink is called in addition to the other outputs.
     // Set once before starting any threads. Pass nullptr to reset.
     using Sink = std::function<void(const std::string& level, const std::string& msg)>;
-    static bool connect_nxlink(const std::optional<in_addr>& host_address = std::nullopt);
+    static void set_nxlink_host(const std::string &host_address_str, uint16_t port = NxLink::kDefaultPort);
+    static bool connect_nxlink();
     static void set_custom_sink(Sink sink);
     static void open_log_file(const char* name);
     static void shutdown();

@@ -6,6 +6,13 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_compile_definitions(MINIKDECONNECT_VERSION=\"${PROJECT_VERSION}\")
 
+set(NXLINK_HOST "" CACHE STRING "IP address of the PC running nxlink (leave empty to let libnx get the host from the launch argument; only works for the applet if launched with nxlink)")
+if(NXLINK_HOST)
+    add_compile_definitions(NXLINK_HOST=\"${NXLINK_HOST}\")
+else ()
+    add_compile_definitions(NXLINK_HOST=\"\")
+endif()
+
 include(FetchContent)
 
 find_package(nlohmann_json QUIET)

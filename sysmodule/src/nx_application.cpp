@@ -15,6 +15,10 @@
 NxApplication::NxApplication() : was_online_(false), storage_(Storage()),
                                  last_restart_(std::chrono::steady_clock::now()),
                                  restart_cooldown_(std::chrono::seconds(3)) {
+#if defined(NXLINK_ENABLED)
+    Logger::set_nxlink_host(NXLINK_HOST, NxLink::kDefaultPort);
+#endif
+
     was_online_ = isOnline();
     if (was_online_) {
         has_initialized_nxlink_ = true;

@@ -10,18 +10,13 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#ifdef __SWITCH__
-#include <switch/runtime/nxlink.h>
-#else
-struct in_addr;
-static struct in_addr __nxlink_host;
-#define NXLINK_CLIENT_PORT 28771
-#endif
-
-int NxLink::connectToHost(const std::optional<in_addr>& host_address)
-{
+void NxLink::setHost(const std::optional<in_addr> &host_address, uint16_t port) {
     host_address_ = host_address;
+    port_ = port;
+}
 
+int NxLink::connectToHost()
+{
     if (!isEnabled()) {
         errno = ENETUNREACH;
         return -1;
@@ -48,7 +43,7 @@ int NxLink::connectToHost(const std::optional<in_addr>& host_address)
 
     srv_addr.sin_family = AF_INET;
     srv_addr.sin_addr = host_address_.value_or(__nxlink_host);
-    srv_addr.sin_port = htons(NXLINK_CLIENT_PORT);
+    srv_addr.sin_port = htons(port_);
 
     int ret = connect(sock_, reinterpret_cast<struct sockaddr *>(&srv_addr), sizeof(srv_addr));
     if (ret != 0 && errno != EINPROGRESS) {
@@ -90,7 +85,11 @@ int NxLink::connectToHost(const std::optional<in_addr>& host_address)
 }
 
 bool NxLink::isEnabled() const {
+#ifdef NXLINK_ENABLED
     return __nxlink_host.s_addr || host_address_.has_value();
+#else
+    return false;
+#endif
 }
 
 void NxLink::reconnectAndReplay()
@@ -100,7 +99,7 @@ void NxLink::reconnectAndReplay()
         return;
     }
 
-    if (connectToHost(host_address_) >= 0) {
+    if (connectToHost() >= 0) {
         // Successfully reconnected, replay cached messages
         std::lock_guard lock(mutex_);
 

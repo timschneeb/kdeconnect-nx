@@ -78,7 +78,14 @@ class OverlayMain : public tsl::Overlay {
 public:
     void initServices() override {
         Logger::open_log_file("kdeconnect_overlay");
+#if defined(NXLINK_ENABLED)
+        Logger::set_nxlink_host(NXLINK_HOST, NxLink::kDefaultPort + 1);
+        Logger::connect_nxlink();
+#endif
+        Logger::info("kdecIpcInitialize");
         kdecIpcInitialize();
+
+        Logger::info("kdecIpcInitialize OK");
     }
     void exitServices() override {
         kdecIpcExit();
