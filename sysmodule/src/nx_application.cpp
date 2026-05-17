@@ -10,10 +10,11 @@
 #include "utils/storage.h"
 #include "utils/logger.h"
 #include "utils/mem_debug.h"
+#include "ipc/ipc_service.h"
 
 NxApplication::NxApplication() : was_online_(false), storage_(Storage()),
-                                last_restart_(std::chrono::steady_clock::now()),
-                                restart_cooldown_(std::chrono::seconds(3)) {
+                                 last_restart_(std::chrono::steady_clock::now()),
+                                 restart_cooldown_(std::chrono::seconds(3)) {
     was_online_ = isOnline();
     if (was_online_) {
         has_initialized_nxlink_ = true;
@@ -23,9 +24,13 @@ NxApplication::NxApplication() : was_online_(false), storage_(Storage()),
     client_ = std::make_shared<KdeConnectClient>(storage_);
     if (!client_->start())
         Logger::error("Failed to start KDE Connect client");
+
+    ipc_service_ = std::make_unique<IpcService>(this);
+    ipc_service_->start();
 }
 
 NxApplication::~NxApplication() {
+    ipc_service_->stop();
     client_.reset();
     Logger::shutdown();
 }

@@ -1,9 +1,49 @@
-option(BUILD_OVERLAY "Build the Tesla overlay" OFF)
+add_subdirectory(libs)
 
-if(BUILD_OVERLAY)
-    add_executable(MiniKDEConnect_overlay
-        ${CMAKE_CURRENT_LIST_DIR}/main_overlay.cpp
-    )
-    # TODO: Link against Tesla/overlay helper libraries once integrated.
-endif()
+# Define target
+add_executable(MiniKDEConnect_overlay src/main.cpp)
 
+# Optimization and build flags
+target_compile_options(MiniKDEConnect_overlay PRIVATE
+    -Wall -Os -flto
+    -std=c++26 -fno-exceptions -fno-rtti -Wno-dangling-else -ffast-math
+    -fno-unwind-tables -fno-asynchronous-unwind-tables
+)
+
+target_link_options(MiniKDEConnect_overlay PRIVATE
+    -Wl,--gc-sections -Wl,--as-needed -flto
+    -Wl,-wrap,__cxa_throw -Wl,-wrap,_Unwind_Resume -Wl,-wrap,__gxx_personality_v0
+)
+
+target_include_directories(MiniKDEConnect_overlay PRIVATE ${CMAKE_SOURCE_DIR}/common)
+target_link_libraries(MiniKDEConnect_overlay PRIVATE minikdeconnect_common libultrahand)
+
+nx_generate_nacp(MiniKDEConnect_overlay.nacp
+        NAME "kdeconnect-nx-overlay"
+        AUTHOR "timschneeb"
+        VERSION "${CMAKE_PROJECT_VERSION}"
+)
+
+# Hook NACP generation into the build graph so it exists before POST_BUILD runs
+add_custom_target(MiniKDEConnect_overlay_nacp
+    DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/MiniKDEConnect_overlay.nacp"
+)
+add_dependencies(MiniKDEConnect_overlay MiniKDEConnect_overlay_nacp)
+
+# Create NRO, then rename to .ovl and append signature
+add_custom_command(
+    TARGET MiniKDEConnect_overlay POST_BUILD
+    COMMAND ${NX_ELF2NRO_EXE} MiniKDEConnect_overlay.elf MiniKDEConnect_overlay.ovl --nacp=MiniKDEConnect_overlay.nacp
+    COMMAND ${CMAKE_COMMAND} -E echo "ULTR" >> MiniKDEConnect_overlay.ovl
+    COMMENT "Generating .ovl and appending Ultrahand signature"
+)
+
+# Upload to Switch via FTP
+find_program(CURL_EXE curl REQUIRED NO_CMAKE_FIND_ROOT_PATH)
+add_custom_target(MiniKDEConnect_overlay_upload
+    COMMAND ${CURL_EXE} -T MiniKDEConnect_overlay.ovl
+            "ftp://anonymous:@192.168.178.177:5000/switch/.overlays/MiniKDEConnect_overlay.ovl"
+    DEPENDS MiniKDEConnect_overlay
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    COMMENT "Uploading overlay to Switch"
+)

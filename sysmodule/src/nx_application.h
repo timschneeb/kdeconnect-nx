@@ -4,6 +4,7 @@
 #include <memory>
 
 class KdeConnectClient;
+class IpcService;
 
 class NxApplication {
 public:
@@ -20,6 +21,7 @@ private:
     bool has_initialized_nxlink_;
     Storage storage_;
     std::shared_ptr<KdeConnectClient> client_;
+    std::unique_ptr<IpcService> ipc_service_;
     std::chrono::steady_clock::time_point last_restart_;
     std::chrono::milliseconds restart_cooldown_;
 };

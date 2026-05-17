@@ -28,5 +28,8 @@ find_package(Threads REQUIRED)
 
 add_subdirectory(common)
 add_subdirectory(sysmodule)
-add_subdirectory(overlay)
 add_subdirectory(tools)
+
+if(CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch")
+    add_subdirectory(overlay)
+endif()

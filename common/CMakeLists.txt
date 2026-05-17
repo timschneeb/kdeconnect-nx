@@ -1,6 +1,7 @@
 add_library(minikdeconnect_common STATIC
     ${CMAKE_CURRENT_LIST_DIR}/src/utils/logger.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/utils/nxlink_sink.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/kdec/ipc_client.cpp
 )
 
 target_include_directories(minikdeconnect_common

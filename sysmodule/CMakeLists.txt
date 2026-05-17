@@ -25,6 +25,8 @@ set(MINIKDECONNECT_SYSMODULE_SOURCES
 
 set(MINIKDECONNECT_NX_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/src/nx_application.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/ipc/ipc_service.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/ipc/ipc_server.c
 )
 
 set(MINIKDECONNECT_INCLUDE_DIRS
@@ -32,6 +34,7 @@ set(MINIKDECONNECT_INCLUDE_DIRS
     ${CMAKE_CURRENT_LIST_DIR}/libs
     ${CMAKE_CURRENT_LIST_DIR}/src
     ${CMAKE_CURRENT_LIST_DIR}/src/utils
+    ${CMAKE_CURRENT_LIST_DIR}/src/ipc
     ${CMAKE_SOURCE_DIR}/common
     ${CMAKE_SOURCE_DIR}/common/src
     ${CMAKE_SOURCE_DIR}/common/src/utils
