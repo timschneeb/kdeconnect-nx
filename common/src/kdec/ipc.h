@@ -1,11 +1,19 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
-#include <variant>
+#include "../constants.h"
 
-#define KDEC_IPC_API_VERSION 1
+#define KDEC_IPC_API_VERSION  1
 #define KDEC_IPC_SERVICE_NAME "kdec:srv"
+
+#define KDEC_DEVICE_ID_MAX    64
+#define KDEC_DEVICE_NAME_MAX  128
+#define KDEC_PLAYER_MAX       256
+#define KDEC_TITLE_MAX        256
+#define KDEC_ARTIST_MAX       256
+#define KDEC_ALBUM_MAX        256
+#define KDEC_COMMAND_ID_MAX   64
+#define KDEC_COMMAND_NAME_MAX 64
 
 enum KdecIpcCmd {
     KdecIpcCmd_GetApiVersion    = 0,
@@ -20,9 +28,11 @@ enum KdecIpcCmd {
     KdecIpcCmd_SendMediaAction  = 9,
     KdecIpcCmd_GetCommandList   = 10,
     KdecIpcCmd_RunCommand       = 11,
-    KdecIpcCmd_ReadSetting      = 12,
-    KdecIpcCmd_WriteSetting     = 13,
-    KdecIpcCmd_GetAllSettings   = 14,
+    KdecIpcCmd_ReadBoolSetting  = 12,
+    KdecIpcCmd_WriteBoolSetting = 13,
+    KdecIpcCmd_ReadIntSetting   = 14,
+    KdecIpcCmd_WriteIntSetting  = 15,
+    KdecIpcCmd_GetAllSettings   = 16,
 };
 
 enum class DevicePairState : uint8_t {
@@ -44,45 +54,76 @@ enum class KdecMediaAction : uint8_t {
     SetPosition = 8,
 };
 
-enum class KdecSettingType : uint8_t {
-    Bool   = 0,
-    Int    = 1,
-    String = 2,
-};
-
+// ---------- Application / wire structs ----------
 struct KdecDeviceInfo {
-    std::string id;
-    std::string name;
+    char            id[KDEC_DEVICE_ID_MAX];
+    char            name[KDEC_DEVICE_NAME_MAX];
     DevicePairState pair_state;
-    bool is_connected;
-    bool supports_find_my_phone;
-    int8_t battery_level; // -1 = unavailable
-};
+    bool            is_connected;
+    bool            supports_find_my_phone;
+    int8_t          battery_level; // -1 = unavailable
+} __attribute__ ((aligned (16)));
 
 struct KdecMediaInfo {
-    std::string device_id;
-    std::string player;
-    std::string title;
-    std::string artist;
-    std::string album;
-    bool is_playing;
-    bool can_play;
-    bool can_pause;
-    bool can_go_next;
-    bool can_go_previous;
-    bool can_seek;
-    int32_t volume;
-    int64_t position;
-    int64_t length;
-};
+    char    device_id[KDEC_DEVICE_ID_MAX];
+    char    player[KDEC_PLAYER_MAX];
+    char    title[KDEC_TITLE_MAX];
+    char    artist[KDEC_ARTIST_MAX];
+    char    album[KDEC_ALBUM_MAX];
+    int64_t position;       // current position in ms
+    int64_t length;         // total duration in ms
+    int32_t volume;         // 0–100
+    bool    is_playing;
+    bool    can_play;
+    bool    can_pause;
+    bool    can_go_next;
+    bool    can_go_previous;
+    bool    can_seek;
+} __attribute__((aligned(16)));
 
 struct KdecCommandEntry {
-    std::string id;
-    std::string name;
-};
+    char id[KDEC_COMMAND_ID_MAX];
+    char name[KDEC_COMMAND_NAME_MAX];
+} __attribute__((aligned(16)));
 
-struct KdecSettingEntry {
-    std::string key;
-    KdecSettingType type;
-    std::variant<bool, int32_t, std::string> value;
+
+// ------ Small structs that are sent inline ------
+
+struct KdecWireDeviceId {
+    char device_id[KDEC_DEVICE_ID_MAX];
 };
+static_assert(sizeof(KdecWireDeviceId) == 64);
+
+struct KdecWireRunCommand {
+    char device_id[KDEC_DEVICE_ID_MAX];
+    char command_id[KDEC_COMMAND_ID_MAX];
+};
+static_assert(sizeof(KdecWireRunCommand) == 128);
+
+struct KdecWireWriteBoolSetting {
+    KdecBoolSettingKey key;
+    bool               value;
+};
+static_assert(sizeof(KdecWireWriteBoolSetting) == 2);
+
+struct KdecWireWriteIntSetting {
+    KdecIntSettingKey key;
+    int32_t           value;
+};
+static_assert(sizeof(KdecWireWriteIntSetting) == 8);
+
+// Used by GetAllSettings output buffer only
+struct KdecWireSettingEntry {
+    uint8_t key;
+    union {
+        bool as_bool;
+        int32_t as_int;
+    } value;
+} __attribute__((aligned(16)));
+static_assert(sizeof(KdecWireSettingEntry) == 16);
+
+struct KdecWireSendMediaAction {
+    uint8_t action; // KdecMediaAction
+    int64_t value;
+};
+static_assert(sizeof(KdecWireSendMediaAction) == 16);

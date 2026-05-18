@@ -1,6 +1,5 @@
 #include "ipc_service.h"
 #include <../../../common/src/kdec/ipc.h>
-#include <../../../common/src/kdec/ipc_buffer.h>
 #include <cstring>
 
 #include "../net/kdeconnect_client.h"
@@ -96,43 +95,39 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
             const auto& hipc = r->hipc;
             if (hipc.meta.num_recv_buffers < 1) return MAKERESULT(Module_Libnx, LibnxError_BadInput);
 
-            auto* recv_buffer = static_cast<uint8_t*>(hipcGetBufferAddress(hipc.data.recv_buffers));
-            size_t recv_size  = hipcGetBufferSize(hipc.data.recv_buffers);
+            auto* recv_buf  = static_cast<KdecDeviceInfo*>(hipcGetBufferAddress(hipc.data.recv_buffers));
+            size_t recv_size = hipcGetBufferSize(hipc.data.recv_buffers);
 
             auto devices_map = client->devices();
-            IpcWriter wr;
             uint32_t count = 0;
             for (const auto& [id, sess] : devices_map) {
-                DevicePairState pair_state;
-                if (sess->paired) pair_state = DevicePairState::Paired;
-                else if (sess->pair_state == PairState::RequestedByPeer) pair_state = DevicePairState::RequestedByPeer;
-                else if (sess->pair_state == PairState::Requested) pair_state = DevicePairState::RequestedByMe;
-                else pair_state = DevicePairState::None;
+                if ((count + 1) * sizeof(KdecDeviceInfo) > recv_size) break;
 
-                bool is_connected = !sess->disconnected.load();
+                KdecDeviceInfo& info = recv_buf[count];
+                memset(&info, 0, sizeof(info));
+                strncpy(info.id,   id.c_str(),           KDEC_DEVICE_ID_MAX   - 1);
+                strncpy(info.name, sess->info.name.c_str(), KDEC_DEVICE_NAME_MAX - 1);
 
-                // Check if device supports find-my-phone
-                bool supports_fmp = false;
+                if (sess->paired)
+                    info.pair_state = DevicePairState::Paired;
+                else if (sess->pair_state == PairState::RequestedByPeer)
+                    info.pair_state = DevicePairState::RequestedByPeer;
+                else if (sess->pair_state == PairState::Requested)
+                    info.pair_state = DevicePairState::RequestedByMe;
+                else
+                    info.pair_state = DevicePairState::None;
+
+                info.is_connected = !sess->disconnected.load();
+
                 for (const auto& cap : sess->info.incoming_capabilities) {
                     if (cap == PacketTypes::FindMyPhoneRequest) {
-                        supports_fmp = true;
+                        info.supports_find_my_phone = true;
                         break;
                     }
                 }
 
-                int8_t battery_level = -1; // unavailable for now
-
-                wr.write_string(id);
-                wr.write_string(sess->info.name);
-                wr.write(static_cast<uint8_t>(pair_state));
-                wr.write(is_connected);
-                wr.write(supports_fmp);
-                wr.write(battery_level);
+                info.battery_level = -1; // TODO: implement
                 count++;
-            }
-
-            if (wr.size() <= recv_size) {
-                memcpy(recv_buffer, wr.data().data(), wr.size());
             }
 
             *out_size = sizeof(uint32_t);
@@ -144,10 +139,12 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
         case KdecIpcCmd_AcceptPair:
         case KdecIpcCmd_RejectPair:
         case KdecIpcCmd_Unpair: {
-            const auto& hipc = r->hipc;
-            if (hipc.meta.num_send_buffers < 1) return MAKERESULT(Module_Libnx, LibnxError_BadInput);
-            const char* device_id = static_cast<const char*>(hipcGetBufferAddress(hipc.data.send_buffers));
-            std::string id_str(device_id);
+            if (r->data.size < sizeof(KdecWireDeviceId))
+                return MAKERESULT(Module_Libnx, LibnxError_BadInput);
+
+            KdecWireDeviceId wire{};
+            memcpy(&wire, r->data.ptr, sizeof(wire));
+            std::string id_str(wire.device_id, strnlen(wire.device_id, KDEC_DEVICE_ID_MAX));
 
             if (cmd_id == KdecIpcCmd_RequestPair) { client->request_pair(id_str); return 0; }
             if (cmd_id == KdecIpcCmd_AcceptPair)  { client->accept_pair(id_str);  return 0; }
@@ -157,10 +154,12 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
         }
 
         case KdecIpcCmd_Ping: {
-            const auto& hipc = r->hipc;
-            if (hipc.meta.num_send_buffers < 1) return MAKERESULT(Module_Libnx, LibnxError_BadInput);
-            const char* device_id = static_cast<const char*>(hipcGetBufferAddress(hipc.data.send_buffers));
-            std::string id_str(device_id);
+            if (r->data.size < sizeof(KdecWireDeviceId))
+                return MAKERESULT(Module_Libnx, LibnxError_BadInput);
+
+            KdecWireDeviceId wire{};
+            memcpy(&wire, r->data.ptr, sizeof(wire));
+            std::string id_str(wire.device_id, strnlen(wire.device_id, KDEC_DEVICE_ID_MAX));
 
             auto sess = client->device(id_str);
             if (!sess) return MAKERESULT(Module_Libnx, LibnxError_NotFound);
@@ -176,48 +175,43 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
             const auto& hipc = r->hipc;
             if (hipc.meta.num_recv_buffers < 1) return MAKERESULT(Module_Libnx, LibnxError_BadInput);
 
-            auto* recv_buffer = static_cast<uint8_t*>(hipcGetBufferAddress(hipc.data.recv_buffers));
-            size_t recv_size  = hipcGetBufferSize(hipc.data.recv_buffers);
+            auto* recv_buf  = static_cast<KdecMediaInfo*>(hipcGetBufferAddress(hipc.data.recv_buffers));
+            size_t recv_size = hipcGetBufferSize(hipc.data.recv_buffers);
 
-            auto devices_map = client->devices();
-            for (const auto& [id, sess] : devices_map) {
-                auto* mpris = sess->plugin<MprisPlugin>();
-                if (!mpris) continue;
-                std::string player = mpris->current_player();
-                if (player.empty()) continue;
+            uint32_t found = 0;
+            if (recv_size >= sizeof(KdecMediaInfo)) {
+                auto devices_map = client->devices();
+                for (const auto& [id, sess] : devices_map) {
+                    auto* mpris = sess->plugin<MprisPlugin>();
+                    if (!mpris) continue;
+                    std::string player = mpris->current_player();
+                    if (player.empty()) continue;
 
-                MprisPlugin::PlayerState state = mpris->player_state();
+                    MprisPlugin::PlayerState state = mpris->player_state();
 
-                IpcWriter wr;
-                wr.write_string(id);
-                wr.write_string(player);
-                wr.write_string(state.title);
-                wr.write_string(state.artist);
-                wr.write_string(state.album);
-                wr.write(state.is_playing);
-                wr.write(state.can_play);
-                wr.write(state.can_pause);
-                wr.write(state.can_go_next);
-                wr.write(state.can_go_previous);
-                wr.write(state.can_seek);
-                wr.write(static_cast<int32_t>(state.volume));
-                wr.write(state.position);
-                wr.write(state.length);
-
-                uint32_t bytes_written = 0;
-                if (wr.size() <= recv_size) {
-                    memcpy(recv_buffer, wr.data().data(), wr.size());
-                    bytes_written = static_cast<uint32_t>(wr.size());
+                    KdecMediaInfo& info = *recv_buf;
+                    memset(&info, 0, sizeof(info));
+                    strncpy(info.device_id, id.c_str(),           KDEC_DEVICE_ID_MAX - 1);
+                    strncpy(info.player,    player.c_str(),        KDEC_PLAYER_MAX    - 1);
+                    strncpy(info.title,     state.title.c_str(),   KDEC_TITLE_MAX     - 1);
+                    strncpy(info.artist,    state.artist.c_str(),  KDEC_ARTIST_MAX    - 1);
+                    strncpy(info.album,     state.album.c_str(),   KDEC_ALBUM_MAX     - 1);
+                    info.position       = state.position;
+                    info.length         = state.length;
+                    info.volume         = static_cast<int32_t>(state.volume);
+                    info.is_playing     = state.is_playing;
+                    info.can_play       = state.can_play;
+                    info.can_pause      = state.can_pause;
+                    info.can_go_next    = state.can_go_next;
+                    info.can_go_previous = state.can_go_previous;
+                    info.can_seek       = state.can_seek;
+                    found = 1;
+                    break;
                 }
-
-                *out_size = sizeof(uint32_t);
-                *reinterpret_cast<uint32_t*>(out_data) = bytes_written;
-                return 0;
             }
 
-            // No active player found — return zero bytes
             *out_size = sizeof(uint32_t);
-            *reinterpret_cast<uint32_t*>(out_data) = 0;
+            *reinterpret_cast<uint32_t*>(out_data) = found;
             return 0;
         }
 
@@ -225,7 +219,7 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
             if (r->data.size < sizeof(KdecWireSendMediaAction))
                 return MAKERESULT(Module_Libnx, LibnxError_BadInput);
 
-            KdecWireSendMediaAction wire;
+            KdecWireSendMediaAction wire{};
             memcpy(&wire, r->data.ptr, sizeof(wire));
 
             auto action = static_cast<KdecMediaAction>(wire.action);
@@ -238,14 +232,14 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
                 if (player.empty()) continue;
 
                 switch (action) {
-                    case KdecMediaAction::Play:        mpris->send_action(player, "Play");     break;
-                    case KdecMediaAction::Pause:       mpris->send_action(player, "Pause");    break;
+                    case KdecMediaAction::Play:        mpris->send_action(player, "Play");      break;
+                    case KdecMediaAction::Pause:       mpris->send_action(player, "Pause");     break;
                     case KdecMediaAction::PlayPause:   mpris->send_action(player, "PlayPause"); break;
-                    case KdecMediaAction::Stop:        mpris->send_action(player, "Stop");     break;
-                    case KdecMediaAction::Next:        mpris->send_action(player, "Next");     break;
-                    case KdecMediaAction::Previous:    mpris->send_action(player, "Previous"); break;
-                    case KdecMediaAction::SetVolume:   mpris->set_volume(player, static_cast<int>(wire.value)); break;
-                    case KdecMediaAction::Seek:        mpris->seek(player, wire.value);        break;
+                    case KdecMediaAction::Stop:        mpris->send_action(player, "Stop");      break;
+                    case KdecMediaAction::Next:        mpris->send_action(player, "Next");      break;
+                    case KdecMediaAction::Previous:    mpris->send_action(player, "Previous");  break;
+                    case KdecMediaAction::SetVolume:   mpris->set_volume(player, static_cast<int>(wire.value));  break;
+                    case KdecMediaAction::Seek:        mpris->seek(player, wire.value);         break;
                     case KdecMediaAction::SetPosition: mpris->set_position(player, wire.value); break;
                 }
                 return 0;
@@ -255,14 +249,15 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
 
         case KdecIpcCmd_GetCommandList: {
             const auto& hipc = r->hipc;
-            if (hipc.meta.num_send_buffers < 1 || hipc.meta.num_recv_buffers < 1)
-                return MAKERESULT(Module_Libnx, LibnxError_BadInput);
+            if (hipc.meta.num_recv_buffers < 1) return MAKERESULT(Module_Libnx, LibnxError_BadInput);
+            if (r->data.size < sizeof(KdecWireDeviceId)) return MAKERESULT(Module_Libnx, LibnxError_BadInput);
 
-            const char* device_id = static_cast<const char*>(hipcGetBufferAddress(hipc.data.send_buffers));
-            std::string id_str(device_id);
+            KdecWireDeviceId wire{};
+            memcpy(&wire, r->data.ptr, sizeof(wire));
+            std::string id_str(wire.device_id, strnlen(wire.device_id, KDEC_DEVICE_ID_MAX));
 
-            auto* recv_buffer = static_cast<uint8_t*>(hipcGetBufferAddress(hipc.data.recv_buffers));
-            size_t recv_size  = hipcGetBufferSize(hipc.data.recv_buffers);
+            auto* recv_buf  = static_cast<KdecCommandEntry*>(hipcGetBufferAddress(hipc.data.recv_buffers));
+            size_t recv_size = hipcGetBufferSize(hipc.data.recv_buffers);
 
             auto sess = client->device(id_str);
             if (!sess) return MAKERESULT(Module_Libnx, LibnxError_NotFound);
@@ -271,30 +266,29 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
             if (!plugin) return MAKERESULT(Module_Libnx, LibnxError_NotFound);
 
             auto commands = plugin->remote_command_list();
-
-            IpcWriter wr;
+            uint32_t count = 0;
             for (const auto& [id, name] : commands) {
-                wr.write_string(id);
-                wr.write_string(name);
-            }
-
-            if (wr.size() <= recv_size) {
-                memcpy(recv_buffer, wr.data().data(), wr.size());
+                if ((count + 1) * sizeof(KdecCommandEntry) > recv_size) break;
+                KdecCommandEntry& entry = recv_buf[count];
+                memset(&entry, 0, sizeof(entry));
+                strncpy(entry.id,   id.c_str(),   KDEC_COMMAND_ID_MAX   - 1);
+                strncpy(entry.name, name.c_str(), KDEC_COMMAND_NAME_MAX - 1);
+                count++;
             }
 
             *out_size = sizeof(uint32_t);
-            *reinterpret_cast<uint32_t*>(out_data) = static_cast<uint32_t>(commands.size());
+            *reinterpret_cast<uint32_t*>(out_data) = count;
             return 0;
         }
 
         case KdecIpcCmd_RunCommand: {
-            const auto& hipc = r->hipc;
-            if (hipc.meta.num_send_buffers < 2) return MAKERESULT(Module_Libnx, LibnxError_BadInput);
+            if (r->data.size < sizeof(KdecWireRunCommand))
+                return MAKERESULT(Module_Libnx, LibnxError_BadInput);
 
-            const char* device_id  = static_cast<const char*>(hipcGetBufferAddress(hipc.data.send_buffers));
-            const char* command_id = static_cast<const char*>(hipcGetBufferAddress(hipc.data.send_buffers + 1));
-            std::string id_str(device_id);
-            std::string cmd_str(command_id);
+            KdecWireRunCommand wire{};
+            memcpy(&wire, r->data.ptr, sizeof(wire));
+            std::string id_str(wire.device_id,  strnlen(wire.device_id,  KDEC_DEVICE_ID_MAX));
+            std::string cmd_str(wire.command_id, strnlen(wire.command_id, KDEC_COMMAND_ID_MAX));
 
             auto sess = client->device(id_str);
             if (!sess) return MAKERESULT(Module_Libnx, LibnxError_NotFound);
@@ -306,75 +300,60 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
             return 0;
         }
 
-        case KdecIpcCmd_ReadSetting: {
-            const auto& hipc = r->hipc;
-            if (hipc.meta.num_send_buffers < 1 || hipc.meta.num_recv_buffers < 1)
-                return MAKERESULT(Module_Libnx, LibnxError_BadInput);
-            if (r->data.size < sizeof(KdecWireSettingType))
+        case KdecIpcCmd_ReadBoolSetting: {
+            if (r->data.size < sizeof(KdecBoolSettingKey))
                 return MAKERESULT(Module_Libnx, LibnxError_BadInput);
 
-            KdecWireSettingType wire_type;
-            memcpy(&wire_type, r->data.ptr, sizeof(wire_type));
-
-            const char* key_str = static_cast<const char*>(hipcGetBufferAddress(hipc.data.send_buffers));
-            std::string key(key_str);
-
-            auto* recv_buffer = static_cast<uint8_t*>(hipcGetBufferAddress(hipc.data.recv_buffers));
-            size_t recv_size  = hipcGetBufferSize(hipc.data.recv_buffers);
+            uint8_t key;
+            memcpy(&key, r->data.ptr, sizeof(key));
 
             std::lock_guard<std::mutex> lock(settings_mutex_);
-            auto it = settings_.find(key);
-            if (it == settings_.end()) return MAKERESULT(Module_Libnx, LibnxError_NotFound);
+            auto it = bool_settings_.find(key);
+            if (it == bool_settings_.end()) return MAKERESULT(Module_Libnx, LibnxError_NotFound);
 
-            const KdecSettingEntry& entry = it->second;
-            IpcWriter wr;
-            switch (entry.type) {
-                case KdecSettingType::Bool:   wr.write(std::get<bool>(entry.value));        break;
-                case KdecSettingType::Int:    wr.write(std::get<int32_t>(entry.value));     break;
-                case KdecSettingType::String: wr.write_string(std::get<std::string>(entry.value)); break;
-            }
+            *out_size = sizeof(bool);
+            *reinterpret_cast<bool*>(out_data) = it->second;
+            return 0;
+        }
 
-            if (wr.size() <= recv_size) {
-                memcpy(recv_buffer, wr.data().data(), wr.size());
-            }
+        case KdecIpcCmd_WriteBoolSetting: {
+            if (r->data.size < sizeof(KdecWireWriteBoolSetting))
+                return MAKERESULT(Module_Libnx, LibnxError_BadInput);
 
+            KdecWireWriteBoolSetting wire{};
+            memcpy(&wire, r->data.ptr, sizeof(wire));
+
+            std::lock_guard<std::mutex> lock(settings_mutex_);
+            bool_settings_[static_cast<uint8_t>(wire.key)] = wire.value;
             *out_size = 0;
             return 0;
         }
 
-        case KdecIpcCmd_WriteSetting: {
-            const auto& hipc = r->hipc;
-            if (hipc.meta.num_send_buffers < 2) return MAKERESULT(Module_Libnx, LibnxError_BadInput);
-            if (r->data.size < sizeof(KdecWireSettingType))
+        case KdecIpcCmd_ReadIntSetting: {
+            if (r->data.size < sizeof(KdecIntSettingKey))
                 return MAKERESULT(Module_Libnx, LibnxError_BadInput);
 
-            KdecWireSettingType wire_type;
-            memcpy(&wire_type, r->data.ptr, sizeof(wire_type));
+            uint8_t key;
+            memcpy(&key, r->data.ptr, sizeof(key));
 
-            const char* key_str = static_cast<const char*>(hipcGetBufferAddress(hipc.data.send_buffers));
-            std::string key(key_str);
+            std::lock_guard<std::mutex> lock(settings_mutex_);
+            auto it = int_settings_.find(key);
+            if (it == int_settings_.end()) return MAKERESULT(Module_Libnx, LibnxError_NotFound);
 
-            const uint8_t* val_ptr  = static_cast<const uint8_t*>(hipcGetBufferAddress(hipc.data.send_buffers + 1));
-            size_t          val_size = hipcGetBufferSize(hipc.data.send_buffers + 1);
+            *out_size = sizeof(int32_t);
+            *reinterpret_cast<int32_t*>(out_data) = it->second;
+            return 0;
+        }
 
-            KdecSettingType type = static_cast<KdecSettingType>(wire_type.type);
-            KdecSettingEntry entry;
-            entry.key  = key;
-            entry.type = type;
+        case KdecIpcCmd_WriteIntSetting: {
+            if (r->data.size < sizeof(KdecWireWriteIntSetting))
+                return MAKERESULT(Module_Libnx, LibnxError_BadInput);
 
-            IpcReader rd(val_ptr, val_size);
-            switch (type) {
-                case KdecSettingType::Bool:   entry.value = rd.read<bool>();    break;
-                case KdecSettingType::Int:    entry.value = rd.read<int32_t>(); break;
-                case KdecSettingType::String: entry.value = rd.read_string();   break;
-            }
-            if (!rd.ok()) return MAKERESULT(Module_Libnx, LibnxError_BadInput);
+            KdecWireWriteIntSetting wire{};
+            memcpy(&wire, r->data.ptr, sizeof(wire));
 
-            {
-                std::lock_guard<std::mutex> lock(settings_mutex_);
-                settings_[key] = std::move(entry);
-            }
-
+            std::lock_guard<std::mutex> lock(settings_mutex_);
+            int_settings_[static_cast<uint8_t>(wire.key)] = wire.value;
             *out_size = 0;
             return 0;
         }
@@ -383,25 +362,24 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
             const auto& hipc = r->hipc;
             if (hipc.meta.num_recv_buffers < 1) return MAKERESULT(Module_Libnx, LibnxError_BadInput);
 
-            auto* recv_buffer = static_cast<uint8_t*>(hipcGetBufferAddress(hipc.data.recv_buffers));
-            size_t recv_size  = hipcGetBufferSize(hipc.data.recv_buffers);
+            auto* recv_buf  = static_cast<KdecWireSettingEntry*>(hipcGetBufferAddress(hipc.data.recv_buffers));
+            size_t recv_size = hipcGetBufferSize(hipc.data.recv_buffers);
 
             std::lock_guard<std::mutex> lock(settings_mutex_);
-
-            IpcWriter wr;
-            for (const auto& [key, entry] : settings_) {
-                wr.write_string(entry.key);
-                wr.write(static_cast<uint8_t>(entry.type));
-                switch (entry.type) {
-                    case KdecSettingType::Bool:   wr.write(std::get<bool>(entry.value));        break;
-                    case KdecSettingType::Int:    wr.write(std::get<int32_t>(entry.value));     break;
-                    case KdecSettingType::String: wr.write_string(std::get<std::string>(entry.value)); break;
-                }
+            uint32_t count = 0;
+            for (const auto& [key, val] : bool_settings_) {
+                if ((count + 1) * sizeof(KdecWireSettingEntry) > recv_size) break;
+                KdecWireSettingEntry& e = recv_buf[count++];
+                e = {};
+                e.key = key;
+                e.value.as_bool = val;
             }
-
-            uint32_t count = static_cast<uint32_t>(settings_.size());
-            if (wr.size() <= recv_size) {
-                memcpy(recv_buffer, wr.data().data(), wr.size());
+            for (const auto& [key, val] : int_settings_) {
+                if ((count + 1) * sizeof(KdecWireSettingEntry) > recv_size) break;
+                KdecWireSettingEntry& e = recv_buf[count++];
+                e = {};
+                e.key = key;
+                e.value.as_int = val;
             }
 
             *out_size = sizeof(uint32_t);

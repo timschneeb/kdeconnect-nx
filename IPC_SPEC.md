@@ -34,7 +34,7 @@ Offset  Size  Field
 
 Magic values are enforced; a request with the wrong magic is rejected with `LibnxError_BadInput`.
 
-Following the header is the command-specific payload, either inline (≤ 240 bytes) or via HiPC buffer descriptors for larger data.
+Following the header is the command-specific payload. Simple parameters fit inline (≤ 240 bytes); large arrays are transferred via HiPC buffer descriptors.
 
 ---
 
@@ -45,7 +45,7 @@ Following the header is the command-specific payload, either inline (≤ 240 byt
 | `0x0000` | Success                                                   |
 | `MAKERESULT(Module_Libnx, LibnxError_BadInput)` | Invalid parameters / bad magic                            |
 | `MAKERESULT(Module_Libnx, LibnxError_OutOfMemory)` | Session limit reached                                     |
-| `MAKERESULT(Module_Libnx, LibnxError_NotFound)` | Invalid handle / session                                  |
+| `MAKERESULT(Module_Libnx, LibnxError_NotFound)` | Invalid handle / session / key                            |
 | `MAKERESULT(Module_Libnx, LibnxError_NotInitialized)` | Service not running                                       |
 | `1` | Unknown command ID (TODO: this should be a proper RESULT) |
 
@@ -57,13 +57,9 @@ TODO: investigate on how to avoid polling (device list, player state) and maybe 
 
 ---
 
-## Serialization
-
-Commands that return variable-length data use a single out buffer (`SfBufferAttr_Out`) containing a packed binary payload. Fields are written in the order listed. Primitive types are packed as-is. Strings are length-prefixed: `uint16_t len` followed by `len` bytes (no null terminator). For array responses, entries are serialized back-to-back; the count is returned inline.
-
----
-
 ## Data Types
+
+All structs are plain POD with fixed-size `char` arrays, 16-byte aligned (`__attribute__((aligned(16)))`). They are suitable for direct `memcpy` across the HiPC buffer boundary with no serialization layer.
 
 ### `DevicePairState` (uint8_t)
 
@@ -74,31 +70,37 @@ Commands that return variable-length data use a single out buffer (`SfBufferAttr
 | `2` | `RequestedByPeer` | Incoming pairing request pending |
 | `3` | `Paired` | Successfully paired |
 
-### `KdecDeviceInfo`
+### `KdecDeviceInfo` (144 bytes)
 
-- `string id`
-- `string name`
-- `DevicePairState pair_state`
-- `bool is_connected`
-- `bool supports_find_my_phone`
-- `int8_t battery_level` -1-100 (-1 = no battery)
+| Offset | Size | Field |
+|--------|------|-------|
+| 0      | 64   | `char id[64]` |
+| 64     | 64   | `char name[64]` |
+| 128    | 1    | `DevicePairState pair_state` |
+| 129    | 1    | `bool is_connected` |
+| 130    | 1    | `bool supports_find_my_phone` |
+| 131    | 1    | `int8_t battery_level` (-1 = no battery) |
+| 132    | 12   | implicit trailing pad (16-byte alignment) |
 
-### `KdecMediaInfo`
+### `KdecMediaInfo` (1888 bytes)
 
-- `string device_id`
-- `string player`
-- `string title`
-- `string artist`
-- `string album`
-- `bool is_playing`
-- `bool can_play`
-- `bool can_pause`
-- `bool can_go_next`
-- `bool can_go_previous`
-- `bool can_seek`
-- `int32_t volume`: 0–100
-- `int64_t position`: current position in ms
-- `int64_t length`: total duration in ms
+| Offset | Size | Field |
+|--------|------|-------|
+| 0      | 64   | `char device_id[64]` |
+| 64     | 256  | `char player[256]` |
+| 320    | 512  | `char title[512]` |
+| 832    | 512  | `char artist[512]` |
+| 1344   | 512  | `char album[512]` |
+| 1856   | 8    | `int64_t position` (ms) |
+| 1864   | 8    | `int64_t length` (ms) |
+| 1872   | 4    | `int32_t volume` (0–100) |
+| 1876   | 1    | `bool is_playing` |
+| 1877   | 1    | `bool can_play` |
+| 1878   | 1    | `bool can_pause` |
+| 1879   | 1    | `bool can_go_next` |
+| 1880   | 1    | `bool can_go_previous` |
+| 1881   | 1    | `bool can_seek` |
+| 1882   | 6    | `uint8_t _pad[6]` |
 
 ### `KdecMediaAction` (uint8_t)
 
@@ -114,24 +116,69 @@ Commands that return variable-length data use a single out buffer (`SfBufferAttr
 | `7` | `Seek` | relative offset in ms |
 | `8` | `SetPosition` | absolute position in ms |
 
-### `KdecCommandEntry`
+### `KdecCommandEntry` (320 bytes)
 
-- `string id`
-- `string name`
+| Offset | Size | Field |
+|--------|------|-------|
+| 0      | 64   | `char id[64]` |
+| 64     | 256  | `char name[256]` |
 
-### `KdecSettingType` (uint8_t)
+### `KdecBoolSettingKey` (uint8_t enum)
+
+Defined in `common/src/constants.h` as `enum class KdecBoolSettingKey : uint8_t`.
 
 | Value | Name |
 |-------|------|
-| `0`   | `Bool` |
-| `1`   | `Int` |
-| `2`   | `String` |
+| `0`   | `NotificationShowRemote` |
+| `1`   | `NotificationShowOnConnect` |
 
-### `KdecSettingEntry`
+### `KdecIntSettingKey` (uint8_t enum)
 
-- `string key`
-- `KdecSettingType type`
-- `value`: `bool` for `Bool`; `int32_t` for `Int`; `string` for `String`
+Defined in `common/src/constants.h` as `enum class KdecIntSettingKey : uint8_t`.
+
+| Value | Name |
+|-------|------|
+| `0`   | `NotificationDuration` |
+
+### `KdecWireWriteBoolSetting` (2 bytes)
+
+| Offset | Size | Field |
+|--------|------|-------|
+| 0      | 1    | `KdecBoolSettingKey key` |
+| 1      | 1    | `bool value` |
+
+### `KdecWireWriteIntSetting` (8 bytes)
+
+| Offset | Size | Field |
+|--------|------|-------|
+| 0      | 1    | `KdecIntSettingKey key` |
+| 1      | 3    | implicit pad (align `value` to 4) |
+| 4      | 4    | `int32_t value` |
+
+### `KdecWireSettingEntry` (16 bytes)
+
+Used only in the `GetAllSettings` response buffer. Bool settings are written first (in `KdecBoolSettingKey` order), then int settings (in `KdecIntSettingKey` order); the caller distinguishes types by key.
+
+| Offset | Size | Field |
+|--------|------|-------|
+| 0      | 1    | `uint8_t key` |
+| 1      | 3    | implicit pad |
+| 4      | 4    | `union { bool as_bool; int32_t as_int; } value` |
+| 8      | 8    | implicit trailing pad (16-byte alignment) |
+
+---
+
+## Inline Request Wire Structs
+
+Small requests are passed inline (no buffer descriptor needed):
+
+| Struct | Size | Used by |
+|--------|------|---------|
+| `KdecWireDeviceId { char device_id[64]; }` | 64 B | `RequestPair`, `AcceptPair`, `RejectPair`, `Unpair`, `Ping`, `GetCommandList` |
+| `KdecWireRunCommand { char device_id[64]; char command_id[64]; }` | 128 B | `RunCommand` |
+| `KdecWireWriteBoolSetting { KdecBoolSettingKey key; bool value; }` | 2 B | `WriteBoolSetting` |
+| `KdecWireWriteIntSetting { KdecIntSettingKey key; uint8_t _pad[3]; int32_t value; }` | 8 B | `WriteIntSetting` |
+| `KdecWireSendMediaAction { uint8_t action; uint8_t _pad[7]; int64_t value; }` | 16 B | `SendMediaAction` |
 
 ---
 
@@ -161,7 +208,7 @@ Returns the number of known devices.
 
 Returns device information for all known devices.
 
-**Request:** Out buffer (`SfBufferAttr_Out`): caller-allocated buffer; server writes serialized `KdecDeviceInfo` entries back-to-back
+**Request:** Out buffer (`SfBufferAttr_Out`): caller-allocated; server writes `KdecDeviceInfo` entries back-to-back
 
 **Response:** `uint32_t count`: number of entries written
 
@@ -171,7 +218,7 @@ Returns device information for all known devices.
 
 Initiates a pairing request to the specified device.
 
-**Request:** In buffer (`SfBufferAttr_In`): null-terminated device ID string
+**Request:** Inline `KdecWireDeviceId`
 
 **Response:** none
 
@@ -181,7 +228,7 @@ Initiates a pairing request to the specified device.
 
 Accepts an incoming pairing request from the specified device.
 
-**Request:** In buffer (`SfBufferAttr_In`): null-terminated device ID string
+**Request:** Inline `KdecWireDeviceId`
 
 **Response:** none
 
@@ -191,7 +238,7 @@ Accepts an incoming pairing request from the specified device.
 
 Rejects an incoming pairing request from the specified device.
 
-**Request:** In buffer (`SfBufferAttr_In`): null-terminated device ID string
+**Request:** Inline `KdecWireDeviceId`
 
 **Response:** none
 
@@ -201,7 +248,7 @@ Rejects an incoming pairing request from the specified device.
 
 Removes the pairing with the specified device.
 
-**Request:** In buffer (`SfBufferAttr_In`): null-terminated device ID string
+**Request:** Inline `KdecWireDeviceId`
 
 **Response:** none
 
@@ -215,7 +262,7 @@ Opcodes are provisional.
 
 Sends a ping notification to the specified device.
 
-**Request:** In buffer (`SfBufferAttr_In`): null-terminated device ID string
+**Request:** Inline `KdecWireDeviceId`
 
 **Response:** none
 
@@ -225,9 +272,9 @@ Sends a ping notification to the specified device.
 
 Returns the media player state from whichever paired device most recently updated its player. Currently requires polling; event-based push is a future consideration.
 
-**Request:** Out buffer (`SfBufferAttr_Out`): caller-allocated buffer; server writes one serialized `KdecMediaInfo`
+**Request:** Out buffer (`SfBufferAttr_Out`): caller-allocated; server writes one `KdecMediaInfo`
 
-**Response:** `uint32_t bytes_written`
+**Response:** `uint32_t found`: `1` if a player was active and the buffer was written, `0` otherwise
 
 ---
 
@@ -235,9 +282,7 @@ Returns the media player state from whichever paired device most recently update
 
 Sends a media control action to the active device's player.
 
-**Request:**
-- `KdecMediaAction action` (inline)
-- `int64_t value` (inline): interpretation depends on `action`; ignored if not applicable
+**Request:** Inline `KdecWireSendMediaAction`
 
 **Response:** none
 
@@ -248,8 +293,8 @@ Sends a media control action to the active device's player.
 Returns the list of runnable commands registered on the specified device.
 
 **Request:**
-- In buffer (`SfBufferAttr_In`): null-terminated device ID string
-- Out buffer (`SfBufferAttr_Out`): caller-allocated buffer; server writes serialized `KdecCommandEntry` entries back-to-back
+- Inline `KdecWireDeviceId`
+- Out buffer (`SfBufferAttr_Out`): caller-allocated; server writes `KdecCommandEntry` entries back-to-back
 
 **Response:** `uint32_t count`: number of entries written
 
@@ -259,44 +304,57 @@ Returns the list of runnable commands registered on the specified device.
 
 Runs a command on the specified device.
 
-**Request:**
-- In buffer 0 (`SfBufferAttr_In`): null-terminated device ID string
-- In buffer 1 (`SfBufferAttr_In`): null-terminated command UUID string
+**Request:** Inline `KdecWireRunCommand`
 
 **Response:** none
 
 ---
 
-### `ReadSetting` (12)
+### `ReadBoolSetting` (12)
 
-Reads a setting value by key.
+Reads a bool setting by key.
 
-**Request:**
-- In buffer (`SfBufferAttr_In`): null-terminated setting key string
-- `KdecSettingType type` (inline)
+**Request:** Inline `KdecBoolSettingKey` (1 byte)
 
-**Response:** Out buffer (`SfBufferAttr_Out`): value bytes; interpretation depends on `type`
+**Response:** Inline `bool`
 
 ---
 
-### `WriteSetting` (13)
+### `WriteBoolSetting` (13)
 
-Writes a setting value by key.
+Writes a bool setting by key.
 
-**Request:**
-- In buffer 0 (`SfBufferAttr_In`): null-terminated setting key string
-- `KdecSettingType type` (inline)
-- In buffer 1 (`SfBufferAttr_In`): value bytes
+**Request:** Inline `KdecWireWriteBoolSetting`
 
 **Response:** none
 
 ---
 
-### `GetAllSettings` (14)
+### `ReadIntSetting` (14)
 
-Returns all settings and their current values.
+Reads an int setting by key.
 
-**Request:** Out buffer (`SfBufferAttr_Out`): caller-allocated buffer; server writes serialized `KdecSettingEntry` entries back-to-back
+**Request:** Inline `KdecIntSettingKey` (1 byte)
+
+**Response:** Inline `int32_t`
+
+---
+
+### `WriteIntSetting` (15)
+
+Writes an int setting by key.
+
+**Request:** Inline `KdecWireWriteIntSetting`
+
+**Response:** none
+
+---
+
+### `GetAllSettings` (16)
+
+Returns all settings (both bool and int) and their current values.
+
+**Request:** Out buffer (`SfBufferAttr_Out`): caller-allocated; server writes `KdecWireSettingEntry` entries back-to-back
 
 **Response:** `uint32_t count`: number of entries written
 

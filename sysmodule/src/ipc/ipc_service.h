@@ -7,7 +7,6 @@
 
 #include "../nx_application.h"
 #include "ipc_server.h"
-#include <../../../common/src/kdec/ipc.h>
 
 class IpcService {
 public:
@@ -28,5 +27,6 @@ private:
     IpcServer srv_{};
 
     mutable std::mutex settings_mutex_;
-    std::unordered_map<std::string, KdecSettingEntry> settings_;
+    std::unordered_map<uint8_t, bool>    bool_settings_;
+    std::unordered_map<uint8_t, int32_t> int_settings_;
 };
