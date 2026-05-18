@@ -18,14 +18,18 @@ public:
     bool on_packet_received(const NetworkPacket& np) override;
 
     void send_status() const;
+    void read_remote_state(int8_t& charge, bool& charging) const;
 
 private:
     void poll_loop();
-    bool read_hardware(uint32_t& charge, bool& charging) const;
+    bool read_hardware(int32_t& charge, bool& charging) const;
 
-    std::atomic<uint32_t> cached_charge_{100};
+    std::atomic<int32_t> cached_charge_{100};
     std::atomic<bool> cached_charging_{false};
     std::atomic<bool> cache_valid_{false};
+
+    std::atomic<int32_t> cached_remote_charge_{-1};
+    std::atomic<bool> cached_remote_charging_{false};
 
     std::atomic<bool> running_{false};
     std::thread poll_thread_;

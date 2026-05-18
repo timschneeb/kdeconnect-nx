@@ -32,7 +32,7 @@ BatteryPlugin::~BatteryPlugin() {
 #endif
 }
 
-bool BatteryPlugin::read_hardware(uint32_t& charge, bool& charging) const {
+bool BatteryPlugin::read_hardware(int32_t& charge, bool& charging) const {
 #ifdef __SWITCH__
     if (!psm_initialized_) return false;
     u32 pct = 0;
@@ -56,7 +56,7 @@ void BatteryPlugin::on_connected(bool paired) {
 }
 
 void BatteryPlugin::poll_loop() {
-    uint32_t charge = 0;
+    int32_t charge = 0;
     bool charging = false;
 
     if (read_hardware(charge, charging)) {
@@ -73,7 +73,7 @@ void BatteryPlugin::poll_loop() {
 
         if (!running_.load()) break;
 
-        uint32_t new_charge = charge;
+        int32_t new_charge = charge;
         bool new_charging = charging;
         if (read_hardware(new_charge, new_charging)) {
             if (new_charge != charge || new_charging != charging) {
@@ -99,13 +99,16 @@ bool BatteryPlugin::on_packet_received(const NetworkPacket& np) {
                           (remote_charging ? " (charging)" : "");
         if (remote_charge <= 15 && np.body.value("thresholdEvent", 0) == 1) msg += " LOW";
         Logger::info(msg);
+
+        cached_remote_charge_ = remote_charge;
+        cached_remote_charging_ = remote_charging;
         return true;
     }
     return false;
 }
 
 void BatteryPlugin::send_status() const {
-    uint32_t charge = cached_charge_.load();
+    int32_t charge = cached_charge_.load();
     bool charging = cached_charging_.load();
 
     if (!cache_valid_.load()) {
@@ -121,4 +124,9 @@ void BatteryPlugin::send_status() const {
         {"thresholdEvent", (!charging && charge <= 15u) ? 1 : 0}
     };
     send_packet(pkt);
+}
+
+void BatteryPlugin::read_remote_state(int8_t &charge, bool &charging) const {
+    charge = cached_remote_charge_.load();
+    charging = cached_remote_charging_.load();
 }

@@ -9,6 +9,7 @@
 #include "../plugins/mpris_plugin.h"
 #include "../plugins/run_command_plugin.h"
 #include "../net/network_packet.h"
+#include "plugins/battery_plugin.h"
 
 #define MAX_SESSIONS 2
 
@@ -126,7 +127,7 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
                     }
                 }
 
-                info.battery_level = -1; // TODO: implement
+                sess->plugin<BatteryPlugin>()->read_remote_state(info.battery_level, info.is_charging);
                 count++;
             }
 

@@ -61,7 +61,8 @@ struct KdecDeviceInfo {
     DevicePairState pair_state;
     bool            is_connected;
     bool            supports_find_my_phone;
-    int8_t          battery_level; // -1 = unavailable
+    int8_t          battery_level; // -1 = no battery
+    bool            is_charging;
 } __attribute__ ((aligned (16)));
 
 struct KdecMediaInfo {
