@@ -123,7 +123,9 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
                 for (const auto& cap : sess->info.incoming_capabilities) {
                     if (cap == PacketTypes::FindMyPhoneRequest) {
                         info.supports_find_my_phone = true;
-                        break;
+                    }
+                    else if (cap == PacketTypes::RunCommandRequest) {
+                        info.supports_commands = true;
                     }
                 }
 
