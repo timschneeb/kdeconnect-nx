@@ -1,7 +1,13 @@
 add_subdirectory(libs)
 
 # Define target
-add_executable(MiniKDEConnect_overlay src/main.cpp)
+add_executable(MiniKDEConnect_overlay
+    src/main.cpp
+    src/gui/commands_gui.cpp
+    src/gui/device_gui.cpp
+    src/gui/main_gui.cpp
+        src/utils/symbols.h
+)
 
 # Optimization and build flags
 target_compile_options(MiniKDEConnect_overlay PRIVATE
@@ -42,7 +48,7 @@ add_custom_command(
 find_program(CURL_EXE curl REQUIRED NO_CMAKE_FIND_ROOT_PATH)
 add_custom_target(MiniKDEConnect_overlay_upload
     COMMAND ${CURL_EXE} -T MiniKDEConnect_overlay.ovl
-            "ftp://anonymous:@192.168.178.177:5000/switch/.overlays/MiniKDEConnect_overlay.ovl"
+            "ftp://anonymous:@192.168.178.177:5001/switch/.overlays/MiniKDEConnect_overlay.ovl"
     DEPENDS MiniKDEConnect_overlay
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Uploading overlay to Switch"
