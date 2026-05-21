@@ -3,11 +3,58 @@
 #include <kdec/ipc_client.h>
 #include <algorithm>
 #include <cstdio>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "../utils/symbols.h"
+
+class MuteTrackBar : public tsl::elm::TrackBar {
+public:
+    using TrackBar::TrackBar;
+
+    void setMuteVolumeChangedListener(std::function<void(u16, bool)> listener) {
+        ipc_listener_ = std::move(listener);
+        m_valueChangedListener = [this](u16 vol) {
+            if (muted_) muted_ = false;
+            real_volume_ = vol;
+            ipc_listener_(vol, false);
+        };
+    }
+
+    bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState& touch,
+                     HidAnalogStickState left, HidAnalogStickState right) override {
+        if (keysDown & KEY_Y) {
+            muted_ = !muted_;
+            if (muted_) {
+                real_volume_ = static_cast<u16>(m_value);
+                m_value = 0;
+            } else {
+                m_value = real_volume_;
+            }
+            ipc_listener_(real_volume_, muted_);
+            return true;
+        }
+        return TrackBar::handleInput(keysDown, keysHeld, touch, left, right);
+    }
+
+    void setMuted(bool muted) {
+        muted_ = muted;
+        if (muted) {
+            real_volume_ = static_cast<u16>(m_value);
+            m_value = 0;
+        }
+    }
+
+    bool isMuted() const { return muted_; }
+    u16 getRealVolume() const { return muted_ ? real_volume_ : static_cast<u16>(m_value); }
+
+private:
+    bool muted_       = false;
+    u16  real_volume_ = 0;
+    std::function<void(u16, bool)> ipc_listener_ = [](u16, bool){};
+};
 
 VolumeGui::VolumeGui(std::string device_id, std::string device_name)
     : device_id_(std::move(device_id)), device_name_(std::move(device_name)) {}
@@ -60,40 +107,32 @@ tsl::elm::Element* VolumeGui::createUI() {
         header->setValue(std::string(sym::yButton) + " Mute", tsl::bannerVersionTextColor);
         list->addItem(header);
 
-        auto* slider = new tsl::elm::TrackBar(sym::volume, false, false, true, "Volume", "%");
+        auto* slider = new MuteTrackBar(sym::volume, false, false, true, "Volume", "%");
         slider->setProgress(static_cast<u16>(sink.volume));
+        if (sink.is_muted) slider->setMuted(true);
 
-        auto* mute = new tsl::elm::ToggleListItem("Mute", sink.is_muted);
-
-        slider->setValueChangedListener([dev_id, name, mute](u16 vol) {
-            kdecIpcSetVolumeSink(dev_id, name, static_cast<int32_t>(vol), mute->getState());
-        });
-
-        mute->setStateChangedListener([dev_id, name, slider](bool muted) {
-            kdecIpcSetVolumeSink(dev_id, name, static_cast<int32_t>(slider->getProgress()), muted);
+        slider->setMuteVolumeChangedListener([dev_id, name](u16 vol, bool muted) {
+            kdecIpcSetVolumeSink(dev_id, name, static_cast<int32_t>(vol), muted);
         });
 
         list->addItem(slider);
-        list->addItem(mute);
 
-        // "Set as Default" doubles as an active indicator:
-        //   active  → value "✓", m_isItem=false (non-interactive, visually dimmed)
-        //   inactive → value "",  m_isItem=true  (interactive)
+        // "Set as Default" doubles as an active indicator
         auto* default_btn = new tsl::elm::ListItem("Set as Default", sink.is_default_output ? sym::accept : "");
-        default_btn->m_isItem = !sink.is_default_output;
+        default_btn->isLocked = sink.is_default_output;
         all_default_btns->push_back(default_btn);
 
-        default_btn->setClickListener([dev_id, name, slider, mute, all_default_btns, i](u64 keys) -> bool {
+        default_btn->setClickListener([dev_id, name, slider, all_default_btns, i](u64 keys) -> bool {
             if (keys & HidNpadButton_A) {
                 kdecIpcSetVolumeSink(dev_id, name,
-                    static_cast<int32_t>(slider->getProgress()),
-                    mute->getState(),
+                    static_cast<int32_t>(slider->getRealVolume()),
+                    slider->isMuted(),
                     /*is_default_output=*/true);
 
                 for (size_t j = 0; j < all_default_btns->size(); j++) {
                     auto* btn = (*all_default_btns)[j];
                     btn->setValue(j == i ? sym::accept : "");
-                    btn->m_isItem = (j != i);
+                    btn->isLocked = j == i;
                 }
                 return true;
             }
