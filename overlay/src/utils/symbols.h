@@ -5,6 +5,8 @@ namespace sym {
     constexpr auto returnArrow = "";
     constexpr auto chevronRight = "";
 
+    constexpr auto yButton = "";
+
     constexpr auto errorCircleOutline = "";
     constexpr auto errorCircleFilled = "";
     constexpr auto infoCircleOutline = "";

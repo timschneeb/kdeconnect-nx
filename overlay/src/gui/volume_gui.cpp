@@ -1,7 +1,9 @@
 #include "volume_gui.h"
 #include "gui_common.h"
 #include <kdec/ipc_client.h>
+#include <algorithm>
 #include <cstdio>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -38,20 +40,29 @@ tsl::elm::Element* VolumeGui::createUI() {
         return frame;
     }
 
+    // Active sink first, rest in original order
+    std::stable_sort(sinks.begin(), sinks.end(), [](const KdecVolumeSinkInfo& a, const KdecVolumeSinkInfo& b) {
+        return a.is_default_output > b.is_default_output;
+    });
+
     auto* list = new tsl::elm::List();
 
-    for (const auto& sink : sinks) {
-        std::string dev_id   = device_id_;
-        std::string name     = sink.name;
-        std::string label    = sink.description[0] != '\0' ? std::string(sink.description) : std::string(sink.name);
+    // Shared across all "Set as Default" buttons so each click can update the rest
+    auto all_default_btns = std::make_shared<std::vector<tsl::elm::ListItem*>>();
 
-        list->addItem(new tsl::elm::CategoryHeader(label));
+    for (size_t i = 0; i < sinks.size(); i++) {
+        const auto& sink = sinks[i];
+        std::string dev_id = device_id_;
+        std::string name   = sink.name;
+        std::string label  = sink.description[0] != '\0' ? std::string(sink.description) : std::string(sink.name);
 
-        // Volume slider
+        auto* header = new tsl::elm::CategoryHeader(label);
+        header->setValue(std::string(sym::yButton) + " Mute", tsl::bannerVersionTextColor);
+        list->addItem(header);
+
         auto* slider = new tsl::elm::TrackBar(sym::volume, false, false, true, "Volume", "%");
         slider->setProgress(static_cast<u16>(sink.volume));
 
-        // Mute toggle — must be created before wiring slider callback
         auto* mute = new tsl::elm::ToggleListItem("Mute", sink.is_muted);
 
         slider->setValueChangedListener([dev_id, name, mute](u16 vol) {
@@ -64,6 +75,32 @@ tsl::elm::Element* VolumeGui::createUI() {
 
         list->addItem(slider);
         list->addItem(mute);
+
+        // "Set as Default" doubles as an active indicator:
+        //   active  → value "✓", m_isItem=false (non-interactive, visually dimmed)
+        //   inactive → value "",  m_isItem=true  (interactive)
+        auto* default_btn = new tsl::elm::ListItem("Set as Default", sink.is_default_output ? sym::accept : "");
+        default_btn->m_isItem = !sink.is_default_output;
+        all_default_btns->push_back(default_btn);
+
+        default_btn->setClickListener([dev_id, name, slider, mute, all_default_btns, i](u64 keys) -> bool {
+            if (keys & HidNpadButton_A) {
+                kdecIpcSetVolumeSink(dev_id, name,
+                    static_cast<int32_t>(slider->getProgress()),
+                    mute->getState(),
+                    /*is_default_output=*/true);
+
+                for (size_t j = 0; j < all_default_btns->size(); j++) {
+                    auto* btn = (*all_default_btns)[j];
+                    btn->setValue(j == i ? sym::accept : "");
+                    btn->m_isItem = (j != i);
+                }
+                return true;
+            }
+            return false;
+        });
+
+        list->addItem(default_btn);
     }
 
     frame->setContent(list);
