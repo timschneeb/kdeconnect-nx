@@ -17,7 +17,12 @@ public:
     // Must be called from the main thread.
     static bool open_pending_url();
 
+    bool send_screenshot() const;
+
 private:
+    static std::vector<unsigned char> capture_screenshot_to_buffer();
+
     static std::mutex s_url_mutex_;
+    static std::mutex s_screenshot_mutex_;
     static std::queue<std::string> s_pending_urls_;
 };

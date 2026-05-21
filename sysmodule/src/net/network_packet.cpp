@@ -10,6 +10,10 @@ std::string NetworkPacket::serialize() const {
     root["id"] = now;
     root["type"] = type;
     root["body"] = body;
+    if (payload_port >= 0 && payload_size > 0) {
+        root["payloadSize"] = payload_size;
+        root["payloadTransferInfo"] = {{"port", payload_port}};
+    }
     return root.dump() + "\n";
 }
 

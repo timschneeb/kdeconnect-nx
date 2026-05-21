@@ -6,7 +6,14 @@
 
 #include "../utils/symbols.h"
 
-DeviceGui::DeviceGui(KdecDeviceInfo dev) : dev_(dev) {}
+DeviceGui::DeviceGui(const KdecDeviceInfo &dev) : dev_(dev) {}
+
+void DeviceGui::update() {
+    if (screenshot_ticks_ <= 0) return;
+    if (--screenshot_ticks_ == 0) {
+        tsl::gfx::Renderer::get().addScreenshotStacks(true);
+    }
+}
 
 tsl::elm::Element* DeviceGui::createUI() {
     auto* frame = new tsl::elm::OverlayFrame(devName(dev_), statusStr(dev_));
@@ -78,6 +85,22 @@ tsl::elm::Element* DeviceGui::createUI() {
             list->addItem(cmds);
         }
 
+        if (dev_.supports_share) {
+            auto* screenshot = new tsl::elm::ListItem("Send Screenshot");
+            screenshot->setClickListener([this, id](u64 keys) -> bool {
+                if (keys & HidNpadButton_A) {
+                    // Remove overlay from screenshot layer stack before capture, then add it back after a short delay
+                    // to be safe that the screenshot has completed.
+                    screenshot_ticks_ = 1;
+                    tsl::gfx::Renderer::get().removeScreenshotStacks(true);
+                    kdecIpcSendScreenshot(dev_.id);
+                    return true;
+                }
+                return false;
+            });
+            list->addItem(screenshot);
+        }
+
         auto* ping = new tsl::elm::ListItem("Ping");
         ping->setClickListener([id](u64 keys) -> bool {
             if (keys & HidNpadButton_A) { kdecIpcPing(id); return true; }
@@ -97,6 +120,7 @@ tsl::elm::Element* DeviceGui::createUI() {
 
     if (paired) {
         auto* unpair = new tsl::elm::ListItem("Unpair");
+        unpair->setValue(sym::cancel);
         unpair->setClickListener([id](u64 keys) -> bool {
             if (keys & HidNpadButton_A) { kdecIpcUnpair(id); tsl::goBack(); return true; }
             return false;

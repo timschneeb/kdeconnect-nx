@@ -1,11 +1,15 @@
 #include "share_plugin.h"
 #include "utils/logger.h"
 
+#include <chrono>
+#include <cstdio>
+
 #ifdef __SWITCH__
 #include <switch.h>
 #endif
 
 std::mutex SharePlugin::s_url_mutex_;
+std::mutex SharePlugin::s_screenshot_mutex_;
 std::queue<std::string> SharePlugin::s_pending_urls_;
 
 std::string SharePlugin::name() const { return "Share Plugin"; }
@@ -16,7 +20,7 @@ std::vector<std::string> SharePlugin::supported_packet_types() const {
 }
 
 std::vector<std::string> SharePlugin::outgoing_packet_types() const {
-    return {};
+    return { PacketTypes::ShareRequest };
 }
 
 bool SharePlugin::on_packet_received(const NetworkPacket& np) {
@@ -74,4 +78,49 @@ bool SharePlugin::open_pending_url() {
     Logger::info("Would open URL: " + url);
 #endif
     return true;
+}
+
+bool SharePlugin::send_screenshot() const {
+    if (!provider_) return false;
+
+    auto buffer = capture_screenshot_to_buffer();
+    if (buffer.empty()) return false;
+
+    auto ts = std::chrono::duration_cast<std::chrono::seconds>(
+                  std::chrono::system_clock::now().time_since_epoch()).count();
+    char filename[40];
+    snprintf(filename, sizeof(filename), "screenshot_%lld.jpg", static_cast<long long>(ts));
+
+    NetworkPacket pkt;
+    pkt.type = PacketTypes::ShareRequest;
+    pkt.body = {{"filename", std::string(filename)}};
+    pkt.payload = std::move(buffer);
+
+    return provider_->send_payload(device_id_, std::move(pkt));
+}
+
+std::vector<unsigned char> SharePlugin::capture_screenshot_to_buffer() {
+    std::vector<unsigned char> jpegBuffer;
+
+    std::lock_guard lock(s_screenshot_mutex_);
+    if (R_FAILED(capsscInitialize())) {
+        Logger::error("Failed to initialize caps:sc");
+        return jpegBuffer;
+    }
+
+    auto jpegBuf = std::make_unique<unsigned char[]>(CAPSSC_JPEG_BUFFER_SIZE);
+    u64 outSize = 0;
+
+    Result rc = capsscCaptureJpegScreenShot(&outSize, jpegBuf.get(),
+                                            CAPSSC_JPEG_BUFFER_SIZE,
+                                            ViLayerStack_Screenshot, 100000000);
+
+    if (R_SUCCEEDED(rc)) {
+        jpegBuffer.assign(jpegBuf.get(), jpegBuf.get() + outSize);
+    } else {
+        Logger::error("Failed to capture screenshot: 0x%X", rc);
+    }
+
+    capsscExit();
+    return std::move(jpegBuffer);
 }

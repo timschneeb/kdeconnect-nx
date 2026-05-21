@@ -650,6 +650,55 @@ bool KdeConnectClient::send_packet(const std::string& device_id, const NetworkPa
     return true;
 }
 
+bool KdeConnectClient::send_payload(const std::string& device_id, NetworkPacket pkt) {
+    if (pkt.payload.empty()) return false;
+
+    ScopedFd srv_fd{socket(AF_INET, SOCK_STREAM, 0)};
+    if (!srv_fd) return false;
+
+    int reuse = 1;
+    setsockopt(srv_fd.raw, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+
+    // Find a free payload port in the standard KDE Connect payload range.
+    int port = 0;
+    sockaddr_in srv_addr{};
+    srv_addr.sin_family = AF_INET;
+    srv_addr.sin_addr.s_addr = INADDR_ANY;
+    for (int p = 1739; p <= 1764; ++p) {
+        srv_addr.sin_port = htons(static_cast<uint16_t>(p));
+        if (bind(srv_fd.raw, reinterpret_cast<sockaddr*>(&srv_addr), sizeof(srv_addr)) == 0) {
+            port = p;
+            break;
+        }
+    }
+    if (port == 0 || listen(srv_fd.raw, 1) != 0) return false;
+
+    pkt.payload_size = static_cast<int64_t>(pkt.payload.size());
+    pkt.payload_port = port;
+
+    if (!send_packet(device_id, pkt)) return false;
+
+    auto payload = std::make_shared<std::vector<uint8_t>>(std::move(pkt.payload));
+    std::lock_guard lock(pending_mutex_);
+    pending_threads_.emplace_back([this, srv_fd = std::move(srv_fd), payload]() mutable {
+        // Give the receiver 15 s to connect after receiving the share packet.
+        timeval timeout{15, 0};
+        setsockopt(srv_fd.raw, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+
+        ScopedFd client_fd{accept(srv_fd.raw, nullptr, nullptr)};
+        if (!client_fd) return;
+
+        // Receiver connects as TLS client; we are TLS server.
+        auto tls_session = tls_.create_session(client_fd.raw, false);
+        if (!tls_session || !NetworkUtil::perform_tls_handshake(*tls_session)) return;
+
+        NetworkUtil::send_all_tls(*tls_session, *payload);
+        mbedtls_ssl_close_notify(&tls_session->ssl);
+    });
+
+    return true;
+}
+
 void KdeConnectClient::io_loop(const std::shared_ptr<DeviceSession>& session) {
     // Drain outgoing queue. All TLS access is in this one thread, so reads and
     // writes never race on the mbedtls context. Returns false on send failure.

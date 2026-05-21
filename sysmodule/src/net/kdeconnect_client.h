@@ -37,6 +37,7 @@ public:
   void unpair(const std::string &device_id);
 
   bool send_packet(const std::string &device_id, const NetworkPacket& pkt) override;
+  bool send_payload(const std::string &device_id, NetworkPacket pkt) override;
 
   const DeviceInfo &local_device() const { return local_device_; }
   int tcp_port() const { return tcp_port_; }

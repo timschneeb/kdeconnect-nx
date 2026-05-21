@@ -195,6 +195,12 @@ Result kdecIpcSetVolumeSink(const std::string& device_id, const std::string& sin
     return serviceDispatchIn(&g_kdecSrv, KdecIpcCmd_SetVolumeSink, wire);
 }
 
+Result kdecIpcSendScreenshot(const std::string& device_id) {
+    KdecWireDeviceId wire{};
+    strncpy(wire.device_id, device_id.c_str(), KDEC_DEVICE_ID_MAX - 1);
+    return serviceDispatchIn(&g_kdecSrv, KdecIpcCmd_SendScreenshot, wire);
+}
+
 Result kdecIpcGetAllSettings(std::vector<KdecWireSettingEntry>& out) {
     static KdecWireSettingEntry buf[constants::kMaxSettings];
 

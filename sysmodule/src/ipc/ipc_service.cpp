@@ -12,6 +12,7 @@
 #include "../plugins/system_volume_plugin.h"
 #include "../net/network_packet.h"
 #include "plugins/battery_plugin.h"
+#include "../plugins/share_plugin.h"
 
 #define MAX_SESSIONS 2
 
@@ -134,6 +135,9 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
                     }
                     else if (cap == PacketTypes::MprisRequest) {
                         info.supports_mpris_remote = true;
+                    }
+                    else if (cap == PacketTypes::ShareRequest) {
+                        info.supports_share = true;
                     }
                 }
 
@@ -470,6 +474,23 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
             *out_size = sizeof(uint32_t);
             *reinterpret_cast<uint32_t*>(out_data) = count;
             return 0;
+        }
+
+        case KdecIpcCmd_SendScreenshot: {
+            if (r->data.size < sizeof(KdecWireDeviceId))
+                return MAKERESULT(Module_Libnx, LibnxError_BadInput);
+
+            KdecWireDeviceId wire{};
+            memcpy(&wire, r->data.ptr, sizeof(wire));
+            std::string id_str(wire.device_id, strnlen(wire.device_id, KDEC_DEVICE_ID_MAX));
+
+            auto sess = client->device(id_str);
+            if (!sess) return MAKERESULT(Module_Libnx, LibnxError_NotFound);
+
+            auto* share = sess->plugin<SharePlugin>();
+            if (!share) return MAKERESULT(Module_Libnx, LibnxError_NotFound);
+
+            return share->send_screenshot() ? 0 : MAKERESULT(Module_Libnx, LibnxError_IoError);
         }
 
         default:

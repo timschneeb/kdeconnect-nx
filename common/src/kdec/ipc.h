@@ -38,6 +38,7 @@ enum KdecIpcCmd {
     KdecIpcCmd_Ring             = 17,
     KdecIpcCmd_GetVolumeSinks   = 18,
     KdecIpcCmd_SetVolumeSink    = 19,
+    KdecIpcCmd_SendScreenshot   = 20,
 };
 
 enum class DevicePairState : uint8_t {
@@ -71,6 +72,7 @@ struct KdecDeviceInfo {
     bool            supports_commands;
     bool            supports_volume_sinks;
     bool            supports_mpris_remote;
+    bool            supports_share;
 } __attribute__ ((aligned (16)));
 
 struct KdecMediaInfo {

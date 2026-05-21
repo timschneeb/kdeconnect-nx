@@ -47,21 +47,24 @@ std::optional<std::string> read_line_tls(TlsSession& session, size_t max_bytes) 
     return std::nullopt;
 }
 
-bool send_all_tls(TlsSession& session, const std::string& data) {
+static bool send_all_tls_raw(TlsSession& session, const unsigned char* data, size_t len) {
     size_t total = 0;
-    while (total < data.size()) {
-        int written = mbedtls_ssl_write(&session.ssl,
-                                        reinterpret_cast<const unsigned char*>(data.data() + total),
-                                        data.size() - total);
-        if (written == MBEDTLS_ERR_SSL_WANT_READ || written == MBEDTLS_ERR_SSL_WANT_WRITE) {
-            continue;
-        }
-        if (written <= 0) {
-            return false;
-        }
+    while (total < len) {
+        int written = mbedtls_ssl_write(&session.ssl, data + total, len - total);
+        if (written == MBEDTLS_ERR_SSL_WANT_READ || written == MBEDTLS_ERR_SSL_WANT_WRITE) continue;
+        if (written <= 0) return false;
         total += static_cast<size_t>(written);
     }
     return true;
+}
+
+bool send_all_tls(TlsSession& session, const std::string& data) {
+    return send_all_tls_raw(session,
+        reinterpret_cast<const unsigned char*>(data.data()), data.size());
+}
+
+bool send_all_tls(TlsSession& session, const std::vector<uint8_t>& data) {
+    return send_all_tls_raw(session, data.data(), data.size());
 }
 
 DeviceInfo info_from_identity(const NetworkPacket& pkt) {

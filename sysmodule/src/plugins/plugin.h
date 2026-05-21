@@ -20,6 +20,11 @@ public:
     
     // Send a packet to this specific device
     virtual bool send_packet(const std::string& device_id, const NetworkPacket& pkt) = 0;
+
+    // Send a packet with a binary payload. Sets pkt.payload_size and pkt.payload_port, opens a
+    // temporary TLS server socket, sends the packet, then serves the payload to the receiver.
+    virtual bool send_payload(const std::string& device_id, NetworkPacket pkt) = 0;
+
     virtual std::shared_ptr<DeviceSession> device(const std::string &device_id) const = 0;
     virtual std::unordered_map<std::string, std::shared_ptr<DeviceSession>> devices() const = 0;
 
