@@ -69,6 +69,8 @@ struct KdecDeviceInfo {
     bool            is_charging;
     bool            supports_find_my_phone;
     bool            supports_commands;
+    bool            supports_volume_sinks;
+    bool            supports_mpris_remote;
 } __attribute__ ((aligned (16)));
 
 struct KdecMediaInfo {

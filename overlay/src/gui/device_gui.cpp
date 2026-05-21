@@ -60,19 +60,23 @@ tsl::elm::Element* DeviceGui::createUI() {
     if (paired && connected) {
         std::string name = devName(dev_);
 
-        auto* vol = new tsl::elm::ListItem("Volume", sym::chevronRight);
-        vol->setClickListener([id, name](u64 keys) -> bool {
-            if (keys & HidNpadButton_A) { tsl::changeTo<VolumeGui>(id, name); return true; }
-            return false;
-        });
-        list->addItem(vol);
+        if (dev_.supports_volume_sinks) {
+            auto* vol = new tsl::elm::ListItem("Volume", sym::chevronRight);
+            vol->setClickListener([id, name](u64 keys) -> bool {
+                if (keys & HidNpadButton_A) { tsl::changeTo<VolumeGui>(id, name); return true; }
+                return false;
+            });
+            list->addItem(vol);
+        }
 
-        auto* cmds = new tsl::elm::ListItem("Commands", sym::chevronRight);
-        cmds->setClickListener([id, name](u64 keys) -> bool {
-            if (keys & HidNpadButton_A) { tsl::changeTo<CommandsGui>(id, name); return true; }
-            return false;
-        });
-        list->addItem(cmds);
+        if (dev_.supports_commands) {
+            auto* cmds = new tsl::elm::ListItem("Commands", sym::chevronRight);
+            cmds->setClickListener([id, name](u64 keys) -> bool {
+                if (keys & HidNpadButton_A) { tsl::changeTo<CommandsGui>(id, name); return true; }
+                return false;
+            });
+            list->addItem(cmds);
+        }
 
         auto* ping = new tsl::elm::ListItem("Ping");
         ping->setClickListener([id](u64 keys) -> bool {

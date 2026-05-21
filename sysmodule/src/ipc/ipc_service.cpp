@@ -129,6 +129,12 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
                     else if (cap == PacketTypes::RunCommandRequest) {
                         info.supports_commands = true;
                     }
+                    else if (cap == PacketTypes::SystemVolumeRequest) {
+                        info.supports_volume_sinks = true;
+                    }
+                    else if (cap == PacketTypes::MprisRequest) {
+                        info.supports_mpris_remote = true;
+                    }
                 }
 
                 sess->plugin<BatteryPlugin>()->read_remote_state(info.battery_level, info.is_charging);
