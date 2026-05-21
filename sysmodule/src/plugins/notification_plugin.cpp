@@ -161,8 +161,9 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
         m_app_icon_hash[app] = icon_hash;
     }
 
-    if (!np.payload.empty() && !icon_hash.empty())
-        write_app_icon(icon_hash, np.payload);
+    if (np.has_payload() && !icon_hash.empty()) {
+        write_app_icon(icon_hash, np);
+    }
 
     if (!id.empty()) {
         auto now = std::chrono::steady_clock::now();
@@ -231,10 +232,14 @@ void NotificationPlugin::post_notification(const std::string& app_id,
     (void)app_id; (void)title; (void)body; (void)id;
 }
 
-void NotificationPlugin::write_app_icon(const std::string& icon_hash, const std::vector<uint8_t>& png_data) {
+void NotificationPlugin::write_app_icon(const std::string& icon_hash, const NetworkPacket& np) const {
 #ifdef __SWITCH__
+    auto np_with_payload = np;
+    provider_->download_payload(provider_->device(device_id_), np_with_payload);
+
     int w, h, channels;
-    uint8_t* img = stbi_load_from_memory(png_data.data(), static_cast<int>(png_data.size()),
+    uint8_t* img = stbi_load_from_memory(np_with_payload.payload.data(),
+                                     static_cast<int>(np_with_payload.payload.size()),
                                          &w, &h, &channels, 4);
     if (!img) {
         Logger::warn("Failed to decode icon PNG for hash " + icon_hash);
@@ -271,7 +276,7 @@ void NotificationPlugin::write_app_icon(const std::string& icon_hash, const std:
         Logger::error("Failed to write icon: " + icon_path);
     }
 #endif
-    (void)icon_hash; (void)png_data;
+    (void)icon_hash; (void)np;
 }
 
 void NotificationPlugin::request_active_notifications() const {

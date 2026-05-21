@@ -39,6 +39,7 @@ struct NetworkPacket {
     // Filled in by the transport layer before the packet reaches plugins.
     std::vector<uint8_t> payload;
 
+    [[nodiscard]] bool has_payload() const { return payload_port > 0 && payload_size > 0;}
     [[nodiscard]] std::string serialize() const;
     static std::optional<NetworkPacket> parse(const std::string& line);
 };

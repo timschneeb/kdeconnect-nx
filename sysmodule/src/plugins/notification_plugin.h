@@ -24,8 +24,7 @@ public:
                                   int duration = 4000);
 
 private:
-    static void write_app_icon(const std::string& icon_hash,
-                               const std::vector<uint8_t>& png_data);
+    void write_app_icon(const std::string &icon_hash, const NetworkPacket &np) const;
 
     // appName -> last known payloadHash, to work around Android not resending
     // payloadHash for the same icon within a notification's lifetime.

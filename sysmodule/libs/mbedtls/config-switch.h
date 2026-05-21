@@ -71,8 +71,8 @@
 
 /* Size optimizations */
 #define MBEDTLS_AES_ROM_TABLES
-#define MBEDTLS_BIGNUM_WINDOW_SIZE            2
-#define MBEDTLS_MPI_WINDOW_SIZE               2
+#define MBEDTLS_BIGNUM_WINDOW_SIZE            4
+#define MBEDTLS_MPI_WINDOW_SIZE               4
 
 /* Disable features we don't need to save space */
 #undef MBEDTLS_SELF_TEST

@@ -47,41 +47,31 @@ bool SharePlugin::on_packet_received(const NetworkPacket& np) {
         return true;
     }
 
-    if (np.body.contains("filename") && np.body["filename"].is_string()) {
-        std::string filename = np.body["filename"].get<std::string>();
+    if (np.body.contains("filename") && np.body["filename"].is_string() && np.has_payload()) {
+        const std::string filename = np.body["filename"].get<std::string>();
+        Logger::info("File: " + filename);
 
-        // Strip any path components to prevent traversal outside SD root.
-        auto sep = filename.find_last_of("/\\");
-        if (sep != std::string::npos) filename = filename.substr(sep + 1);
-        if (filename.empty()) filename = "received_file";
-
-        Logger::info("File: " + filename + " (" + std::to_string(np.payload.size()) + " bytes)");
-
-        if (np.payload.size() > 1000000 /* 1 MB */) {
+        if (np.payload_size > 1024 * 1024) {
             NotificationPlugin::post_notification(
                 "kdeconnect_share",
                 std::string("From " + provider_->device(device_id_)->info.name).c_str(),
-                "Receiving file... (" + std::to_string(np.payload.size()/1000) + " KB)",
+                "Receiving file... (" + std::to_string(np.payload_size/1024) + " KB)",
                 std::to_string(notification_id_.fetch_add(1)));
         }
 
+        // Prevent path traversal (save to SD root)
+        std::string base = filename;
+        auto sep = base.find_last_of("/\\");
+        if (sep != std::string::npos) base = base.substr(sep + 1);
+        if (base.empty()) base = "received_file";
+        const std::string path = "sdmc:/" + base;
+
         std::string notify_body;
-        if (np.payload.empty()) {
-            Logger::warn("File payload is empty, nothing to save");
-            notify_body = "Received file (empty): " + filename;
+        auto np_with_payload = np;
+        if (provider_->download_payload(provider_->device(device_id_), np_with_payload, path)) {
+            notify_body = "Saved: " + filename;
         } else {
-            std::string path = "sdmc:/" + filename;
-            FILE* f = fopen(path.c_str(), "wb");
-            if (f) {
-                // TODO: stream payload to file!
-                fwrite(np.payload.data(), 1, np.payload.size(), f);
-                fclose(f);
-                Logger::info("Saved to " + path);
-                notify_body = "Saved: " + filename;
-            } else {
-                Logger::error("Failed to open %s for writing", path.c_str());
-                notify_body = "Failed to save: " + filename;
-            }
+            notify_body = "Failed to save: " + filename;
         }
 
         NotificationPlugin::post_notification(

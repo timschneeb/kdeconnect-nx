@@ -14,6 +14,7 @@
 #include <atomic>
 #include <cerrno>
 #include <chrono>
+#include <cstdio>
 #include <cstring>
 #include <memory>
 #include <optional>
@@ -432,9 +433,6 @@ void KdeConnectClient::handle_packet(const std::shared_ptr<DeviceSession>& sessi
 
     if (!session->paired) return;
 
-    if (packet->payload_port > 0 && packet->payload_size > 0 && !session->peer_host.empty())
-        download_payload(session, *packet);
-
     for (const auto& plugin : session->plugins) {
         for (const auto& supported_type : plugin->supported_packet_types()) {
             if (supported_type == packet->type) {
@@ -446,35 +444,69 @@ void KdeConnectClient::handle_packet(const std::shared_ptr<DeviceSession>& sessi
     }
 }
 
-void KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& session, NetworkPacket& packet) {
+bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& session,
+                                        NetworkPacket& packet,
+                                        const std::string& file_path) {
     ScopedFd fd{socket(AF_INET, SOCK_STREAM, 0)};
-    if (!fd) return;
+    if (!fd) return false;
 
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(static_cast<uint16_t>(packet.payload_port));
-    if (inet_pton(AF_INET, session->peer_host.c_str(), &addr.sin_addr) != 1) return;
-    if (connect(fd.raw, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) return;
+    if (inet_pton(AF_INET, session->peer_host.c_str(), &addr.sin_addr) != 1) return false;
+    if (connect(fd.raw, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) return false;
 
     auto tls_session = tls_.create_session(fd.raw, true);
-    if (!tls_session || !NetworkUtil::perform_tls_handshake(*tls_session)) return;
+    if (!tls_session || !NetworkUtil::perform_tls_handshake(*tls_session)) return false;
 
-    const int64_t cap = std::min(packet.payload_size, static_cast<int64_t>(10 * 1024 * 1024));
-    packet.payload.resize(static_cast<size_t>(cap));
+    if (!file_path.empty()) {
+        // Stream directly to file
+        constexpr size_t kChunkSize = 16384 * 4;
+        auto chunk = std::make_unique<uint8_t[]>(kChunkSize);
+        int64_t remaining = packet.payload_size;
+        FILE* f = std::fopen(file_path.c_str(), "wb");
 
-    size_t received = 0;
-    while (received < static_cast<size_t>(cap)) {
-        int ret = mbedtls_ssl_read(&tls_session->ssl,
-                                   packet.payload.data() + received,
-                                   static_cast<size_t>(cap) - received);
-        if (ret <= 0) break;
-        received += static_cast<size_t>(ret);
+        while (remaining > 0) {
+            size_t to_read = static_cast<size_t>(std::min(static_cast<int64_t>(kChunkSize), remaining));
+            int ret = mbedtls_ssl_read(&tls_session->ssl, chunk.get(), to_read);
+            if (ret <= 0) break;
+            if (f) std::fwrite(chunk.get(), 1, static_cast<size_t>(ret), f);
+            remaining -= ret;
+        }
+
+        mbedtls_ssl_close_notify(&tls_session->ssl);
+
+        if (f) {
+            std::fclose(f);
+            Logger::info("Streamed payload to " + file_path);
+            return true;
+        } else {
+            Logger::error("Failed to open %s for writing", file_path.c_str());
+            return false;
+        }
+    } else {
+        // Buffer to memory with a 64KB cap (used for small payloads like app icons).
+        if (packet.payload_size > 65536) {
+            Logger::warn("Payload size " + std::to_string(packet.payload_size) + " exceeds in-memory cap, truncating.");
+        }
+
+        const int64_t cap = std::min(packet.payload_size, static_cast<int64_t>(65536));
+        packet.payload.resize(static_cast<size_t>(cap));
+
+        size_t received = 0;
+        while (received < static_cast<size_t>(cap)) {
+            int ret = mbedtls_ssl_read(&tls_session->ssl,
+                                       packet.payload.data() + received,
+                                       static_cast<size_t>(cap) - received);
+            if (ret <= 0) break;
+            received += static_cast<size_t>(ret);
+        }
+
+        mbedtls_ssl_close_notify(&tls_session->ssl);
+        packet.payload.resize(received);
+        Logger::info("Downloaded payload: " + std::to_string(received) + " bytes for " + packet.type);
+        return true;
     }
-    packet.payload.resize(received);
-
-    mbedtls_ssl_close_notify(&tls_session->ssl);
-
-    Logger::info("Downloaded payload: " + std::to_string(received) + " bytes for " + packet.type);
 }
 
 void KdeConnectClient::handle_pair_packet(const std::shared_ptr<DeviceSession>& session, const nlohmann::json& body) {

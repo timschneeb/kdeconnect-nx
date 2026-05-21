@@ -38,7 +38,9 @@ public:
 
   bool send_packet(const std::string &device_id, const NetworkPacket& pkt) override;
   bool send_payload(const std::string &device_id, NetworkPacket pkt) override;
-
+  bool download_payload(const std::shared_ptr<DeviceSession> &session,
+                        NetworkPacket &packet,
+                        const std::string& file_path = "") override;
   const DeviceInfo &local_device() const { return local_device_; }
   int tcp_port() const { return tcp_port_; }
 
@@ -56,8 +58,6 @@ private:
                      const std::string &line);
   void handle_pair_packet(const std::shared_ptr<DeviceSession> &session,
                           const nlohmann::json &body);
-  void download_payload(const std::shared_ptr<DeviceSession> &session,
-                        NetworkPacket &packet);
 
   std::string verification_key(const std::shared_ptr<DeviceSession> &session,
                                long timestamp) const;
