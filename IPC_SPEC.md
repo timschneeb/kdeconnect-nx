@@ -116,6 +116,17 @@ All structs are plain POD with fixed-size `char` arrays, 16-byte aligned (`__att
 | `7` | `Seek` | relative offset in ms |
 | `8` | `SetPosition` | absolute position in ms |
 
+### `KdecVolumeSinkInfo` (208 bytes)
+
+| Offset | Size | Field |
+|--------|------|-------|
+| 0      | 64   | `char name[64]` |
+| 64     | 128  | `char description[128]` |
+| 192    | 4    | `int32_t volume` (0–100) |
+| 196    | 1    | `bool is_muted` |
+| 197    | 1    | `bool is_default_output` |
+| 198    | 10   | implicit trailing pad (16-byte alignment) |
+
 ### `KdecCommandEntry` (320 bytes)
 
 | Offset | Size | Field |
@@ -174,11 +185,12 @@ Small requests are passed inline (no buffer descriptor needed):
 
 | Struct | Size | Used by |
 |--------|------|---------|
-| `KdecWireDeviceId { char device_id[64]; }` | 64 B | `RequestPair`, `AcceptPair`, `RejectPair`, `Unpair`, `Ping`, `GetCommandList` |
+| `KdecWireDeviceId { char device_id[64]; }` | 64 B | `RequestPair`, `AcceptPair`, `RejectPair`, `Unpair`, `Ping`, `Ring`, `GetCommandList`, `GetVolumeSinks` |
 | `KdecWireRunCommand { char device_id[64]; char command_id[64]; }` | 128 B | `RunCommand` |
 | `KdecWireWriteBoolSetting { KdecBoolSettingKey key; bool value; }` | 2 B | `WriteBoolSetting` |
 | `KdecWireWriteIntSetting { KdecIntSettingKey key; uint8_t _pad[3]; int32_t value; }` | 8 B | `WriteIntSetting` |
 | `KdecWireSendMediaAction { uint8_t action; uint8_t _pad[7]; int64_t value; }` | 16 B | `SendMediaAction` |
+| `KdecWireSetVolumeSink { char device_id[64]; char sink_name[64]; int32_t volume; bool muted; bool is_default_output; }` | 136 B | `SetVolumeSink` |
 
 ---
 
@@ -365,6 +377,28 @@ Returns all settings (both bool and int) and their current values.
 Triggers the Find My Phone plugin on the specified device, causing it to ring.
 
 **Request:** Inline `KdecWireDeviceId`
+
+**Response:** none
+
+---
+
+### `GetVolumeSinks` (18)
+
+Returns the list of audio output sinks for the specified device.
+
+**Request:**
+- Inline `KdecWireDeviceId`
+- Out buffer (`SfBufferAttr_Out`): caller-allocated; server writes `KdecVolumeSinkInfo` entries back-to-back
+
+**Response:** `uint32_t count`: number of entries written
+
+---
+
+### `SetVolumeSink` (19)
+
+Sends an updated sink state (volume, muted, default) to the specified device.
+
+**Request:** Inline `KdecWireSetVolumeSink`
 
 **Response:** none
 

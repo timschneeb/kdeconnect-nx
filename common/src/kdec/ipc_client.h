@@ -29,3 +29,5 @@ Result kdecIpcWriteBoolSetting(KdecBoolSettingKey key, bool value);
 Result kdecIpcReadIntSetting(KdecIntSettingKey key, int32_t& out);
 Result kdecIpcWriteIntSetting(KdecIntSettingKey key, int32_t value);
 Result kdecIpcGetAllSettings(std::vector<KdecWireSettingEntry>& out);
+Result kdecIpcGetVolumeSinks(const std::string& device_id, std::vector<KdecVolumeSinkInfo>& out);
+Result kdecIpcSetVolumeSink(const std::string& device_id, const std::string& sink_name, int32_t volume, bool muted, bool is_default_output = false);

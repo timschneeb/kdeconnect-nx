@@ -167,6 +167,34 @@ Result kdecIpcWriteIntSetting(KdecIntSettingKey key, int32_t value) {
     return serviceDispatchIn(&g_kdecSrv, KdecIpcCmd_WriteIntSetting, wire);
 }
 
+Result kdecIpcGetVolumeSinks(const std::string& device_id, std::vector<KdecVolumeSinkInfo>& out) {
+    static KdecVolumeSinkInfo buf[constants::kMaxVolumeSinks];
+
+    KdecWireDeviceId wire{};
+    strncpy(wire.device_id, device_id.c_str(), KDEC_DEVICE_ID_MAX - 1);
+
+    uint32_t count = 0;
+    Result rc = serviceDispatchInOut(&g_kdecSrv, KdecIpcCmd_GetVolumeSinks, wire, count,
+        .buffer_attrs = { SfBufferAttr_HipcAutoSelect | SfBufferAttr_Out },
+        .buffers = {{ buf, sizeof(buf) }},
+    );
+    if (R_FAILED(rc)) return rc;
+
+    if (count > constants::kMaxVolumeSinks) count = constants::kMaxVolumeSinks;
+    out.assign(buf, buf + count);
+    return 0;
+}
+
+Result kdecIpcSetVolumeSink(const std::string& device_id, const std::string& sink_name, int32_t volume, bool muted, bool is_default_output) {
+    KdecWireSetVolumeSink wire{};
+    strncpy(wire.device_id,  device_id.c_str(),  KDEC_DEVICE_ID_MAX - 1);
+    strncpy(wire.sink_name,  sink_name.c_str(),   KDEC_SINK_NAME_MAX - 1);
+    wire.volume            = volume;
+    wire.muted             = muted;
+    wire.is_default_output = is_default_output;
+    return serviceDispatchIn(&g_kdecSrv, KdecIpcCmd_SetVolumeSink, wire);
+}
+
 Result kdecIpcGetAllSettings(std::vector<KdecWireSettingEntry>& out) {
     static KdecWireSettingEntry buf[constants::kMaxSettings];
 

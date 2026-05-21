@@ -14,6 +14,8 @@
 #define KDEC_ALBUM_MAX        256
 #define KDEC_COMMAND_ID_MAX   64
 #define KDEC_COMMAND_NAME_MAX 64
+#define KDEC_SINK_NAME_MAX    64
+#define KDEC_SINK_DESC_MAX    128
 
 enum KdecIpcCmd {
     KdecIpcCmd_GetApiVersion    = 0,
@@ -34,6 +36,8 @@ enum KdecIpcCmd {
     KdecIpcCmd_WriteIntSetting  = 15,
     KdecIpcCmd_GetAllSettings   = 16,
     KdecIpcCmd_Ring             = 17,
+    KdecIpcCmd_GetVolumeSinks   = 18,
+    KdecIpcCmd_SetVolumeSink    = 19,
 };
 
 enum class DevicePairState : uint8_t {
@@ -89,6 +93,14 @@ struct KdecCommandEntry {
     char name[KDEC_COMMAND_NAME_MAX];
 } __attribute__((aligned(16)));
 
+struct KdecVolumeSinkInfo {
+    char    name[KDEC_SINK_NAME_MAX];
+    char    description[KDEC_SINK_DESC_MAX];
+    int32_t volume;
+    bool    is_muted;
+    bool    is_default_output;
+} __attribute__((aligned(16)));
+static_assert(sizeof(KdecVolumeSinkInfo) == 208);
 
 // ------ Small structs that are sent inline ------
 
@@ -128,5 +140,14 @@ static_assert(sizeof(KdecWireSettingEntry) == 16);
 struct KdecWireSendMediaAction {
     uint8_t action; // KdecMediaAction
     int64_t value;
-};
+} __attribute__((aligned(16)));
 static_assert(sizeof(KdecWireSendMediaAction) == 16);
+
+struct KdecWireSetVolumeSink {
+    char    device_id[KDEC_DEVICE_ID_MAX];
+    char    sink_name[KDEC_SINK_NAME_MAX];
+    int32_t volume;
+    bool    muted;
+    bool    is_default_output;
+} __attribute__((aligned(16)));
+static_assert(sizeof(KdecWireSetVolumeSink) == 144);

@@ -9,6 +9,7 @@
 #include "../plugins/ping_plugin.h"
 #include "../plugins/mpris_plugin.h"
 #include "../plugins/run_command_plugin.h"
+#include "../plugins/system_volume_plugin.h"
 #include "../net/network_packet.h"
 #include "plugins/battery_plugin.h"
 
@@ -172,6 +173,62 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
             if (!ping) return MAKERESULT(Module_Libnx, LibnxError_NotFound);
 
             ping->ping("");
+            return 0;
+        }
+
+        case KdecIpcCmd_GetVolumeSinks: {
+            const auto& hipc = r->hipc;
+            if (hipc.meta.num_recv_buffers < 1) return MAKERESULT(Module_Libnx, LibnxError_BadInput);
+            if (r->data.size < sizeof(KdecWireDeviceId)) return MAKERESULT(Module_Libnx, LibnxError_BadInput);
+
+            KdecWireDeviceId wire{};
+            memcpy(&wire, r->data.ptr, sizeof(wire));
+            std::string id_str(wire.device_id, strnlen(wire.device_id, KDEC_DEVICE_ID_MAX));
+
+            auto* recv_buf  = static_cast<KdecVolumeSinkInfo*>(hipcGetBufferAddress(hipc.data.recv_buffers));
+            size_t recv_size = hipcGetBufferSize(hipc.data.recv_buffers);
+
+            auto sess = client->device(id_str);
+            if (!sess) return MAKERESULT(Module_Libnx, LibnxError_NotFound);
+
+            auto* plugin = sess->plugin<SystemVolumePlugin>();
+            if (!plugin) return MAKERESULT(Module_Libnx, LibnxError_NotFound);
+
+            auto sinks = plugin->get_remote_sink_list();
+            uint32_t count = 0;
+            for (const auto& s : sinks) {
+                if ((count + 1) * sizeof(KdecVolumeSinkInfo) > recv_size) break;
+                KdecVolumeSinkInfo& entry = recv_buf[count];
+                memset(&entry, 0, sizeof(entry));
+                strncpy(entry.name,        s.name.c_str(),        KDEC_SINK_NAME_MAX - 1);
+                strncpy(entry.description, s.description.c_str(), KDEC_SINK_DESC_MAX - 1);
+                entry.volume            = s.volume;
+                entry.is_muted          = s.is_muted;
+                entry.is_default_output = s.is_default_output;
+                count++;
+            }
+
+            *out_size = sizeof(uint32_t);
+            *reinterpret_cast<uint32_t*>(out_data) = count;
+            return 0;
+        }
+
+        case KdecIpcCmd_SetVolumeSink: {
+            if (r->data.size < sizeof(KdecWireSetVolumeSink))
+                return MAKERESULT(Module_Libnx, LibnxError_BadInput);
+
+            KdecWireSetVolumeSink wire{};
+            memcpy(&wire, r->data.ptr, sizeof(wire));
+            std::string id_str(wire.device_id, strnlen(wire.device_id, KDEC_DEVICE_ID_MAX));
+            std::string sink_str(wire.sink_name, strnlen(wire.sink_name, KDEC_SINK_NAME_MAX));
+
+            auto sess = client->device(id_str);
+            if (!sess) return MAKERESULT(Module_Libnx, LibnxError_NotFound);
+
+            auto* plugin = sess->plugin<SystemVolumePlugin>();
+            if (!plugin) return MAKERESULT(Module_Libnx, LibnxError_NotFound);
+
+            plugin->set_sink(sink_str, wire.volume, wire.muted, wire.is_default_output);
             return 0;
         }
 
