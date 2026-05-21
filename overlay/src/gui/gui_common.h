@@ -10,7 +10,7 @@
 
 inline std::string batteryStr(const KdecDeviceInfo& dev, bool long_desc) {
     if (dev.battery_level < 0) return ""; // No battery
-    const char* chargingStr = long_desc ? "(charging)" : "+";
+    const char* chargingStr = long_desc ? " (charging)" : "+";
     char buf[16];
     snprintf(buf, sizeof(buf), "%d%%%s", static_cast<int>(dev.battery_level), dev.is_charging ? chargingStr : "");
     return std::string(buf);
