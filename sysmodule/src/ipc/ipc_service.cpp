@@ -55,8 +55,11 @@ void IpcService::stop() {
     if (!running_) return;
     running_ = false;
 
-    // Signal the service exit - ipcServerProcess will wake up when service is unregistered
     ipcServerExit(&srv_);
+    // ipcServerExit closes the handles, but that alone may not wake up a thread
+    // blocked in svcWaitSynchronization. svcCancelSynchronization forces it out.
+    if (thread_.handle)
+        svcCancelSynchronization(thread_.handle);
 
     threadWaitForExit(&thread_);
     threadClose(&thread_);
@@ -68,7 +71,7 @@ void IpcService::thread_func(void* arg) {
     Logger::info("IPC service started");
     while (self->running_) {
         Result rc = ipcServerProcess(&self->srv_, handle_command_static, self);
-        if (R_FAILED(rc) && rc != KERNELRESULT(TimedOut)) {
+        if (R_FAILED(rc) && rc != KERNELRESULT(TimedOut) && self->running_) {
             Logger::error("ipcServerProcess failed: 0x%x", rc);
         }
     }
