@@ -288,6 +288,9 @@ struct MdnsDiscovery::Impl {
         if (!running.exchange(false)) {
             return;
         }
+        if (mdns_thread.joinable()) {
+            mdns_thread.join();
+        }
         announce(true);
         if (service_socket >= 0) {
             mdns_socket_close(service_socket);
@@ -296,9 +299,6 @@ struct MdnsDiscovery::Impl {
         if (discovery_socket >= 0) {
             mdns_socket_close(discovery_socket);
             discovery_socket = -1;
-        }
-        if (mdns_thread.joinable()) {
-            mdns_thread.join();
         }
     }
     AnnouncedInfo build_announced_info() {

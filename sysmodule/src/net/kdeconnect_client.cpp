@@ -118,6 +118,13 @@ void KdeConnectClient::stop() {
         mdns_discovery_.reset();
     }
 
+    if (network_thread_.joinable()) {
+        network_thread_.join();
+    }
+    if (broadcast_thread_.joinable()) {
+        broadcast_thread_.join();
+    }
+
     if (tcp_fd_ >= 0) {
         close(tcp_fd_);
         tcp_fd_ = -1;
@@ -125,13 +132,6 @@ void KdeConnectClient::stop() {
     if (udp_fd_ >= 0) {
         close(udp_fd_);
         udp_fd_ = -1;
-    }
-
-    if (network_thread_.joinable()) {
-        network_thread_.join();
-    }
-    if (broadcast_thread_.joinable()) {
-        broadcast_thread_.join();
     }
 
     // Join all pending handshake threads (network_loop has exited, so no new ones are added).
@@ -195,9 +195,7 @@ void KdeConnectClient::network_loop() {
         if (udp_fd_ >= 0) { FD_SET(udp_fd_, &rfds); nfds = std::max(nfds, udp_fd_ + 1); }
         if (nfds == 0) break;
 
-        // Use a timeout so stop() can set running_=false and have this thread
-        // exit within ~500 ms rather than blocking forever in select().
-        timeval tv{0, 500'000};
+        timeval tv{0, 50'000}; // 50 ms: exit quickly when running_ goes false
         if (select(nfds, &rfds, nullptr, nullptr, &tv) < 0) {
             if (errno == EINTR) continue;
             break;
@@ -273,7 +271,8 @@ void KdeConnectClient::udp_broadcast_loop() {
         if (udp_fd_ >= 0) {
             sendto(udp_fd_, payload.data(), payload.size(), 0, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
         }
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        for (int i = 0; i < 20 && running_.load(); ++i)
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
         broadcast_count++;
     }
 }
@@ -450,6 +449,10 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
     ScopedFd fd{socket(AF_INET, SOCK_STREAM, 0)};
     if (!fd) return false;
 
+    // Allow aborting mid-transfer if session is torn down
+    timeval payload_timeout{0, 500'000};
+    setsockopt(fd.raw, SOL_SOCKET, SO_RCVTIMEO, &payload_timeout, sizeof(payload_timeout));
+
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(static_cast<uint16_t>(packet.payload_port));
@@ -466,7 +469,7 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
         int64_t remaining = packet.payload_size;
         FILE* f = std::fopen(file_path.c_str(), "wb");
 
-        while (remaining > 0) {
+        while (remaining > 0 && !session->disconnected.load()) {
             size_t to_read = static_cast<size_t>(std::min(static_cast<int64_t>(kChunkSize), remaining));
             int ret = mbedtls_ssl_read(&tls_session->ssl, chunk.get(), to_read);
             if (ret <= 0) break;
@@ -476,8 +479,14 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
 
         mbedtls_ssl_close_notify(&tls_session->ssl);
 
+        const bool aborted = session->disconnected.load() || remaining > 0;
         if (f) {
             std::fclose(f);
+            if (aborted) {
+                Logger::info("Download aborted");
+                std::remove(file_path.c_str());
+                return false;
+            }
             Logger::info("Streamed payload to " + file_path);
             return true;
         } else {
@@ -494,7 +503,7 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
         packet.payload.resize(static_cast<size_t>(cap));
 
         size_t received = 0;
-        while (received < static_cast<size_t>(cap)) {
+        while (received < static_cast<size_t>(cap) && !session->disconnected.load()) {
             int ret = mbedtls_ssl_read(&tls_session->ssl,
                                        packet.payload.data() + received,
                                        static_cast<size_t>(cap) - received);
