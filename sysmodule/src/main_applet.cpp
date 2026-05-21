@@ -147,8 +147,8 @@ int main() {
         return 1;
     }
 
-    auto app = NxApplication();
-    auto client = app.client();
+    auto app = new NxApplication();
+    auto client = app->client();
 
     PadState pad;
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
@@ -156,7 +156,7 @@ int main() {
 
     int selected = 0;
     while (appletMainLoop()) {
-        app.processEvents();
+        app->processEvents();
 
         padUpdate(&pad);
         const u64 kDown = padGetButtonsDown(&pad);
@@ -276,6 +276,9 @@ int main() {
         draw_ui(*client, selected);
         svcSleepThread(100'000'000LL); // 100 ms
     }
+
+    client.reset();
+    delete app;
 
     nifmExit();
     socketExit();
