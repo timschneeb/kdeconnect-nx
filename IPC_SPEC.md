@@ -360,6 +360,16 @@ Returns all settings (both bool and int) and their current values.
 
 ---
 
+### `Ring` (17)
+
+Triggers the Find My Phone plugin on the specified device, causing it to ring.
+
+**Request:** Inline `KdecWireDeviceId`
+
+**Response:** none
+
+---
+
 ## Adding New Commands
 
 1. Assign the next sequential opcode in the `KdecIpcCmd` enum in `common/src/kdec/ipc.h`.

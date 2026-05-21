@@ -19,6 +19,7 @@ Result kdecIpcRejectPair(const std::string& device_id);
 Result kdecIpcUnpair(const std::string& device_id);
 
 Result kdecIpcPing(const std::string& device_id);
+Result kdecIpcRing(const std::string& device_id);
 Result kdecIpcGetMediaInfo(KdecMediaInfo& out);
 Result kdecIpcSendMediaAction(KdecMediaAction action, int64_t value = 0);
 Result kdecIpcGetCommandList(const std::string& device_id, std::vector<KdecCommandEntry>& out);

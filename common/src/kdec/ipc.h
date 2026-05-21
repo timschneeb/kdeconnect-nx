@@ -33,6 +33,7 @@ enum KdecIpcCmd {
     KdecIpcCmd_ReadIntSetting   = 14,
     KdecIpcCmd_WriteIntSetting  = 15,
     KdecIpcCmd_GetAllSettings   = 16,
+    KdecIpcCmd_Ring             = 17,
 };
 
 enum class DevicePairState : uint8_t {

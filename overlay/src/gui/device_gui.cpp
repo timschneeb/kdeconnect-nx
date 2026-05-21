@@ -13,7 +13,7 @@ tsl::elm::Element* DeviceGui::createUI() {
 
     if (dev_.battery_level >= 0) {
         list->addItem(new tsl::elm::CategoryHeader("Device Info"));
-        auto* battery = new tsl::elm::ListItem("Battery", batteryStr(dev_.battery_level));
+        auto* battery = new tsl::elm::ListItem("Battery", batteryStr(dev_));
         battery->m_isItem = false;
         list->addItem(battery);
     }
@@ -57,13 +57,6 @@ tsl::elm::Element* DeviceGui::createUI() {
     }
 
     if (paired && connected) {
-        auto* ping = new tsl::elm::ListItem("Ping");
-        ping->setClickListener([id](u64 keys) -> bool {
-            if (keys & HidNpadButton_A) { kdecIpcPing(id); return true; }
-            return false;
-        });
-        list->addItem(ping);
-
         std::string name = devName(dev_);
         auto* cmds = new tsl::elm::ListItem("Commands", sym::chevronRight);
         cmds->setClickListener([id, name](u64 keys) -> bool {
@@ -71,6 +64,22 @@ tsl::elm::Element* DeviceGui::createUI() {
             return false;
         });
         list->addItem(cmds);
+
+        auto* ping = new tsl::elm::ListItem("Ping");
+        ping->setClickListener([id](u64 keys) -> bool {
+            if (keys & HidNpadButton_A) { kdecIpcPing(id); return true; }
+            return false;
+        });
+        list->addItem(ping);
+
+        if (dev_.supports_find_my_phone) {
+            auto* ring = new tsl::elm::ListItem("Ring");
+            ring->setClickListener([id](u64 keys) -> bool {
+                if (keys & HidNpadButton_A) { kdecIpcRing(id); return true; }
+                return false;
+            });
+            list->addItem(ring);
+        }
     }
 
     if (paired) {

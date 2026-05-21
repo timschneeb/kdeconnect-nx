@@ -101,6 +101,12 @@ Result kdecIpcPing(const std::string& device_id) {
     return serviceDispatchIn(&g_kdecSrv, KdecIpcCmd_Ping, wire);
 }
 
+Result kdecIpcRing(const std::string& device_id) {
+    KdecWireDeviceId wire{};
+    strncpy(wire.device_id, device_id.c_str(), KDEC_DEVICE_ID_MAX - 1);
+    return serviceDispatchIn(&g_kdecSrv, KdecIpcCmd_Ring, wire);
+}
+
 Result kdecIpcGetMediaInfo(KdecMediaInfo& out) {
     uint32_t found = 0;
     Result rc = serviceDispatchOut(&g_kdecSrv, KdecIpcCmd_GetMediaInfo, found,

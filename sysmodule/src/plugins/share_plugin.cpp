@@ -12,7 +12,7 @@ std::string SharePlugin::name() const { return "Share Plugin"; }
 std::string SharePlugin::description() const { return "Receives shared URLs, text and files."; }
 
 std::vector<std::string> SharePlugin::supported_packet_types() const {
-    return { PacketTypes::ShareRequest };
+    return { /*PacketTypes::ShareRequest*/ }; // TODO web sharing not really usable in sysmodule mode
 }
 
 std::vector<std::string> SharePlugin::outgoing_packet_types() const {

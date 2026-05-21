@@ -8,10 +8,10 @@
 #define TEXT_COLOR tsl::gfx::Renderer::a(0xFFFF)
 #define DESC_COLOR tsl::gfx::Renderer::a(tsl::Color{0xC, 0xC, 0xC, 0xF})
 
-inline std::string batteryStr(int8_t level) {
-    if (level < 0) return "N/A";
+inline std::string batteryStr(const KdecDeviceInfo& dev) {
+    if (dev.battery_level < 0) return "N/A";
     char buf[8];
-    snprintf(buf, sizeof(buf), "%d%%", static_cast<int>(level));
+    snprintf(buf, sizeof(buf), "%d%%%s", static_cast<int>(dev.battery_level), dev.is_charging ? "+" : "");
     return buf;
 }
 
