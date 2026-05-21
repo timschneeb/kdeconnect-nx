@@ -228,7 +228,7 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
             auto* plugin = sess->plugin<SystemVolumePlugin>();
             if (!plugin) return MAKERESULT(Module_Libnx, LibnxError_NotFound);
 
-            plugin->set_sink(sink_str, wire.volume, wire.muted, wire.is_default_output);
+            plugin->set_remote_sink(sink_str, wire.volume, wire.muted, wire.is_default_output);
             return 0;
         }
 

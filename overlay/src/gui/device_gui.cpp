@@ -1,5 +1,6 @@
 #include "device_gui.h"
 #include "commands_gui.h"
+#include "volume_gui.h"
 #include "gui_common.h"
 #include <kdec/ipc_client.h>
 
@@ -58,6 +59,14 @@ tsl::elm::Element* DeviceGui::createUI() {
 
     if (paired && connected) {
         std::string name = devName(dev_);
+
+        auto* vol = new tsl::elm::ListItem("Volume", sym::chevronRight);
+        vol->setClickListener([id, name](u64 keys) -> bool {
+            if (keys & HidNpadButton_A) { tsl::changeTo<VolumeGui>(id, name); return true; }
+            return false;
+        });
+        list->addItem(vol);
+
         auto* cmds = new tsl::elm::ListItem("Commands", sym::chevronRight);
         cmds->setClickListener([id, name](u64 keys) -> bool {
             if (keys & HidNpadButton_A) { tsl::changeTo<CommandsGui>(id, name); return true; }
