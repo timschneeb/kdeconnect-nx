@@ -25,4 +25,6 @@ private:
     static std::mutex s_url_mutex_;
     static std::mutex s_screenshot_mutex_;
     static std::queue<std::string> s_pending_urls_;
+
+    std::atomic<uint> notification_id_ = 0;
 };

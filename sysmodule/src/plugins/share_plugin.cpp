@@ -4,6 +4,8 @@
 #include <chrono>
 #include <cstdio>
 
+#include "notification_plugin.h"
+
 #ifdef __SWITCH__
 #include <switch.h>
 #endif
@@ -16,7 +18,7 @@ std::string SharePlugin::name() const { return "Share Plugin"; }
 std::string SharePlugin::description() const { return "Receives shared URLs, text and files."; }
 
 std::vector<std::string> SharePlugin::supported_packet_types() const {
-    return { /*PacketTypes::ShareRequest*/ }; // TODO web sharing not really usable in sysmodule mode
+    return { PacketTypes::ShareRequest };
 }
 
 std::vector<std::string> SharePlugin::outgoing_packet_types() const {
@@ -34,18 +36,67 @@ bool SharePlugin::on_packet_received(const NetworkPacket& np) {
         s_pending_urls_.push(url);
         return true;
     }
+
     if (np.body.contains("text") && np.body["text"].is_string()) {
         Logger::info("Text: " + np.body["text"].get<std::string>());
+        NotificationPlugin::post_notification(
+            "kdeconnect_share",
+            std::string("From " + provider_->device(device_id_)->info.name).c_str(),
+            np.body["text"].get<std::string>(),
+            std::to_string(notification_id_.fetch_add(1)));
         return true;
     }
+
     if (np.body.contains("filename") && np.body["filename"].is_string()) {
-        Logger::info("File: " + np.body["filename"].get<std::string>() + " (not supported)");
+        std::string filename = np.body["filename"].get<std::string>();
+
+        // Strip any path components to prevent traversal outside SD root.
+        auto sep = filename.find_last_of("/\\");
+        if (sep != std::string::npos) filename = filename.substr(sep + 1);
+        if (filename.empty()) filename = "received_file";
+
+        Logger::info("File: " + filename + " (" + std::to_string(np.payload.size()) + " bytes)");
+
+        if (np.payload.size() > 1000000 /* 1 MB */) {
+            NotificationPlugin::post_notification(
+                "kdeconnect_share",
+                std::string("From " + provider_->device(device_id_)->info.name).c_str(),
+                "Receiving file... (" + std::to_string(np.payload.size()/1000) + " KB)",
+                std::to_string(notification_id_.fetch_add(1)));
+        }
+
+        std::string notify_body;
+        if (np.payload.empty()) {
+            Logger::warn("File payload is empty, nothing to save");
+            notify_body = "Received file (empty): " + filename;
+        } else {
+            std::string path = "sdmc:/" + filename;
+            FILE* f = fopen(path.c_str(), "wb");
+            if (f) {
+                // TODO: stream payload to file!
+                fwrite(np.payload.data(), 1, np.payload.size(), f);
+                fclose(f);
+                Logger::info("Saved to " + path);
+                notify_body = "Saved: " + filename;
+            } else {
+                Logger::error("Failed to open %s for writing", path.c_str());
+                notify_body = "Failed to save: " + filename;
+            }
+        }
+
+        NotificationPlugin::post_notification(
+            "kdeconnect_share",
+            std::string("From " + provider_->device(device_id_)->info.name).c_str(),
+            notify_body,
+            std::to_string(notification_id_.fetch_add(1)));
         return true;
     }
     return false;
 }
 
 bool SharePlugin::open_pending_url() {
+    return false; // cannot launch browser from sysmodule
+
     std::string url;
     {
         std::lock_guard lock(s_url_mutex_);
