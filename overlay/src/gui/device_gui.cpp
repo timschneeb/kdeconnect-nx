@@ -12,17 +12,17 @@ tsl::elm::Element* DeviceGui::createUI() {
     auto* frame = new tsl::elm::OverlayFrame(devName(dev_), statusStr(dev_));
     auto* list  = new tsl::elm::List();
 
-    if (dev_.battery_level >= 0) {
+    std::string id       = devId(dev_);
+    const bool connected = dev_.is_connected;
+    const bool paired    = (dev_.pair_state == DevicePairState::Paired);
+
+    if (dev_.battery_level >= 0 && paired && connected) {
         list->addItem(new tsl::elm::CategoryHeader("Device Info"));
-        auto* battery = new tsl::elm::ListItem("Battery", batteryStr(dev_));
+        auto* battery = new tsl::elm::ListItem("Battery", batteryStr(dev_, true));
         battery->m_isItem = false;
         list->addItem(battery);
     }
     list->addItem(new tsl::elm::CategoryHeader("Actions"));
-
-    std::string id       = devId(dev_);
-    const bool connected = dev_.is_connected;
-    const bool paired    = (dev_.pair_state == DevicePairState::Paired);
 
     switch (dev_.pair_state) {
         case DevicePairState::RequestedByPeer: {
