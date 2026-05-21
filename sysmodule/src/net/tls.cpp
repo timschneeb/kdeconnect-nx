@@ -15,6 +15,7 @@
 
 #include <sys/socket.h>
 #include <array>
+#include <mutex>
 #include <random>
 
 #include "storage.h"
@@ -109,6 +110,12 @@ bool TlsContext::load_or_create(const std::string& cert_path, const std::string&
     return true;
 }
 
+int TlsContext::drbg_random_cb(void* ctx, unsigned char* buf, size_t len) {
+    auto* self = static_cast<TlsContext*>(ctx);
+    std::lock_guard lock(self->drbg_mutex_);
+    return mbedtls_ctr_drbg_random(&self->ctr_drbg_, buf, len);
+}
+
 std::unique_ptr<TlsSession> TlsContext::create_session(int fd, bool is_client) {
     auto session = std::make_unique<TlsSession>();
     session->fd = fd;
@@ -121,7 +128,7 @@ std::unique_ptr<TlsSession> TlsContext::create_session(int fd, bool is_client) {
         return nullptr;
     }
     mbedtls_ssl_conf_min_version(&session->config, MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_3);
-    mbedtls_ssl_conf_rng(&session->config, mbedtls_ctr_drbg_random, &ctr_drbg_);
+    mbedtls_ssl_conf_rng(&session->config, drbg_random_cb, this);
     // TLS servers must request the peer certificate so pairing can pin it.
     // Clients keep VERIFY_NONE because they only need the server certificate,
     // which is always sent by the remote side.
@@ -215,7 +222,7 @@ bool TlsContext::generate_self_signed(const std::string& cert_path, const std::s
     if (mbedtls_pk_setup(&key_, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA)) != 0) {
         return false;
     }
-    if (mbedtls_rsa_gen_key(mbedtls_pk_rsa(key_), mbedtls_ctr_drbg_random, &ctr_drbg_, 2048, 65537) != 0) {
+    if (mbedtls_rsa_gen_key(mbedtls_pk_rsa(key_), drbg_random_cb, this, 2048, 65537) != 0) {
         return false;
     }
 
@@ -242,7 +249,7 @@ bool TlsContext::generate_self_signed(const std::string& cert_path, const std::s
     mbedtls_x509write_crt_set_validity(&write_cert, "20260101000000", "21990101000000");
 
     unsigned char cert_buf[4096];
-    if (mbedtls_x509write_crt_pem(&write_cert, cert_buf, sizeof(cert_buf), mbedtls_ctr_drbg_random, &ctr_drbg_) != 0) {
+    if (mbedtls_x509write_crt_pem(&write_cert, cert_buf, sizeof(cert_buf), drbg_random_cb, this) != 0) {
         mbedtls_mpi_free(&serial);
         mbedtls_x509write_crt_free(&write_cert);
         return false;

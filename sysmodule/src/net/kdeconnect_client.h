@@ -7,6 +7,7 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <vector>
 
 #include <nlohmann/json.hpp>
 
@@ -78,4 +79,7 @@ private:
 
   mutable std::mutex session_mutex_;
   std::unordered_map<std::string, std::shared_ptr<DeviceSession>> sessions_;
+
+  std::mutex pending_mutex_;
+  std::vector<std::thread> pending_threads_;
 };

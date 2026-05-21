@@ -133,6 +133,16 @@ void KdeConnectClient::stop() {
         broadcast_thread_.join();
     }
 
+    // Join all pending handshake threads (network_loop has exited, so no new ones are added).
+    // SO_RCVTIMEO on their sockets bounds the wait to ~5 s in the worst case.
+    {
+        std::lock_guard lock(pending_mutex_);
+        for (auto& t : pending_threads_) {
+            if (t.joinable()) t.join();
+        }
+        pending_threads_.clear();
+    }
+
     std::vector<std::shared_ptr<DeviceSession>> to_stop;
     {
         std::lock_guard lock(session_mutex_);
@@ -203,19 +213,26 @@ void KdeConnectClient::network_loop() {
                 break;
             } else {
                 configure_tcp_keepalive(fd.raw);
-                auto line = NetworkUtil::read_line_fd(fd.raw, kMaxPacketSize);
-                auto packet = line ? NetworkPacket::parse(*line) : std::optional<NetworkPacket>{};
-                bool valid = packet && packet->type == PacketTypes::Identity;
-                if (valid && packet->body.contains("targetDeviceId")) {
-                    const auto tid = packet->body.value("targetDeviceId", "");
-                    if (!tid.empty() && tid != local_device_.id) valid = false;
-                }
-                if (valid && packet->body.contains("targetProtocolVersion")) {
-                    if (packet->body.value("targetProtocolVersion", kProtocolVersion) != kProtocolVersion)
-                        valid = false;
-                }
-                if (valid)
-                    handle_new_connection(NetworkUtil::info_from_identity(*packet), std::move(fd), true);
+                // Bound blocking time: if peer stalls during identity read or TLS handshake.
+                timeval recv_timeout{5, 0};
+                setsockopt(fd.raw, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(recv_timeout));
+                // Offload to a thread so network_loop is never blocked by a slow peer.
+                std::lock_guard lock(pending_mutex_);
+                pending_threads_.emplace_back([this, fd = std::move(fd)]() mutable {
+                    auto line = NetworkUtil::read_line_fd(fd.raw, kMaxPacketSize);
+                    auto packet = line ? NetworkPacket::parse(*line) : std::optional<NetworkPacket>{};
+                    bool valid = packet && packet->type == PacketTypes::Identity;
+                    if (valid && packet->body.contains("targetDeviceId")) {
+                        const auto tid = packet->body.value("targetDeviceId", "");
+                        if (!tid.empty() && tid != local_device_.id) valid = false;
+                    }
+                    if (valid && packet->body.contains("targetProtocolVersion")) {
+                        if (packet->body.value("targetProtocolVersion", kProtocolVersion) != kProtocolVersion)
+                            valid = false;
+                    }
+                    if (valid)
+                        handle_new_connection(NetworkUtil::info_from_identity(*packet), std::move(fd), true);
+                });
             }
         }
 
@@ -261,20 +278,25 @@ void KdeConnectClient::udp_broadcast_loop() {
 }
 
 void KdeConnectClient::handle_discovered_peer(const DeviceInfo& identity, const std::string& host, int port) {
-    ScopedFd fd{socket(AF_INET, SOCK_STREAM, 0)};
-    if (!fd) return;
-    configure_tcp_keepalive(fd.raw);
-    sockaddr_in addr{};
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(static_cast<uint16_t>(port));
-    if (inet_pton(AF_INET, host.c_str(), &addr.sin_addr) != 1) return;
-    if (connect(fd.raw, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) return;
+    std::lock_guard lock(pending_mutex_);
+    pending_threads_.emplace_back([this, identity, host, port]() {
+        ScopedFd fd{socket(AF_INET, SOCK_STREAM, 0)};
+        if (!fd) return;
+        configure_tcp_keepalive(fd.raw);
+        timeval recv_timeout{5, 0};
+        setsockopt(fd.raw, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(recv_timeout));
+        sockaddr_in addr{};
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(static_cast<uint16_t>(port));
+        if (inet_pton(AF_INET, host.c_str(), &addr.sin_addr) != 1) return;
+        if (connect(fd.raw, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) return;
 
-    NetworkPacket my_identity = NetworkUtil::make_identity_packet(local_device_, identity.id, identity.protocol_version, std::nullopt);
-    std::string payload = my_identity.serialize();
-    send(fd.raw, payload.data(), payload.size(), 0);
+        NetworkPacket my_identity = NetworkUtil::make_identity_packet(local_device_, identity.id, identity.protocol_version, std::nullopt);
+        std::string payload = my_identity.serialize();
+        send(fd.raw, payload.data(), payload.size(), 0);
 
-    handle_new_connection(identity, std::move(fd), false);
+        handle_new_connection(identity, std::move(fd), false);
+    });
 }
 
 void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, ScopedFd fd, bool tcp_server_side) {

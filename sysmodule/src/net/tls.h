@@ -7,6 +7,7 @@
 #include <mbedtls/x509_crt.h>
 
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -29,6 +30,9 @@ public:
 
     std::unique_ptr<TlsSession> create_session(int fd, bool is_client);
 
+    // Thread-safe DRBG callback: multiple concurrent handshakes share one ctr_drbg_
+    static int drbg_random_cb(void* ctx, unsigned char* buf, size_t len);
+
     [[nodiscard]] std::string local_cert_pem() const { return cert_pem_; }
     [[nodiscard]] std::vector<unsigned char> local_pubkey_bytes() const;
 
@@ -38,6 +42,7 @@ public:
 private:
     mbedtls_entropy_context entropy_{};
     mbedtls_ctr_drbg_context ctr_drbg_{};
+    std::mutex drbg_mutex_;
     mbedtls_x509_crt cert_{};
     mbedtls_pk_context key_{};
     std::string cert_pem_;
