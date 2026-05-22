@@ -25,9 +25,6 @@ bool MediaIconButton::onClick(u64 keys) {
 void MediaIconButton::draw(tsl::gfx::Renderer* renderer) {
     const s32 cx = getX() + getWidth()  / 2;
     const s32 cy = getY() + getHeight() / 2;
-    const s32 r  = std::min(getWidth(), getHeight()) / 2;
-
-    renderer->drawCircle(cx, cy, r, false, m_disabled ? kFaint : kDim);
 
     if (m_icon) {
         tsl::Color iconCol = m_disabled
@@ -69,4 +66,6 @@ void MediaIconButton::drawHighlight(tsl::gfx::Renderer* renderer) {
     const s32  base = std::min(getWidth(), getHeight()) / 2;
 
     renderer->drawCircle(cx, cy, base + 5, true, hl);
+    // Cut out the center with the menu background to leave a thick ring.
+    renderer->drawCircle(cx, cy, base, true, tsl::gfx::Renderer::a(tsl::defaultBackgroundColor));
 }
