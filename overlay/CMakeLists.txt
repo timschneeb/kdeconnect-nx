@@ -6,6 +6,7 @@ add_executable(MiniKDEConnect_overlay
     src/gui/commands_gui.cpp
     src/gui/device_gui.cpp
     src/gui/main_gui.cpp
+    src/gui/media_gui.cpp
     src/gui/volume_gui.cpp
         src/utils/symbols.h
         src/gui/error_widget.cpp

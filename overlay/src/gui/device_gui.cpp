@@ -1,5 +1,6 @@
 #include "device_gui.h"
 #include "commands_gui.h"
+#include "media_gui.h"
 #include "volume_gui.h"
 #include "gui_common.h"
 #include <kdec/ipc_client.h>
@@ -66,6 +67,15 @@ tsl::elm::Element* DeviceGui::createUI() {
 
     if (paired && connected) {
         std::string name = devName(dev_);
+
+        if (dev_.supports_mpris_remote) {
+            auto* media = new tsl::elm::ListItem("Media Player", sym::chevronRight);
+            media->setClickListener([id, name](u64 keys) -> bool {
+                if (keys & HidNpadButton_A) { tsl::changeTo<MediaGui>(id, name); return true; }
+                return false;
+            });
+            list->addItem(media);
+        }
 
         if (dev_.supports_volume_sinks) {
             auto* vol = new tsl::elm::ListItem("Volume", sym::chevronRight);
