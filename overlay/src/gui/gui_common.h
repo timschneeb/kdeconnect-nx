@@ -8,6 +8,11 @@
 #define TEXT_COLOR tsl::gfx::Renderer::a(0xFFFF)
 #define DESC_COLOR tsl::gfx::Renderer::a(tsl::Color{0xC, 0xC, 0xC, 0xF})
 
+static constexpr tsl::Color kTransparent{0, 0, 0, 0};
+#define kWhite  tsl::gfx::Renderer::a(tsl::Color{0xF, 0xF, 0xF, 0xF})
+#define kDim    tsl::gfx::Renderer::a(tsl::Color{0x9, 0x9, 0x9, 0xF})
+#define kFaint  tsl::gfx::Renderer::a(tsl::Color{0x5, 0x5, 0x5, 0xF})
+
 inline std::string batteryStr(const KdecDeviceInfo& dev, bool long_desc) {
     if (dev.battery_level < 0) return ""; // No battery
     const char* chargingStr = long_desc ? " (charging)" : "+";

@@ -11,6 +11,14 @@ add_executable(MiniKDEConnect_overlay
         src/utils/symbols.h
         src/gui/error_widget.cpp
         src/gui/error_widget.h
+        src/gui/elements/media_button_row.cpp
+        src/gui/elements/media_button_row.h
+        src/gui/elements/media_button_icon.cpp
+        src/gui/elements/media_button_icon.h
+        src/gui/elements/media_seek_bar.cpp
+        src/gui/elements/media_seek_bar.h
+        src/gui/elements/media_title_bar.cpp
+        src/gui/elements/media_title_bar.h
 )
 
 # Optimization and build flags

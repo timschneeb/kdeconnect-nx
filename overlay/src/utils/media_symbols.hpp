@@ -1,9 +1,7 @@
 #pragma once
 
 #include <tesla.hpp>
-#include <algorithm>
 
-/* Alpha-channel bitmap icon renderer — identical to sys-tune's AlphaSymbol. */
 class AlphaSymbol {
   private:
     s32       m_width;
