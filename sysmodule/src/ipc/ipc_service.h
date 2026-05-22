@@ -2,8 +2,6 @@
 
 #include <switch.h>
 #include <atomic>
-#include <mutex>
-#include <unordered_map>
 
 #include "../nx_application.h"
 #include "ipc_server.h"
@@ -25,8 +23,4 @@ private:
     std::atomic<bool> running_;
     Thread thread_{};
     IpcServer srv_{};
-
-    mutable std::mutex settings_mutex_;
-    std::unordered_map<uint8_t, bool>    bool_settings_;
-    std::unordered_map<uint8_t, int32_t> int_settings_;
 };

@@ -1,6 +1,8 @@
 #include "ipc_service.h"
-#include <../../../common/src/kdec/ipc.h>
+#include <kdec/ipc.h>
 #include <cstring>
+
+#include "utils/settings_store.h"
 
 #include "../net/kdeconnect_client.h"
 #include "utils/logger.h"
@@ -48,7 +50,10 @@ void IpcService::start() {
         threadClose(&thread_);
         ipcServerExit(&srv_);
         running_ = false;
+        return;
     }
+
+    SettingsStore::load();
 }
 
 void IpcService::stop() {
@@ -407,13 +412,11 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
 
             uint8_t key;
             memcpy(&key, r->data.ptr, sizeof(key));
-
-            std::lock_guard<std::mutex> lock(settings_mutex_);
-            auto it = bool_settings_.find(key);
-            if (it == bool_settings_.end()) return MAKERESULT(Module_Libnx, LibnxError_NotFound);
+            if (key >= static_cast<uint8_t>(KdecBoolSettingKey::KDEC_BOOL_SETTING_COUNT))
+                return MAKERESULT(Module_Libnx, LibnxError_NotFound);
 
             *out_size = sizeof(bool);
-            *reinterpret_cast<bool*>(out_data) = it->second;
+            *reinterpret_cast<bool*>(out_data) = SettingsStore::get(static_cast<KdecBoolSettingKey>(key));
             return 0;
         }
 
@@ -423,9 +426,7 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
 
             KdecWireWriteBoolSetting wire{};
             memcpy(&wire, r->data.ptr, sizeof(wire));
-
-            std::lock_guard<std::mutex> lock(settings_mutex_);
-            bool_settings_[static_cast<uint8_t>(wire.key)] = wire.value;
+            SettingsStore::set(wire.key, wire.value);
             *out_size = 0;
             return 0;
         }
@@ -436,13 +437,11 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
 
             uint8_t key;
             memcpy(&key, r->data.ptr, sizeof(key));
-
-            std::lock_guard<std::mutex> lock(settings_mutex_);
-            auto it = int_settings_.find(key);
-            if (it == int_settings_.end()) return MAKERESULT(Module_Libnx, LibnxError_NotFound);
+            if (key >= static_cast<uint8_t>(KdecIntSettingKey::KDEC_INT_SETTING_COUNT))
+                return MAKERESULT(Module_Libnx, LibnxError_NotFound);
 
             *out_size = sizeof(int32_t);
-            *reinterpret_cast<int32_t*>(out_data) = it->second;
+            *reinterpret_cast<int32_t*>(out_data) = SettingsStore::get(static_cast<KdecIntSettingKey>(key));
             return 0;
         }
 
@@ -452,9 +451,7 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
 
             KdecWireWriteIntSetting wire{};
             memcpy(&wire, r->data.ptr, sizeof(wire));
-
-            std::lock_guard<std::mutex> lock(settings_mutex_);
-            int_settings_[static_cast<uint8_t>(wire.key)] = wire.value;
+            SettingsStore::set(wire.key, wire.value);
             *out_size = 0;
             return 0;
         }
@@ -463,24 +460,14 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
             const auto& hipc = r->hipc;
             if (hipc.meta.num_recv_buffers < 1) return MAKERESULT(Module_Libnx, LibnxError_BadInput);
 
-            auto* recv_buf  = static_cast<KdecWireSettingEntry*>(hipcGetBufferAddress(hipc.data.recv_buffers));
-            size_t recv_size = hipcGetBufferSize(hipc.data.recv_buffers);
+            auto* recv_buf = static_cast<KdecWireSettingEntry*>(hipcGetBufferAddress(hipc.data.recv_buffers));
+            const size_t recv_size = hipcGetBufferSize(hipc.data.recv_buffers);
 
-            std::lock_guard<std::mutex> lock(settings_mutex_);
+            const auto entries = SettingsStore::get_all();
             uint32_t count = 0;
-            for (const auto& [key, val] : bool_settings_) {
+            for (const auto& e : entries) {
                 if ((count + 1) * sizeof(KdecWireSettingEntry) > recv_size) break;
-                KdecWireSettingEntry& e = recv_buf[count++];
-                e = {};
-                e.key = key;
-                e.value.as_bool = val;
-            }
-            for (const auto& [key, val] : int_settings_) {
-                if ((count + 1) * sizeof(KdecWireSettingEntry) > recv_size) break;
-                KdecWireSettingEntry& e = recv_buf[count++];
-                e = {};
-                e.key = key;
-                e.value.as_int = val;
+                recv_buf[count++] = e;
             }
 
             *out_size = sizeof(uint32_t);
