@@ -6,6 +6,7 @@
 #include <kdec/ipc.h>
 
 bool   kdecIpcRunning();
+bool   kdecIpcIsConnected();
 Result kdecIpcInitialize();
 void   kdecIpcExit();
 

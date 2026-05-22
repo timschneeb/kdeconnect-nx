@@ -8,6 +8,8 @@ add_executable(MiniKDEConnect_overlay
     src/gui/main_gui.cpp
     src/gui/volume_gui.cpp
         src/utils/symbols.h
+        src/gui/error_widget.cpp
+        src/gui/error_widget.h
 )
 
 # Optimization and build flags

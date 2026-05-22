@@ -12,6 +12,10 @@
 static Service g_kdecSrv;
 static std::atomic<size_t> g_refCnt;
 
+bool kdecIpcIsConnected() {
+    return serviceIsActive(&g_kdecSrv);
+}
+
 bool kdecIpcRunning() {
     Handle handle;
     bool running = R_FAILED(smRegisterService(&handle, smEncodeName(KDEC_IPC_SERVICE_NAME), false, 1));
@@ -42,6 +46,7 @@ Result kdecIpcInitialize() {
 }
 
 void kdecIpcExit() {
+    if (g_refCnt == 0) return; // never initialized; avoid size_t underflow
     if (--g_refCnt == 0) {
         serviceClose(&g_kdecSrv);
     }

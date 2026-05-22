@@ -120,7 +120,7 @@ tsl::elm::Element* DeviceGui::createUI() {
 
     if (paired) {
         auto* unpair = new tsl::elm::ListItem("Unpair");
-        unpair->setValue(sym::cancel);
+        unpair->setValue(sym::cancel, true);
         unpair->setClickListener([id](u64 keys) -> bool {
             if (keys & HidNpadButton_A) { kdecIpcUnpair(id); tsl::goBack(); return true; }
             return false;

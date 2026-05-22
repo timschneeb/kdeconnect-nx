@@ -29,9 +29,14 @@ public:
         Logger::set_nxlink_host(NXLINK_HOST, NxLink::kDefaultPort + 1);
         Logger::connect_nxlink();
 #endif
-        Logger::info("kdecIpcInitialize");
-        kdecIpcInitialize();
-        Logger::info("kdecIpcInitialize OK");
+        // Only connect if the sysmodule is already running. smGetService blocks
+        // indefinitely if the service hasn't registered yet, which would freeze
+        // the overlay before any GUI is shown. The GUI retries lazily via update().
+        if (kdecIpcRunning()) {
+            kdecIpcInitialize();
+        } else {
+            Logger::warn("Sysmodule not running at startup; will connect when available");
+        }
     }
 
     void exitServices() override {
