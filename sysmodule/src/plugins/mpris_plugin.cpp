@@ -28,8 +28,6 @@ void MprisPlugin::on_connected(bool paired) {
 bool MprisPlugin::on_packet_received(const NetworkPacket& np) {
     if (np.type != PacketTypes::Mpris) return false;
 
-    Logger::info(np.body.dump(-1, ' ', false, nlohmann::detail::error_handler_t::replace));
-
     if (np.body.contains("playerList")) {
         std::vector<std::string> players;
         for (const auto& p : np.body["playerList"]) {
@@ -40,9 +38,11 @@ bool MprisPlugin::on_packet_received(const NetworkPacket& np) {
         {
             std::lock_guard lock(mutex_);
             player_list_ = players;
-            if (!players.empty() && current_player_.empty()) {
-                current_player_ = players.front();
-                first_new_player = players.front();
+            // Always track the most recently advertised player (players.front())
+            if (!players.empty() && players.front() != current_player_) {
+                current_player_     = players.front();
+                first_new_player    = players.front();
+                state_              = PlayerState{};
             }
         }
 

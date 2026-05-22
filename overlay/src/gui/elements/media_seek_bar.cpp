@@ -10,23 +10,60 @@ MediaSeekBar::MediaSeekBar(std::string device_id)
     , m_device_id(std::move(device_id))
 {
     m_isItem = true;
-    setValueChangedListener([this](u16 val) {
-        if (m_len_ms > 0)
-            kdecIpcSendMediaAction(KdecMediaAction::SetPosition,
-                                   (int64_t)val * m_len_ms / 100);
-    });
 }
 
 void MediaSeekBar::setPositionMs(int64_t pos_ms, int64_t len_ms) {
-    m_pos_ms = pos_ms;
     m_len_ms = len_ms;
-    setProgress(len_ms > 0 ? (u16)(pos_ms * 100 / len_ms) : 0);
+    if (!m_dragging) {
+        m_pos_ms = pos_ms;
+        setProgress(len_ms > 0 ? (u16)(pos_ms * 100 / len_ms) : 0);
+    }
+}
+
+bool MediaSeekBar::handleInput(u64 keysDown, u64 keysHeld,
+                                const HidTouchState& touchPos,
+                                HidAnalogStickState leftJoy,
+                                HidAnalogStickState rightJoy) {
+    if (keysHeld & (KEY_LEFT | KEY_RIGHT))
+        m_dragging = true;
+
+    bool result = TrackBar::handleInput(keysDown, keysHeld, touchPos, leftJoy, rightJoy);
+
+    if (m_dragging && !(keysHeld & (KEY_LEFT | KEY_RIGHT))) {
+        fireSendPosition();
+        m_dragging = false;
+    }
+    return result;
+}
+
+bool MediaSeekBar::onTouch(tsl::elm::TouchEvent event, s32 currX, s32 currY,
+                            s32 prevX, s32 prevY, s32 initialX, s32 initialY) {
+    if (event == tsl::elm::TouchEvent::Touch || event == tsl::elm::TouchEvent::Hold)
+        m_dragging = true;
+
+    bool result = TrackBar::onTouch(event, currX, currY, prevX, prevY, initialX, initialY);
+
+    if (event == tsl::elm::TouchEvent::Release) {
+        fireSendPosition();
+        m_dragging = false;
+    }
+    return result;
+}
+
+void MediaSeekBar::fireSendPosition() {
+    if (m_seekable && m_len_ms > 0)
+        kdecIpcSendMediaAction(KdecMediaAction::SetPosition,
+                               (int64_t)getProgress() * m_len_ms / 100);
 }
 
 std::string MediaSeekBar::fmtTime(int64_t ms) {
     const int s = (int)(ms / 1000);
+    const int h = s / 3600;
     char buf[16];
-    snprintf(buf, sizeof(buf), "%d:%02d", s / 60, s % 60);
+    if (h > 0)
+        snprintf(buf, sizeof(buf), "%d:%02d:%02d", h, (s % 3600) / 60, s % 60);
+    else
+        snprintf(buf, sizeof(buf), "%d:%02d", s / 60, s % 60);
     return buf;
 }
 
@@ -36,8 +73,13 @@ void MediaSeekBar::draw(tsl::gfx::Renderer* renderer) {
     const s32 yPos  = getY() + 53;
     const s32 width = getWidth() - 95;
 
+    // While dragging, derive position from the TrackBar's own progress value
+    const int64_t displayPos = m_dragging && m_len_ms > 0
+        ? (int64_t)getProgress() * m_len_ms / 100
+        : m_pos_ms;
+
     const s32 handle = (m_seekable && m_len_ms > 0)
-        ? (s32)(width * m_pos_ms / m_len_ms)
+        ? (s32)(width * displayPos / m_len_ms)
         : 0;
 
     // Track bar (background then filled)
@@ -63,7 +105,7 @@ void MediaSeekBar::draw(tsl::gfx::Renderer* renderer) {
     // Time labels
     const s32 labelY = getY() + 30;
     if (m_seekable) {
-        const std::string posStr = fmtTime(m_pos_ms);
+        const std::string posStr = fmtTime(displayPos);
         const std::string lenStr = fmtTime(m_len_ms);
 
         renderer->drawString(posStr.c_str(), false, xPos, labelY, kTimeSize, kDim);
@@ -73,9 +115,9 @@ void MediaSeekBar::draw(tsl::gfx::Renderer* renderer) {
                              labelY, kTimeSize, kDim);
     } else {
         renderer->drawString("--:--", false, xPos, labelY, kTimeSize, kFaint);
-        const u32 liveW = renderer->drawString("LIVE", false, 0, 0,
+        const u32 liveW = renderer->drawString("--:--", false, 0, 0,
                                                kTimeSize, kTransparent).first;
-        renderer->drawString("LIVE", false, xPos + width - (s32)liveW,
+        renderer->drawString("--:--", false, xPos + width - (s32)liveW,
                              labelY, kTimeSize, kFaint);
     }
 
