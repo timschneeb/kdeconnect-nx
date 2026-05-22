@@ -83,12 +83,66 @@ void MediaIconButton::drawHighlight(tsl::gfx::Renderer* renderer) {
         0xF
     };
 
-    auto hl = tsl::gfx::Renderer::a(tsl::s_highlightColor);
-    const s32 cx   = getX() + getWidth()  / 2;
-    const s32 cy   = getY() + getHeight() / 2;
-    const s32 base = std::min(getWidth(), getHeight()) / 2;
-    for (s32 r = base + 1; r <= base + 5; r++)
-        renderer->drawCircle(cx, cy, r, false, hl);
+    const auto hl    = tsl::gfx::Renderer::a(tsl::s_highlightColor);
+    const s32  cx    = getX() + getWidth()  / 2;
+    const s32  cy    = getY() + getHeight() / 2;
+    const s32  base  = std::min(getWidth(), getHeight()) / 2;
+    const s32  outer = base + 5;
+    const float b2f  = (float)(base * base);
+    const float o2f  = (float)(outer * outer);
+
+    auto aaCol = [&](float alpha) -> tsl::Color {
+        tsl::Color c = hl;
+        c.a = (u8)(alpha * (float)hl.a + 0.5f);
+        return c;
+    };
+
+    // Span-based ring with per-row outer and inner edge AA.
+    // Full pixels drawn once; boundary rows feathered with fractional alpha.
+    for (s32 dy = -(outer + 1); dy <= (outer + 1); dy++) {
+        const float dy2 = (float)(dy * dy);
+        if (dy2 > o2f + 2.0f * (float)outer + 1.0f) continue;
+
+        // Outer boundary
+        const float ox_f  = (dy2 <= o2f) ? std::sqrt(o2f - dy2) : 0.0f;
+        const s32   ox    = (s32)ox_f;                // last full pixel inside outer circle
+        const float o_aa  = ox_f - (float)ox;         // fractional overshoot → alpha of next pixel
+
+        // Inner boundary (hole); ix is first full pixel in the ring
+        const float ix_f  = (dy2 < b2f) ? std::sqrt(b2f - dy2) : 0.0f;
+        const s32   ix    = (dy2 < b2f) ? (s32)ix_f + 1 : 0;
+        const float i_aa  = (dy2 < b2f) ? (ix_f - (float)(ix - 1)) : 0.0f; // 0..1
+
+        // Full-alpha ring spans
+        if (ox >= ix || ix == 0) {
+            if (ix == 0) {
+                if (ox > 0)
+                    renderer->drawRect(cx - ox, cy + dy, 2 * ox + 1, 1, hl);
+                else if (ox_f > 0.0f)
+                    renderer->drawRect(cx, cy + dy, 1, 1, aaCol(ox_f));
+            } else {
+                const s32 w = ox - ix + 1;
+                if (w > 0) {
+                    renderer->drawRect(cx - ox, cy + dy, w, 1, hl);
+                    renderer->drawRect(cx + ix, cy + dy, w, 1, hl);
+                }
+            }
+        }
+
+        // Outer edge AA — feather the pixel just outside ox
+        if (o_aa > 0.01f && ox + 1 > ix) {
+            const auto c = aaCol(o_aa);
+            renderer->drawRect(cx - ox - 1, cy + dy, 1, 1, c);
+            renderer->drawRect(cx + ox + 1, cy + dy, 1, 1, c);
+        }
+
+        // Inner edge AA — feather the pixel just inside ix (if it's outside the full ring)
+        if (i_aa > 0.01f && ix > 0 && ix - 1 >= 0) {
+            const auto c = aaCol(1.0f - i_aa);
+            renderer->drawRect(cx - (ix - 1), cy + dy, 1, 1, c);
+            renderer->drawRect(cx + (ix - 1), cy + dy, 1, 1, c);
+        }
+    }
 }
 
 // ===========================================================================
