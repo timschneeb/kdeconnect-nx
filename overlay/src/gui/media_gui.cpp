@@ -49,6 +49,8 @@ void MediaIconButton::draw(tsl::gfx::Renderer* renderer) {
     const s32 cy = getY() + getHeight() / 2;
     const s32 r  = std::min(getWidth(), getHeight()) / 2;
 
+    renderer->drawCircle(cx, cy, r, false, m_disabled ? kFaint : kDim);
+
     if (m_icon) {
         tsl::Color iconCol = m_disabled
             ? tsl::gfx::Renderer::a(tsl::Color{0x4, 0x4, 0x4, 0xF})
@@ -276,35 +278,45 @@ void MediaSeekBar::draw(tsl::gfx::Renderer* renderer) {
 
     // Track bar (background then filled)
     drawBar(renderer, xPos, yPos - 3, (u16)width,  tsl::trackBarEmptyColor);
-    if (handle > 0)
+    if (handle > 0 && m_seekable)
         drawBar(renderer, xPos, yPos - 3, (u16)handle, tsl::trackBarFullColor);
 
-    // Slider circle — use theme highlight when focused
-    if (m_focused) {
+    // Slider circle — greyed out when not seekable, highlight when focused+seekable
+    if (m_focused && m_seekable) {
         renderer->drawCircle(xPos + handle, yPos, 16, true,
                              tsl::gfx::Renderer::a(tsl::s_highlightColor));
         renderer->drawCircle(xPos + handle, yPos, 12, true,
                              tsl::gfx::Renderer::a(tsl::trackBarSliderMalleableColor));
     } else {
+        const auto borderCol = m_seekable ? tsl::trackBarSliderBorderColor : tsl::trackBarEmptyColor;
+        const auto sliderCol = m_seekable ? tsl::trackBarSliderColor       : tsl::trackBarEmptyColor;
         renderer->drawCircle(xPos + handle, yPos, 16, true,
-                             tsl::gfx::Renderer::a(tsl::trackBarSliderBorderColor));
+                             tsl::gfx::Renderer::a(borderCol));
         renderer->drawCircle(xPos + handle, yPos, 13, true,
-                             tsl::gfx::Renderer::a(tsl::trackBarSliderColor));
+                             tsl::gfx::Renderer::a(sliderCol));
     }
 
-    // Time labels at V2 label row (y+30)
+    // Time labels
     const s32 labelY = getY() + 30;
-    const int64_t dispPos = (m_len_ms > 0)
-        ? ((int64_t)getProgress() * m_len_ms / 100)
-        : 0;
-    const std::string posStr = fmtTime(dispPos);
-    const std::string lenStr = fmtTime(m_len_ms);
+    if (m_seekable) {
+        const int64_t dispPos = (m_len_ms > 0)
+            ? ((int64_t)getProgress() * m_len_ms / 100)
+            : 0;
+        const std::string posStr = fmtTime(dispPos);
+        const std::string lenStr = fmtTime(m_len_ms);
 
-    renderer->drawString(posStr.c_str(), false, xPos, labelY, kTimeSize, kDim);
-    const u32 lenW = renderer->drawString(lenStr.c_str(), false, 0, 0,
-                                          kTimeSize, kTransparent).first;
-    renderer->drawString(lenStr.c_str(), false, xPos + width - (s32)lenW,
-                         labelY, kTimeSize, kDim);
+        renderer->drawString(posStr.c_str(), false, xPos, labelY, kTimeSize, kDim);
+        const u32 lenW = renderer->drawString(lenStr.c_str(), false, 0, 0,
+                                              kTimeSize, kTransparent).first;
+        renderer->drawString(lenStr.c_str(), false, xPos + width - (s32)lenW,
+                             labelY, kTimeSize, kDim);
+    } else {
+        renderer->drawString("--:--", false, xPos, labelY, kTimeSize, kFaint);
+        const u32 liveW = renderer->drawString("LIVE", false, 0, 0,
+                                               kTimeSize, kTransparent).first;
+        renderer->drawString("LIVE", false, xPos + width - (s32)liveW,
+                             labelY, kTimeSize, kFaint);
+    }
 
     // Bottom separator
     renderer->drawRect(getX() + 23, getBottomBound(),
@@ -436,12 +448,18 @@ void MediaGui::pollAndUpdate() {
     const std::string artist = info.artist[0] ? info.artist : "Unknown Artist";
 
     if (m_title_bar) m_title_bar->setInfo(title, artist);
-    if (m_seek_bar)  m_seek_bar->setPositionMs(info.position, info.length);
+    if (m_seek_bar) {
+        m_seek_bar->setSeekable(info.can_seek);
+        m_seek_bar->setPositionMs(info.can_seek ? info.position : 0,
+                                  info.can_seek ? info.length   : 0);
+    }
 
     if (m_btn_row) {
         m_btn_row->setButtonIcon(MediaButtonRow::IDX_PLAY,
             info.is_playing ? &media_sym::pause::symbol : &media_sym::play::symbol);
-        m_btn_row->setButtonDisabled(MediaButtonRow::IDX_PREV, !info.can_go_previous);
-        m_btn_row->setButtonDisabled(MediaButtonRow::IDX_NEXT, !info.can_go_next);
+        m_btn_row->setButtonDisabled(MediaButtonRow::IDX_PREV,     !info.can_go_previous);
+        m_btn_row->setButtonDisabled(MediaButtonRow::IDX_NEXT,     !info.can_go_next);
+        m_btn_row->setButtonDisabled(MediaButtonRow::IDX_REWIND,   !info.can_seek);
+        m_btn_row->setButtonDisabled(MediaButtonRow::IDX_FFORWARD, !info.can_seek);
     }
 }

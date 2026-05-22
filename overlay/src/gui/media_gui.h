@@ -78,13 +78,15 @@ public:
 
     // Update displayed position from IPC poll (does NOT trigger the listener).
     void setPositionMs(int64_t pos_ms, int64_t len_ms);
+    void setSeekable(bool seekable) { m_seekable = seekable; }
 
     void draw(tsl::gfx::Renderer* renderer) override;
 
 private:
     std::string m_device_id;
-    int64_t     m_pos_ms = 0;
-    int64_t     m_len_ms = 0;
+    int64_t     m_pos_ms  = 0;
+    int64_t     m_len_ms  = 0;
+    bool        m_seekable = true;
 
     static std::string fmtTime(int64_t ms);
 };
