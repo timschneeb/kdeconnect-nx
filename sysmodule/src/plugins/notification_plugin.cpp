@@ -44,60 +44,6 @@ static void clear_our_icons() {
     }
     closedir(d);
 }
-
-static void write_icon() {
-    mkdir("/config/ultrahand", 0755);
-    mkdir("/config/ultrahand/assets", 0755);
-    mkdir("/config/ultrahand/assets/notifications", 0755);
-
-    // 50x50 RGBA: KDE Connect blue (#1d99f3) background, white phone silhouette.
-    static constexpr int W = 50, H = 50;
-    uint8_t px[W * H * 4];
-
-    auto set = [&](int x, int y, uint8_t r, uint8_t g, uint8_t b) {
-        if (x < 0 || x >= W || y < 0 || y >= H) return;
-        int i = (y * W + x) * 4;
-        px[i] = r; px[i+1] = g; px[i+2] = b; px[i+3] = 0xff;
-    };
-
-    // Background
-    for (int y = 0; y < H; y++)
-        for (int x = 0; x < W; x++)
-            set(x, y, 0x1d, 0x99, 0xf3);
-
-    // Phone body: white rounded rectangle (14–36, 7–43), 2px corner radius.
-    for (int y = 7; y <= 43; y++) {
-        for (int x = 14; x <= 36; x++) {
-            if ((x < 16 && y < 9) || (x > 34 && y < 9) ||
-                (x < 16 && y > 41) || (x > 34 && y > 41)) continue;
-            set(x, y, 0xff, 0xff, 0xff);
-        }
-    }
-
-    // Screen cutout: blue inset (17–33, 13–36).
-    for (int y = 13; y <= 36; y++)
-        for (int x = 17; x <= 33; x++)
-            set(x, y, 0x1d, 0x99, 0xf3);
-
-    // Earpiece: blue bar (21–29, 9–10).
-    for (int y = 9; y <= 10; y++)
-        for (int x = 21; x <= 29; x++)
-            set(x, y, 0x1d, 0x99, 0xf3);
-
-    // Home button: blue circle at (25, 40), radius 2.
-    for (int dy = -2; dy <= 2; dy++)
-        for (int dx = -2; dx <= 2; dx++)
-            if (dx*dx + dy*dy <= 4)
-                set(25 + dx, 40 + dy, 0x1d, 0x99, 0xf3);
-
-    FILE* f = fopen(kIconPath, "wb");
-    if (f) {
-        fwrite(px, 1, sizeof(px), f);
-        fclose(f);
-    } else {
-        Logger::error("Failed to write icon: " + std::string(kIconPath));
-    }
-}
 #endif
 
 std::string NotificationPlugin::name() const { return "Notification Plugin"; }
@@ -114,7 +60,9 @@ std::vector<std::string> NotificationPlugin::outgoing_packet_types() const {
 void NotificationPlugin::on_create() {
 #ifdef __SWITCH__
     clear_our_icons();
-    write_icon();
+    mkdir("/config/ultrahand", 0755);
+    mkdir("/config/ultrahand/assets", 0755);
+    mkdir("/config/ultrahand/assets/notifications", 0755);
 #endif
 }
 
