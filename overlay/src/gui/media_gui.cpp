@@ -24,15 +24,15 @@ tsl::elm::Element* MediaGui::createUI() {
 
     m_btn_row = new MediaButtonRow();
     m_btn_row->setButton(MediaButtonRow::IDX_REWIND,   &media_sym::backward::symbol,
-        []{ kdecIpcSendMediaAction(KdecMediaAction::Seek, -10000); });
+        [id = m_device_id]{ kdecIpcSendMediaAction(id, KdecMediaAction::Seek, -10000); });
     m_btn_row->setButton(MediaButtonRow::IDX_PREV,     &media_sym::prev::symbol,
-        []{ kdecIpcSendMediaAction(KdecMediaAction::Previous); });
+        [id = m_device_id]{ kdecIpcSendMediaAction(id, KdecMediaAction::Previous); });
     m_btn_row->setButton(MediaButtonRow::IDX_PLAY,     &media_sym::play::symbol,
-        []{ kdecIpcSendMediaAction(KdecMediaAction::PlayPause); });
+        [id = m_device_id]{ kdecIpcSendMediaAction(id, KdecMediaAction::PlayPause); });
     m_btn_row->setButton(MediaButtonRow::IDX_NEXT,     &media_sym::next::symbol,
-        []{ kdecIpcSendMediaAction(KdecMediaAction::Next); });
+        [id = m_device_id]{ kdecIpcSendMediaAction(id, KdecMediaAction::Next); });
     m_btn_row->setButton(MediaButtonRow::IDX_FFORWARD, &media_sym::forward::symbol,
-        []{ kdecIpcSendMediaAction(KdecMediaAction::Seek, 10000); });
+        [id = m_device_id]{ kdecIpcSendMediaAction(id, KdecMediaAction::Seek, 10000); });
     list->addItem(m_btn_row, MediaButtonRow::Height);
 
     frame->setContent(list);
@@ -54,7 +54,7 @@ void MediaGui::update() {
 
 void MediaGui::pollAndUpdate() const {
     KdecMediaInfo info{};
-    if (R_FAILED(kdecIpcGetMediaInfo(info))) {
+    if (R_FAILED(kdecIpcGetMediaInfo(m_device_id, info))) {
         if (m_title_bar) m_title_bar->setInfo("No media playing", "");
         return;
     }

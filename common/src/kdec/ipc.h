@@ -142,10 +142,12 @@ struct KdecWireSettingEntry {
 static_assert(sizeof(KdecWireSettingEntry) == 16);
 
 struct KdecWireSendMediaAction {
+    char    device_id[KDEC_DEVICE_ID_MAX]; // target device
     uint8_t action; // KdecMediaAction
+    // 7 bytes implicit padding before int64_t
     int64_t value;
 } __attribute__((aligned(16)));
-static_assert(sizeof(KdecWireSendMediaAction) == 16);
+static_assert(sizeof(KdecWireSendMediaAction) == 80);
 
 struct KdecWireSetVolumeSink {
     char    device_id[KDEC_DEVICE_ID_MAX];

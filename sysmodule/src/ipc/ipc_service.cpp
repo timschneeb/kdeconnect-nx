@@ -266,43 +266,48 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
         case KdecIpcCmd_GetMediaInfo: {
             const auto& hipc = r->hipc;
             if (hipc.meta.num_recv_buffers < 1) return MAKERESULT(Module_Libnx, LibnxError_BadInput);
+            if (r->data.size < sizeof(KdecWireDeviceId)) return MAKERESULT(Module_Libnx, LibnxError_BadInput);
+
+            KdecWireDeviceId id_wire{};
+            memcpy(&id_wire, r->data.ptr, sizeof(id_wire));
+            std::string id_str(id_wire.device_id, strnlen(id_wire.device_id, KDEC_DEVICE_ID_MAX));
 
             auto* recv_buf  = static_cast<KdecMediaInfo*>(hipcGetBufferAddress(hipc.data.recv_buffers));
             size_t recv_size = hipcGetBufferSize(hipc.data.recv_buffers);
 
             uint32_t found = 0;
             if (recv_size >= sizeof(KdecMediaInfo)) {
-                auto devices_map = client->devices();
-                for (const auto& [id, sess] : devices_map) {
+                auto sess = client->device(id_str);
+                if (sess) {
                     auto* mpris = sess->plugin<MprisPlugin>();
-                    if (!mpris) continue;
-                    std::string player = mpris->current_player();
-                    if (player.empty()) continue;
+                    if (mpris) {
+                        std::string player = mpris->current_player();
+                        if (!player.empty()) {
+                            MprisPlugin::PlayerState state = mpris->player_state();
 
-                    MprisPlugin::PlayerState state = mpris->player_state();
-
-                    KdecMediaInfo& info = *recv_buf;
-                    memset(&info, 0, sizeof(info));
-                    strncpy(info.device_id, id.c_str(),           KDEC_DEVICE_ID_MAX - 1);
-                    strncpy(info.player,    player.c_str(),        KDEC_PLAYER_MAX    - 1);
-                    strncpy(info.title,     state.title.c_str(),   KDEC_TITLE_MAX     - 1);
-                    strncpy(info.artist,    state.artist.c_str(),  KDEC_ARTIST_MAX    - 1);
-                    strncpy(info.album,     state.album.c_str(),   KDEC_ALBUM_MAX     - 1);
-                    info.position        = state.position;
-                    info.length          = state.length;
-                    info.volume          = static_cast<int32_t>(state.volume);
-                    info.is_playing      = state.is_playing;
-                    info.can_play        = state.can_play;
-                    info.can_pause       = state.can_pause;
-                    info.can_go_next     = state.can_go_next;
-                    info.can_go_previous = state.can_go_previous;
-                    // Mirror Android's isSeekAllowed: only expose seekbar when length is known.
-                    // length == 0 means never received; length < 0 means explicit "unknown" (live).
-                    // Negative pos/length sentinels are filtered in on_packet_received so no
-                    // position guard is needed here: a partial seek update won't flip this false.
-                    info.can_seek        = state.can_seek && state.length > 0;
-                    found = 1;
-                    break;
+                            KdecMediaInfo& info = *recv_buf;
+                            memset(&info, 0, sizeof(info));
+                            strncpy(info.device_id, id_str.c_str(),       KDEC_DEVICE_ID_MAX - 1);
+                            strncpy(info.player,    player.c_str(),        KDEC_PLAYER_MAX    - 1);
+                            strncpy(info.title,     state.title.c_str(),   KDEC_TITLE_MAX     - 1);
+                            strncpy(info.artist,    state.artist.c_str(),  KDEC_ARTIST_MAX    - 1);
+                            strncpy(info.album,     state.album.c_str(),   KDEC_ALBUM_MAX     - 1);
+                            info.position        = state.position;
+                            info.length          = state.length;
+                            info.volume          = static_cast<int32_t>(state.volume);
+                            info.is_playing      = state.is_playing;
+                            info.can_play        = state.can_play;
+                            info.can_pause       = state.can_pause;
+                            info.can_go_next     = state.can_go_next;
+                            info.can_go_previous = state.can_go_previous;
+                            // Mirror Android's isSeekAllowed: only expose seekbar when length is known.
+                            // length == 0 means never received; length < 0 means explicit "unknown" (live).
+                            // Negative pos/length sentinels are filtered in on_packet_received so no
+                            // position guard is needed here: a partial seek update won't flip this false.
+                            info.can_seek        = state.can_seek && state.length > 0;
+                            found = 1;
+                        }
+                    }
                 }
             }
 
@@ -317,28 +322,28 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
 
             KdecWireSendMediaAction wire{};
             memcpy(&wire, r->data.ptr, sizeof(wire));
+            std::string id_str(wire.device_id, strnlen(wire.device_id, KDEC_DEVICE_ID_MAX));
+
+            auto sess = client->device(id_str);
+            if (!sess) return MAKERESULT(Module_Libnx, LibnxError_NotFound);
+
+            auto* mpris = sess->plugin<MprisPlugin>();
+            if (!mpris) return MAKERESULT(Module_Libnx, LibnxError_NotFound);
+
+            std::string player = mpris->current_player();
+            if (player.empty()) return 0;
 
             auto action = static_cast<KdecMediaAction>(wire.action);
-
-            auto devices_map = client->devices();
-            for (const auto& [id, sess] : devices_map) {
-                auto* mpris = sess->plugin<MprisPlugin>();
-                if (!mpris) continue;
-                std::string player = mpris->current_player();
-                if (player.empty()) continue;
-
-                switch (action) {
-                    case KdecMediaAction::Play:        mpris->send_action(player, "Play");      break;
-                    case KdecMediaAction::Pause:       mpris->send_action(player, "Pause");     break;
-                    case KdecMediaAction::PlayPause:   mpris->send_action(player, "PlayPause"); break;
-                    case KdecMediaAction::Stop:        mpris->send_action(player, "Stop");      break;
-                    case KdecMediaAction::Next:        mpris->send_action(player, "Next");      break;
-                    case KdecMediaAction::Previous:    mpris->send_action(player, "Previous");  break;
-                    case KdecMediaAction::SetVolume:   mpris->set_volume(player, static_cast<int>(wire.value));  break;
-                    case KdecMediaAction::Seek:        mpris->seek(player, wire.value);         break;
-                    case KdecMediaAction::SetPosition: mpris->set_position(player, wire.value); break;
-                }
-                return 0;
+            switch (action) {
+                case KdecMediaAction::Play:        mpris->send_action(player, "Play");      break;
+                case KdecMediaAction::Pause:       mpris->send_action(player, "Pause");     break;
+                case KdecMediaAction::PlayPause:   mpris->send_action(player, "PlayPause"); break;
+                case KdecMediaAction::Stop:        mpris->send_action(player, "Stop");      break;
+                case KdecMediaAction::Next:        mpris->send_action(player, "Next");      break;
+                case KdecMediaAction::Previous:    mpris->send_action(player, "Previous");  break;
+                case KdecMediaAction::SetVolume:   mpris->set_volume(player, static_cast<int>(wire.value));  break;
+                case KdecMediaAction::Seek:        mpris->seek(player, wire.value);         break;
+                case KdecMediaAction::SetPosition: mpris->set_position(player, wire.value); break;
             }
             return 0;
         }

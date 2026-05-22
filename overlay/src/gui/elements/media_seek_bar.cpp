@@ -52,7 +52,7 @@ bool MediaSeekBar::onTouch(tsl::elm::TouchEvent event, s32 currX, s32 currY,
 
 void MediaSeekBar::fireSendPosition() {
     if (m_seekable && m_len_ms > 0)
-        kdecIpcSendMediaAction(KdecMediaAction::SetPosition,
+        kdecIpcSendMediaAction(m_device_id, KdecMediaAction::SetPosition,
                                (int64_t)getProgress() * m_len_ms / 100);
 }
 

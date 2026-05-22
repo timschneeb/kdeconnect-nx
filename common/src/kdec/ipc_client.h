@@ -21,8 +21,8 @@ Result kdecIpcUnpair(const std::string& device_id);
 
 Result kdecIpcPing(const std::string& device_id);
 Result kdecIpcRing(const std::string& device_id);
-Result kdecIpcGetMediaInfo(KdecMediaInfo& out);
-Result kdecIpcSendMediaAction(KdecMediaAction action, int64_t value = 0);
+Result kdecIpcGetMediaInfo(const std::string& device_id, KdecMediaInfo& out);
+Result kdecIpcSendMediaAction(const std::string& device_id, KdecMediaAction action, int64_t value = 0);
 Result kdecIpcGetCommandList(const std::string& device_id, std::vector<KdecCommandEntry>& out);
 Result kdecIpcRunCommand(const std::string& device_id, const std::string& command_id);
 Result kdecIpcReadBoolSetting(KdecBoolSettingKey key, bool& out);

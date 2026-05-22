@@ -112,9 +112,11 @@ Result kdecIpcRing(const std::string& device_id) {
     return serviceDispatchIn(&g_kdecSrv, KdecIpcCmd_Ring, wire);
 }
 
-Result kdecIpcGetMediaInfo(KdecMediaInfo& out) {
+Result kdecIpcGetMediaInfo(const std::string& device_id, KdecMediaInfo& out) {
+    KdecWireDeviceId id_wire{};
+    strncpy(id_wire.device_id, device_id.c_str(), KDEC_DEVICE_ID_MAX - 1);
     uint32_t found = 0;
-    Result rc = serviceDispatchOut(&g_kdecSrv, KdecIpcCmd_GetMediaInfo, found,
+    Result rc = serviceDispatchInOut(&g_kdecSrv, KdecIpcCmd_GetMediaInfo, id_wire, found,
         .buffer_attrs = { SfBufferAttr_HipcAutoSelect | SfBufferAttr_Out },
         .buffers = {{ &out, sizeof(KdecMediaInfo) }},
     );
@@ -122,8 +124,9 @@ Result kdecIpcGetMediaInfo(KdecMediaInfo& out) {
     return found ? 0 : MAKERESULT(Module_Libnx, LibnxError_NotFound);
 }
 
-Result kdecIpcSendMediaAction(KdecMediaAction action, int64_t value) {
+Result kdecIpcSendMediaAction(const std::string& device_id, KdecMediaAction action, int64_t value) {
     KdecWireSendMediaAction wire{};
+    strncpy(wire.device_id, device_id.c_str(), KDEC_DEVICE_ID_MAX - 1);
     wire.action = static_cast<uint8_t>(action);
     wire.value  = value;
     return serviceDispatchIn(&g_kdecSrv, KdecIpcCmd_SendMediaAction, wire);
