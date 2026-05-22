@@ -60,7 +60,7 @@ void MediaGui::pollAndUpdate() const {
     }
 
     const std::string title  = info.title[0]  ? info.title  : "Unknown";
-    const std::string artist = info.artist[0] ? info.artist : "Unknown Artist";
+    const std::string artist = info.artist[0] ? info.artist : info.player;
 
     if (m_title_bar) m_title_bar->setInfo(title, artist);
     if (m_seek_bar) {

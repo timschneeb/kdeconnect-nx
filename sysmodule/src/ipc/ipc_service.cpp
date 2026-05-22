@@ -288,15 +288,19 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
                     strncpy(info.title,     state.title.c_str(),   KDEC_TITLE_MAX     - 1);
                     strncpy(info.artist,    state.artist.c_str(),  KDEC_ARTIST_MAX    - 1);
                     strncpy(info.album,     state.album.c_str(),   KDEC_ALBUM_MAX     - 1);
-                    info.position       = state.position;
-                    info.length         = state.length;
-                    info.volume         = static_cast<int32_t>(state.volume);
-                    info.is_playing     = state.is_playing;
-                    info.can_play       = state.can_play;
-                    info.can_pause      = state.can_pause;
-                    info.can_go_next    = state.can_go_next;
+                    info.position        = state.position;
+                    info.length          = state.length;
+                    info.volume          = static_cast<int32_t>(state.volume);
+                    info.is_playing      = state.is_playing;
+                    info.can_play        = state.can_play;
+                    info.can_pause       = state.can_pause;
+                    info.can_go_next     = state.can_go_next;
                     info.can_go_previous = state.can_go_previous;
-                    info.can_seek       = state.can_seek;
+                    // Mirror Android's isSeekAllowed: only expose seekbar when length is known.
+                    // length == 0 means never received; length < 0 means explicit "unknown" (live).
+                    // Negative pos/length sentinels are filtered in on_packet_received so no
+                    // position guard is needed here: a partial seek update won't flip this false.
+                    info.can_seek        = state.can_seek && state.length > 0;
                     found = 1;
                     break;
                 }

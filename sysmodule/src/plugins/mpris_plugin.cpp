@@ -1,5 +1,12 @@
 #include "mpris_plugin.h"
 #include "utils/logger.h"
+#include <algorithm>
+#include <chrono>
+
+int64_t MprisPlugin::now_ms() {
+    using namespace std::chrono;
+    return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
+}
 
 std::string MprisPlugin::name() const { return "MPRIS Plugin"; }
 std::string MprisPlugin::description() const { return "Remote control for media players on other devices."; }
@@ -20,6 +27,8 @@ void MprisPlugin::on_connected(bool paired) {
 
 bool MprisPlugin::on_packet_received(const NetworkPacket& np) {
     if (np.type != PacketTypes::Mpris) return false;
+
+    Logger::info(np.body.dump(-1, ' ', false, nlohmann::detail::error_handler_t::replace));
 
     if (np.body.contains("playerList")) {
         std::vector<std::string> players;
@@ -51,7 +60,10 @@ bool MprisPlugin::on_packet_received(const NetworkPacket& np) {
         std::string player = np.body["player"].get<std::string>();
         {
             std::lock_guard lock(mutex_);
-            current_player_ = player;
+            // Ignore status updates from players other than the selected one.
+            // Firefox exposes two MPRIS players ("Firefox" and "Mozilla firefox");
+            // packets from the non-selected one corrupt state with pos:0 resets.
+            if (!current_player_.empty() && player != current_player_) return true;
             if (np.body.contains("isPlaying"))    state_.is_playing    = np.body["isPlaying"].get<bool>();
             if (np.body.contains("canPause"))     state_.can_pause     = np.body["canPause"].get<bool>();
             if (np.body.contains("canPlay"))      state_.can_play      = np.body["canPlay"].get<bool>();
@@ -62,8 +74,27 @@ bool MprisPlugin::on_packet_received(const NetworkPacket& np) {
             if (np.body.contains("artist") && np.body["artist"].is_string()) state_.artist = np.body["artist"].get<std::string>();
             if (np.body.contains("album")  && np.body["album"].is_string())  state_.album  = np.body["album"].get<std::string>();
             if (np.body.contains("volume") && np.body["volume"].is_number()) state_.volume = np.body["volume"].get<int>();
-            if (np.body.contains("pos")    && np.body["pos"].is_number())    state_.position = np.body["pos"].get<int64_t>();
-            if (np.body.contains("length") && np.body["length"].is_number()) state_.length   = np.body["length"].get<int64_t>();
+            // Protocol packets are incremental, only update fields that are present.
+            // pos and length use -1 as a sentinel for "unknown/seeking"; ignore those
+            // so a transient partial update doesn't corrupt previously good values.
+            // Also skip pos:0 when the same packet carries length:-1 (Firefox's raw MPRIS)
+            // emits {pos:0, length:-1} during buffering/transition which is not a real position.
+            if (np.body.contains("pos") && np.body["pos"].is_number()) {
+                const int64_t p = np.body["pos"].get<int64_t>();
+                const bool co_length_bad = np.body.contains("length")
+                    && np.body["length"].is_number()
+                    && np.body["length"].get<int64_t>() < 0;
+                if (p > 0 || !co_length_bad) {
+                    if (p >= 0) {
+                        state_.position              = p;
+                        state_.last_position_time_ms = now_ms();
+                    }
+                }
+            }
+            if (np.body.contains("length") && np.body["length"].is_number()) {
+                const int64_t l = np.body["length"].get<int64_t>();
+                if (l >= 0) state_.length = l;
+            }
         }
 
         std::string who = state_.artist.empty() ? state_.title : state_.artist + " - " + state_.title;
@@ -113,11 +144,16 @@ void MprisPlugin::seek(const std::string& player, int64_t offset_ms) const {
     send_packet(pkt);
 }
 
-void MprisPlugin::set_position(const std::string& player, int64_t position_ms) const {
+void MprisPlugin::set_position(const std::string& player, int64_t position_ms) {
     NetworkPacket pkt;
     pkt.type = PacketTypes::MprisRequest;
     pkt.body = { {"player", player}, {"SetPosition", position_ms} };
     send_packet(pkt);
+    // Mirror Android's sendSetPosition(): immediately anchor the local position so
+    // subsequent player_state() calls advance from the new seek point.
+    std::lock_guard lock(mutex_);
+    state_.position              = position_ms;
+    state_.last_position_time_ms = now_ms();
 }
 
 std::vector<std::string> MprisPlugin::player_list() const {
@@ -132,5 +168,13 @@ std::string MprisPlugin::current_player() const {
 
 MprisPlugin::PlayerState MprisPlugin::player_state() const {
     std::lock_guard lock(mutex_);
-    return state_;
+    PlayerState s = state_;
+    // Advance position locally, exactly as Android's MprisPlayer.position getter does:
+    //   position = if (isPlaying) lastPosition + (currentTime - lastPositionTime) else lastPosition
+    if (s.is_playing && s.last_position_time_ms > 0) {
+        const int64_t elapsed = now_ms() - s.last_position_time_ms;
+        s.position = s.position + elapsed;
+        if (s.length > 0) s.position = std::min(s.position, s.length);
+    }
+    return s;
 }

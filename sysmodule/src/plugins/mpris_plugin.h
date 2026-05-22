@@ -16,7 +16,8 @@ public:
         std::string artist;
         std::string album;
         int volume = 0;
-        int64_t position = 0;
+        int64_t position = 0;         // last position received from the desktop (ms)
+        int64_t last_position_time_ms = 0; // steady_clock ms when position was last set
         int64_t length   = 0;
     };
 
@@ -33,13 +34,16 @@ public:
     void send_action(const std::string& player, const std::string& action) const;
     void set_volume(const std::string& player, int volume) const;
     void seek(const std::string& player, int64_t offset_ms) const;
-    void set_position(const std::string& player, int64_t position_ms) const;
+    void set_position(const std::string& player, int64_t position_ms);
 
     std::vector<std::string> player_list() const;
     std::string current_player() const;
+    // Returns a copy with position advanced if is_playing (like MprisPlayer.position in Android)
     PlayerState player_state() const;
 
 private:
+    static int64_t now_ms();
+
     mutable std::mutex mutex_;
     std::vector<std::string> player_list_;
     std::string current_player_;

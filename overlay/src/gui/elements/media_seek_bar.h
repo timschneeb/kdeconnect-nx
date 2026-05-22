@@ -5,7 +5,7 @@ class MediaSeekBar final : public tsl::elm::TrackBar {
 public:
     explicit MediaSeekBar(std::string device_id);
 
-    // Update displayed position from IPC poll (does not trigger the listener).
+    // Called each IPC poll. Position is already live-computed by the sysmodule.
     void setPositionMs(int64_t pos_ms, int64_t len_ms);
     void setSeekable(bool seekable) { m_seekable = seekable; }
 

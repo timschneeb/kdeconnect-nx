@@ -35,8 +35,10 @@ void MediaSeekBar::draw(tsl::gfx::Renderer* renderer) {
     const s32 xPos  = getX() + 59;
     const s32 yPos  = getY() + 53;
     const s32 width = getWidth() - 95;
-    const s32 span  = m_maxValue - m_minValue;
-    const s32 handle = (span > 0) ? (width * m_value / span) : 0;
+
+    const s32 handle = (m_seekable && m_len_ms > 0)
+        ? (s32)(width * m_pos_ms / m_len_ms)
+        : 0;
 
     // Track bar (background then filled)
     drawBar(renderer, xPos, yPos - 3, (u16)width,  tsl::trackBarEmptyColor);
@@ -61,10 +63,7 @@ void MediaSeekBar::draw(tsl::gfx::Renderer* renderer) {
     // Time labels
     const s32 labelY = getY() + 30;
     if (m_seekable) {
-        const int64_t dispPos = (m_len_ms > 0)
-            ? ((int64_t)getProgress() * m_len_ms / 100)
-            : 0;
-        const std::string posStr = fmtTime(dispPos);
+        const std::string posStr = fmtTime(m_pos_ms);
         const std::string lenStr = fmtTime(m_len_ms);
 
         renderer->drawString(posStr.c_str(), false, xPos, labelY, kTimeSize, kDim);
