@@ -48,4 +48,5 @@ private:
     std::vector<std::string> player_list_;
     std::string current_player_;
     PlayerState state_;
+    int64_t seek_lock_until_ms_ = 0; // guarded by mutex_; ignore pos updates after a local seek
 };

@@ -43,6 +43,7 @@ bool MprisPlugin::on_packet_received(const NetworkPacket& np) {
                 current_player_     = players.front();
                 first_new_player    = players.front();
                 state_              = PlayerState{};
+                seek_lock_until_ms_ = 0;
             }
         }
 
@@ -79,7 +80,8 @@ bool MprisPlugin::on_packet_received(const NetworkPacket& np) {
             // so a transient partial update doesn't corrupt previously good values.
             // Also skip pos:0 when the same packet carries length:-1 (Firefox's raw MPRIS)
             // emits {pos:0, length:-1} during buffering/transition which is not a real position.
-            if (np.body.contains("pos") && np.body["pos"].is_number()) {
+            if (np.body.contains("pos") && np.body["pos"].is_number()
+                    && now_ms() >= seek_lock_until_ms_) {
                 const int64_t p = np.body["pos"].get<int64_t>();
                 const bool co_length_bad = np.body.contains("length")
                     && np.body["length"].is_number()
@@ -140,7 +142,7 @@ void MprisPlugin::set_volume(const std::string& player, int volume) const {
 void MprisPlugin::seek(const std::string& player, int64_t offset_ms) const {
     NetworkPacket pkt;
     pkt.type = PacketTypes::MprisRequest;
-    pkt.body = { {"player", player}, {"Seek", offset_ms} };
+    pkt.body = { {"player", player}, {"Seek", offset_ms * 1000} };
     send_packet(pkt);
 }
 
@@ -154,6 +156,7 @@ void MprisPlugin::set_position(const std::string& player, int64_t position_ms) {
     std::lock_guard lock(mutex_);
     state_.position              = position_ms;
     state_.last_position_time_ms = now_ms();
+    seek_lock_until_ms_          = now_ms() + 500;
 }
 
 std::vector<std::string> MprisPlugin::player_list() const {
