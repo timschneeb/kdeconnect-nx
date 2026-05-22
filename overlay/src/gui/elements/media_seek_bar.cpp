@@ -114,7 +114,6 @@ void MediaSeekBar::draw(tsl::gfx::Renderer* renderer) {
         renderer->drawString(lenStr.c_str(), false, xPos + width - (s32)lenW,
                              labelY, kTimeSize, kDim);
     } else {
-        renderer->drawString("--:--", false, xPos, labelY, kTimeSize, kFaint);
         const u32 liveW = renderer->drawString("--:--", false, 0, 0,
                                                kTimeSize, kTransparent).first;
         renderer->drawString("--:--", false, xPos + width - (s32)liveW,
