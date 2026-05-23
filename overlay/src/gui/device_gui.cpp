@@ -25,7 +25,7 @@ tsl::elm::Element* DeviceGui::createUI() {
     const bool paired    = (dev_.pair_state == DevicePairState::Paired);
 
     if (dev_.battery_level >= 0 && paired && connected) {
-        list->addItem(new tsl::elm::CategoryHeader("Device Info"));
+        list->addItem(new tsl::elm::CategoryHeader("Device info"));
         auto* battery = new tsl::elm::ListItem("Battery", batteryStr(dev_, true));
         battery->m_isItem = false;
         list->addItem(battery);
@@ -34,14 +34,14 @@ tsl::elm::Element* DeviceGui::createUI() {
 
     switch (dev_.pair_state) {
         case DevicePairState::RequestedByPeer: {
-            auto* accept = new tsl::elm::ListItem("Accept Pair Request");
+            auto* accept = new tsl::elm::ListItem("Accept pair request");
             accept->setClickListener([id](u64 keys) -> bool {
                 if (keys & HidNpadButton_A) { kdecIpcAcceptPair(id); tsl::goBack(); return true; }
                 return false;
             });
             list->addItem(accept);
 
-            auto* reject = new tsl::elm::ListItem("Reject Pair Request");
+            auto* reject = new tsl::elm::ListItem("Reject pair request");
             reject->setClickListener([id](u64 keys) -> bool {
                 if (keys & HidNpadButton_A) { kdecIpcRejectPair(id); tsl::goBack(); return true; }
                 return false;
@@ -50,7 +50,7 @@ tsl::elm::Element* DeviceGui::createUI() {
             break;
         }
         case DevicePairState::None: {
-            auto* pair = new tsl::elm::ListItem("Request Pair");
+            auto* pair = new tsl::elm::ListItem("Request pair");
             pair->setClickListener([id](u64 keys) -> bool {
                 if (keys & HidNpadButton_A) { kdecIpcRequestPair(id); tsl::goBack(); return true; }
                 return false;
@@ -69,7 +69,7 @@ tsl::elm::Element* DeviceGui::createUI() {
         std::string name = devName(dev_);
 
         if (dev_.supports_mpris_remote) {
-            auto* media = new tsl::elm::ListItem("Media Player", sym::chevronRight);
+            auto* media = new tsl::elm::ListItem("Media remote", sym::chevronRight);
             media->setClickListener([id, name](u64 keys) -> bool {
                 if (keys & HidNpadButton_A) { tsl::changeTo<MediaGui>(id, name); return true; }
                 return false;
@@ -96,7 +96,7 @@ tsl::elm::Element* DeviceGui::createUI() {
         }
 
         if (dev_.supports_share) {
-            auto* screenshot = new tsl::elm::ListItem("Send Screenshot");
+            auto* screenshot = new tsl::elm::ListItem("Send screenshot");
             screenshot->setClickListener([this, id](u64 keys) -> bool {
                 if (keys & HidNpadButton_A) {
                     // Remove overlay from screenshot layer stack before capture, then add it back after a short delay

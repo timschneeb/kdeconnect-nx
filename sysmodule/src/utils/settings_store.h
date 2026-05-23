@@ -11,11 +11,11 @@ namespace SettingsStore {
 void load();
 void save();
 
-bool    get(KdecBoolSettingKey key);
-void    set(KdecBoolSettingKey key, bool value);
+bool get(KdecBoolSettingKey key);
+void set(KdecBoolSettingKey key, bool value);
 
 int32_t get(KdecIntSettingKey key);
-void    set(KdecIntSettingKey key, int32_t value);
+void set(KdecIntSettingKey key, int32_t value);
 
 std::vector<KdecWireSettingEntry> get_all();
 

@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 
@@ -28,34 +29,50 @@ std::mutex g_mutex;
 std::unordered_map<uint8_t, bool>    g_bool;
 std::unordered_map<uint8_t, int32_t> g_int;
 
-bool default_bool(KdecBoolSettingKey key) {
-    switch (key) {
-        case KdecBoolSettingKey::NotificationShowRemote:    return true;
-        case KdecBoolSettingKey::NotificationShowOnConnect: return true;
-        default: return false;
+// --- Helpers generated from the X-macro tables in constants.h ---
+// The JSON key for each setting is the stringified enum name (#n).
+
+static const char* bool_key_name(KdecBoolSettingKey k) {
+    switch (k) {
+#define X(n, d) case KdecBoolSettingKey::n: return #n;
+        KDEC_BOOL_SETTINGS(X)
+#undef X
+        default: return nullptr;
     }
 }
 
-int32_t default_int(KdecIntSettingKey key) {
-    switch (key) {
-        case KdecIntSettingKey::NotificationDuration: return 4000;
-        default: return 0;
+static const char* int_key_name(KdecIntSettingKey k) {
+    switch (k) {
+#define X(n, d) case KdecIntSettingKey::n: return #n;
+        KDEC_INT_SETTINGS(X)
+#undef X
+        default: return nullptr;
     }
 }
 
-// Fill in defaults for any key not already present in the maps.
+static std::optional<KdecBoolSettingKey> bool_key_from_name(const std::string& s) {
+#define X(n, d) if (s == #n) return KdecBoolSettingKey::n;
+    KDEC_BOOL_SETTINGS(X)
+#undef X
+    return std::nullopt;
+}
+
+static std::optional<KdecIntSettingKey> int_key_from_name(const std::string& s) {
+#define X(n, d) if (s == #n) return KdecIntSettingKey::n;
+    KDEC_INT_SETTINGS(X)
+#undef X
+    return std::nullopt;
+}
+
+// Seed maps with compile-time defaults for any key not already present.
 // Caller must hold g_mutex.
 void apply_defaults_locked() {
-    const int nb = static_cast<int>(KdecBoolSettingKey::KDEC_BOOL_SETTING_COUNT);
-    for (int i = 0; i < nb; ++i) {
-        if (!g_bool.count(static_cast<uint8_t>(i)))
-            g_bool[static_cast<uint8_t>(i)] = default_bool(static_cast<KdecBoolSettingKey>(i));
-    }
-    const int ni = static_cast<int>(KdecIntSettingKey::KDEC_INT_SETTING_COUNT);
-    for (int i = 0; i < ni; ++i) {
-        if (!g_int.count(static_cast<uint8_t>(i)))
-            g_int[static_cast<uint8_t>(i)] = default_int(static_cast<KdecIntSettingKey>(i));
-    }
+#define X(n, d) g_bool.emplace(static_cast<uint8_t>(KdecBoolSettingKey::n), d);
+    KDEC_BOOL_SETTINGS(X)
+#undef X
+#define X(n, d) g_int.emplace(static_cast<uint8_t>(KdecIntSettingKey::n), static_cast<int32_t>(d));
+    KDEC_INT_SETTINGS(X)
+#undef X
 }
 
 } // namespace
@@ -65,45 +82,43 @@ namespace SettingsStore {
 void load() {
     std::lock_guard lock(g_mutex);
 
+    // Seed with defaults first; file values will overwrite below.
+    apply_defaults_locked();
+
     const auto path = settings_path();
     FILE* f = fopen(path.c_str(), "rb");
-    if (f) {
-        fseek(f, 0, SEEK_END);
-        const long sz = ftell(f);
-        fseek(f, 0, SEEK_SET);
-        if (sz > 0) {
-            std::string buf(static_cast<size_t>(sz), '\0');
-            fread(buf.data(), 1, static_cast<size_t>(sz), f);
-            fclose(f);
-            const auto j = nlohmann::json::parse(buf, nullptr, false);
-            if (!j.is_discarded()) {
-                if (j.contains("bool") && j["bool"].is_object()) {
-                    for (auto& [k, v] : j["bool"].items()) {
-                        if (v.is_boolean()) {
-                            try { g_bool[static_cast<uint8_t>(std::stoi(k))] = v.get<bool>(); }
-                            catch (...) {}
-                        }
-                    }
-                }
-                if (j.contains("int") && j["int"].is_object()) {
-                    for (auto& [k, v] : j["int"].items()) {
-                        if (v.is_number_integer()) {
-                            try { g_int[static_cast<uint8_t>(std::stoi(k))] = v.get<int32_t>(); }
-                            catch (...) {}
-                        }
-                    }
-                }
-            }
-        } else {
-            fclose(f);
+    if (!f) return;
+
+    fseek(f, 0, SEEK_END);
+    const long sz = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    if (sz <= 0) { fclose(f); return; }
+
+    std::string buf(static_cast<size_t>(sz), '\0');
+    fread(buf.data(), 1, static_cast<size_t>(sz), f);
+    fclose(f);
+
+    const auto j = nlohmann::json::parse(buf, nullptr, false);
+    if (j.is_discarded()) return;
+
+    if (j.contains("bool") && j["bool"].is_object()) {
+        for (const auto& [name, v] : j["bool"].items()) {
+            if (!v.is_boolean()) continue;
+            if (auto k = bool_key_from_name(name))
+                g_bool[static_cast<uint8_t>(*k)] = v.get<bool>();
         }
     }
-
-    apply_defaults_locked();
+    if (j.contains("int") && j["int"].is_object()) {
+        for (const auto& [name, v] : j["int"].items()) {
+            if (!v.is_number_integer()) continue;
+            if (auto k = int_key_from_name(name))
+                g_int[static_cast<uint8_t>(*k)] = v.get<int32_t>();
+        }
+    }
 }
 
 void save() {
-    // Copy under lock, then write outside lock so we don't hold it during I/O.
+    // Copy under lock; do I/O outside so the lock isn't held during writes.
     std::unordered_map<uint8_t, bool>    bool_copy;
     std::unordered_map<uint8_t, int32_t> int_copy;
     {
@@ -115,8 +130,12 @@ void save() {
     nlohmann::json j;
     j["bool"] = nlohmann::json::object();
     j["int"]  = nlohmann::json::object();
-    for (const auto& [k, v] : bool_copy) j["bool"][std::to_string(k)] = v;
-    for (const auto& [k, v] : int_copy)  j["int"][std::to_string(k)]  = v;
+    for (const auto& [k, v] : bool_copy)
+        if (const char* name = bool_key_name(static_cast<KdecBoolSettingKey>(k)))
+            j["bool"][name] = v;
+    for (const auto& [k, v] : int_copy)
+        if (const char* name = int_key_name(static_cast<KdecIntSettingKey>(k)))
+            j["int"][name] = v;
 
     const auto path = settings_path();
     std::filesystem::create_directories(path.parent_path());
@@ -133,28 +152,34 @@ void save() {
 bool get(KdecBoolSettingKey key) {
     std::lock_guard lock(g_mutex);
     const auto it = g_bool.find(static_cast<uint8_t>(key));
-    return it != g_bool.end() ? it->second : default_bool(key);
+    if (it != g_bool.end()) return it->second;
+    switch (key) {
+#define X(n, d) case KdecBoolSettingKey::n: return (d);
+        KDEC_BOOL_SETTINGS(X)
+#undef X
+        default: return false;
+    }
 }
 
 void set(KdecBoolSettingKey key, bool value) {
-    {
-        std::lock_guard lock(g_mutex);
-        g_bool[static_cast<uint8_t>(key)] = value;
-    }
+    { std::lock_guard lock(g_mutex); g_bool[static_cast<uint8_t>(key)] = value; }
     save();
 }
 
 int32_t get(KdecIntSettingKey key) {
     std::lock_guard lock(g_mutex);
     const auto it = g_int.find(static_cast<uint8_t>(key));
-    return it != g_int.end() ? it->second : default_int(key);
+    if (it != g_int.end()) return it->second;
+    switch (key) {
+#define X(n, d) case KdecIntSettingKey::n: return static_cast<int32_t>(d);
+        KDEC_INT_SETTINGS(X)
+#undef X
+        default: return 0;
+    }
 }
 
 void set(KdecIntSettingKey key, int32_t value) {
-    {
-        std::lock_guard lock(g_mutex);
-        g_int[static_cast<uint8_t>(key)] = value;
-    }
+    { std::lock_guard lock(g_mutex); g_int[static_cast<uint8_t>(key)] = value; }
     save();
 }
 

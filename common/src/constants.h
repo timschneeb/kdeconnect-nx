@@ -2,18 +2,31 @@
 
 #include <cstdint>
 
-enum class KdecBoolSettingKey : uint8_t {
-    NotificationShowRemote,
-    NotificationShowOnConnect,
+// X-macro tables: X(enum_name, default_value)
+// NOTE: Do not change order or enum entry names after release!
 
+#define KDEC_BOOL_SETTINGS(X) \
+    X(NotificationShowRemoteMessages, true)  \
+    X(NotificationShowOnConnect, false) \
+    X(NotificationShowIcon, true)
+
+#define KDEC_INT_SETTINGS(X) \
+    X(NotificationDuration, 4000) \
+    X(MprisSeekStepSize, 10000) /* ms */
+
+#define _KDEC_X_ENUM(name, def) name,
+
+enum class KdecBoolSettingKey : uint8_t {
+    KDEC_BOOL_SETTINGS(_KDEC_X_ENUM)
     KDEC_BOOL_SETTING_COUNT,
 };
 
 enum class KdecIntSettingKey : uint8_t {
-    NotificationDuration,
-
-    KDEC_INT_SETTING_COUNT
+    KDEC_INT_SETTINGS(_KDEC_X_ENUM)
+    KDEC_INT_SETTING_COUNT,
 };
+
+#undef _KDEC_X_ENUM
 
 namespace constants {
     constexpr unsigned short kMaxDevices     = 16;

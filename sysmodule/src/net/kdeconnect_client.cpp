@@ -22,6 +22,8 @@
 #include <thread>
 
 #include "../plugins/plugin_registry.h"
+#include "../plugins/notification_plugin.h"
+#include "../utils/settings_store.h"
 
 #include "utils/logger.h"
 #include "../utils/network_util.h"
@@ -409,6 +411,12 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, ScopedF
     }
 
     Logger::info("Connected to " + session->info.name + " (" + session->info.id + ", " + (tcp_server_side ? "server-side" : "client-side") + ", " + (session->paired ? "paired" : "unpaired") + ").");
+
+    if (session->paired && SettingsStore::get(KdecBoolSettingKey::NotificationShowOnConnect)) {
+        NotificationPlugin::post_notification(
+            "kdeconnect", session->info.name, "Connected",
+            "connect_" + session->info.id);
+    }
 
     session->io_thread = std::thread(&KdeConnectClient::io_loop, this, session);
 

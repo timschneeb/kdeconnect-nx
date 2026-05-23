@@ -1,5 +1,6 @@
 #include "notification_plugin.h"
 #include "utils/logger.h"
+#include "../utils/settings_store.h"
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
@@ -140,8 +141,16 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
     }
 
     if (silent) return true;
+    if (!SettingsStore::get(KdecBoolSettingKey::NotificationShowRemoteMessages)) return true;
+
+    const bool show_icon = SettingsStore::get(KdecBoolSettingKey::NotificationShowIcon);
+    const std::string app_id = (show_icon && !icon_hash.empty())
+        ? std::string(kAppId) + "_" + icon_hash
+        : kAppId;
+    const int duration = static_cast<int>(SettingsStore::get(KdecIntSettingKey::NotificationDuration));
+
     Logger::info("Posting: " + icon_hash + "-" + id);
-    post_notification(icon_hash.empty() ? kAppId : std::string(kAppId) + "_" + icon_hash, app, body, id);
+    post_notification(app_id, app, body, id, duration);
     return true;
 }
 

@@ -1,5 +1,6 @@
 #include "main_gui.h"
 #include "device_gui.h"
+#include "settings_gui.h"
 #include "gui_common.h"
 
 #include <kdec/ipc.h>
@@ -103,6 +104,14 @@ tsl::elm::Element *MainGui::createUI() {
             if (!focused_text_.empty())
                 list->jumpToItem(focused_text_);
         }
+
+        list->addItem(new tsl::elm::CategoryHeader("Options"));
+        auto* settings_item = new tsl::elm::ListItem(std::string(sym::settings) + " Settings", sym::chevronRight);
+        settings_item->setClickListener([](u64 keys) -> bool {
+            if (keys & HidNpadButton_A) { tsl::changeTo<SettingsGui>(); return true; }
+            return false;
+        });
+        list->addItem(settings_item);
     }
 
     frame->setContent(list);

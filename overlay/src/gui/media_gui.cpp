@@ -22,9 +22,12 @@ tsl::elm::Element* MediaGui::createUI() {
     m_seek_bar = new MediaSeekBar(m_device_id);
     list->addItem(m_seek_bar, tsl::style::TrackBarDefaultHeight);
 
+    int32_t seek_step = 10000;
+    kdecIpcReadIntSetting(KdecIntSettingKey::MprisSeekStepSize, seek_step);
+
     m_btn_row = new MediaButtonRow();
     m_btn_row->setButton(MediaButtonRow::IDX_REWIND,   &media_sym::backward::symbol,
-        [id = m_device_id]{ kdecIpcSendMediaAction(id, KdecMediaAction::Seek, -10000); });
+        [id = m_device_id, step = seek_step]{ kdecIpcSendMediaAction(id, KdecMediaAction::Seek, -step); });
     m_btn_row->setButton(MediaButtonRow::IDX_PREV,     &media_sym::prev::symbol,
         [id = m_device_id]{ kdecIpcSendMediaAction(id, KdecMediaAction::Previous); });
     m_btn_row->setButton(MediaButtonRow::IDX_PLAY,     &media_sym::play::symbol,
@@ -32,7 +35,7 @@ tsl::elm::Element* MediaGui::createUI() {
     m_btn_row->setButton(MediaButtonRow::IDX_NEXT,     &media_sym::next::symbol,
         [id = m_device_id]{ kdecIpcSendMediaAction(id, KdecMediaAction::Next); });
     m_btn_row->setButton(MediaButtonRow::IDX_FFORWARD, &media_sym::forward::symbol,
-        [id = m_device_id]{ kdecIpcSendMediaAction(id, KdecMediaAction::Seek, 10000); });
+        [id = m_device_id, step = seek_step]{ kdecIpcSendMediaAction(id, KdecMediaAction::Seek, step); });
     list->addItem(m_btn_row, MediaButtonRow::Height);
 
     frame->setContent(list);
