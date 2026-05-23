@@ -1,92 +1,88 @@
 #include <switch.h>
-#include <stratosphere.hpp>
+#include <cstring>
 
 #include "nx_application.h"
 #include "utils/logger.h"
 
-namespace ams {
+#define INNER_HEAP_SIZE 1'000'000 // 1MB
 
-    ncm::ProgramId CurrentProgramId = {0x4DE000000C011EC7};
+extern "C"
+{
+// Sysmodules should not use applet*.
+u32 __nx_applet_type = AppletType_None;
 
-    namespace result {
-        bool CallFatalOnResultAssertion = true;
+// Sysmodules will normally only want to use one FS session.
+u32 __nx_fs_num_sessions = 1;
+
+// Newlib heap configuration function (makes malloc/free work).
+void __libnx_initheap(void)
+{
+    static u8 inner_heap[INNER_HEAP_SIZE];
+    extern void* fake_heap_start;
+    extern void* fake_heap_end;
+
+    // Configure the newlib heap.
+    fake_heap_start = inner_heap;
+    fake_heap_end   = inner_heap + sizeof(inner_heap);
+}
+}
+
+#define R_ABORT_UNLESS(expr) {if (Result rc = expr; R_FAILED(rc)) fatalThrow(rc);}
+
+extern "C" void __appInit(void)
+{
+    R_ABORT_UNLESS(smInitialize());
+    {
+        constexpr SocketInitConfig socketInitConfig = {
+            .tcp_tx_buf_size     = 2 * 1024,
+            .tcp_rx_buf_size     = 2 * 1024,
+            .tcp_tx_buf_max_size = 8 * 1024,
+            .tcp_rx_buf_max_size = 8 * 1024,
+            .udp_tx_buf_size     = 4 * 1024,
+            .udp_rx_buf_size     = 4 * 1024,
+            .sb_efficiency       = 2,
+            .bsd_service_type    = BsdServiceType_Auto
+        };
+
+        R_ABORT_UNLESS(timeInitialize());
+        R_ABORT_UNLESS(fsInitialize());
+        R_ABORT_UNLESS(fsdevMountSdmc());
+
+        auto write_marker = [](const char* path, const char* msg) {
+            FsFileSystem* fs = fsdevGetDeviceFileSystem("sdmc");
+            fsFsCreateFile(fs, path, 0, 0);
+            FsFile file;
+            if (R_FAILED(fsFsOpenFile(fs, path, FsOpenMode_Write, &file))) return;
+            fsFileWrite(&file, 0, msg, std::strlen(msg), FsWriteOption_Flush);
+            fsFileClose(&file);
+        };
+
+        write_marker("/flag1", "fsdevMountSdmc OK!\n");
+
+        R_ABORT_UNLESS(socketInitialize(&socketInitConfig));
+        R_ABORT_UNLESS(nifmInitialize(NifmServiceType_System));
+
+        write_marker("/flag2", "init OK!\n");
     }
+}
 
-    namespace {
+extern "C" void __appExit(void)
+{
+    nifmExit();
+    socketExit();
+    fsdevUnmountAll();
+    fsExit();
+    timeExit();
+    smExit();
+}
 
-        alignas(0x40) constinit u8 g_heap_memory[128_KB];
-        constinit lmem::HeapHandle g_heap_handle;
-        constinit bool g_heap_initialized;
-        constinit os::SdkMutex g_heap_init_mutex;
-
-        lmem::HeapHandle GetHeapHandle() {
-            if (AMS_UNLIKELY(!g_heap_initialized)) {
-                std::scoped_lock lk(g_heap_init_mutex);
-                if (AMS_LIKELY(!g_heap_initialized)) {
-                    g_heap_handle = lmem::CreateExpHeap(g_heap_memory, sizeof(g_heap_memory), lmem::CreateOption_ThreadSafe);
-                    g_heap_initialized = true;
-                }
-            }
-            return g_heap_handle;
-        }
-
-        void *Allocate(size_t size) {
-            return lmem::AllocateFromExpHeap(GetHeapHandle(), size);
-        }
-
-        void *AllocateWithAlign(size_t sz, size_t align) {
-            return lmem::AllocateFromExpHeap(GetHeapHandle(), sz, align);
-        }
-
-        void Deallocate(void *p, size_t size) {
-            AMS_UNUSED(size);
-            return lmem::FreeToExpHeap(GetHeapHandle(), p);
-        }
-
-    } // namespace
-
-    namespace init {
-
-        void InitializeSystemModule() {
-            R_ABORT_UNLESS(sm::Initialize());
-            R_ABORT_UNLESS(timeInitialize());
-            R_ABORT_UNLESS(fsInitialize());
-            R_ABORT_UNLESS(fsdevMountSdmc());
-            R_ABORT_UNLESS(socketInitializeDefault());
-            R_ABORT_UNLESS(nifmInitialize(NifmServiceType_System));
-        }
-
-        void FinalizeSystemModule() {
-            nifmExit();
-            socketExit();
-            fsdevUnmountAll();
-            fsExit();
-            timeExit();
-        }
-
-        void Startup() {}
-
-    } // namespace init
-
-    void Main() {
-        Logger::open_log_file("kdeconnect_sysmodule");
-
-        auto app = NxApplication();
-        while (true) {
-            app.processEvents();
-            svcSleepThread(100'000'000LL);
-        }
+int main(int argc, char* argv[])
+{
+    Logger::open_log_file("kdeconnect_sysmodule");
+    auto app = NxApplication();
+    while (true) {
+        app.processEvents();
+        svcSleepThread(100'000'000LL);
     }
-
-} // namespace ams
-
-void *operator new(size_t size) { return ams::Allocate(size); }
-void *operator new(size_t size, const std::nothrow_t &) noexcept { return ams::Allocate(size); }
-void operator delete(void *p) noexcept { return ams::Deallocate(p, 0); }
-void operator delete(void *p, size_t size) noexcept { return ams::Deallocate(p, size); }
-void *operator new[](size_t size) { return ams::Allocate(size); }
-void *operator new[](size_t size, const std::nothrow_t &) noexcept { return ams::Allocate(size); }
-void operator delete[](void *p) noexcept { return ams::Deallocate(p, 0); }
-void operator delete[](void *p, size_t size) noexcept { return ams::Deallocate(p, size); }
-void *operator new(size_t size, std::align_val_t align) { return ams::AllocateWithAlign(size, static_cast<size_t>(align)); }
-void operator delete(void *p, std::align_val_t align) noexcept { AMS_UNUSED(align); return ams::Deallocate(p, 0); }
+    return 0;
+}

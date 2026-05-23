@@ -75,7 +75,7 @@ static inline void at_record_free(size_t sz) noexcept {
 
 void* operator new(size_t size) {
     void* raw = malloc(size + kAllocHdr);
-    if (!raw) throw std::bad_alloc();
+    if (!raw) return nullptr;
     *static_cast<size_t*>(raw) = size;
     at_record_alloc(size);
     return static_cast<char*>(raw) + kAllocHdr;
@@ -83,7 +83,7 @@ void* operator new(size_t size) {
 
 void* operator new[](size_t size) {
     void* raw = malloc(size + kAllocHdr);
-    if (!raw) throw std::bad_alloc();
+    if (!raw) return nullptr;
     *static_cast<size_t*>(raw) = size;
     at_record_alloc(size);
     return static_cast<char*>(raw) + kAllocHdr;

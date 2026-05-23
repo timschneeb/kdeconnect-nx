@@ -2,8 +2,6 @@ option(BUILD_APPLET "Build the Switch testing applet" ON)
 option(BUILD_SYSMODULE "Build the Switch sysmodule" ON)
 option(BUILD_CLI "Build the desktop test CLI app" ON)
 
-add_subdirectory(libs)
-
 set(MINIKDECONNECT_SYSMODULE_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/src/mdns/mdns_discovery.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/net/kdeconnect_client.cpp
@@ -85,7 +83,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch")
         target_include_directories(MiniKDEConnect_sysmodule PRIVATE ${MINIKDECONNECT_INCLUDE_DIRS})
         target_compile_definitions(MiniKDEConnect_sysmodule PRIVATE MINIKDECONNECT_SYSMODULE)
         target_compile_options(MiniKDEConnect_sysmodule PRIVATE -flto -fno-exceptions -Oz -ffunction-sections -fdata-sections)
-        target_link_libraries(MiniKDEConnect_sysmodule PRIVATE ${MINIKDECONNECT_LINK_LIBS} libstratosphere)
+        target_link_libraries(MiniKDEConnect_sysmodule PRIVATE ${MINIKDECONNECT_LINK_LIBS})
         target_link_options(MiniKDEConnect_sysmodule PRIVATE -Wl,--gc-sections -Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/MiniKDEConnect_sysmodule.map)
 
         file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${MINIKDECONNECT_TID})
@@ -104,6 +102,18 @@ if(CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch")
         nx_create_exefs(MiniKDEConnect_sysmodule
             OUTPUT ${MINIKDECONNECT_TID}/exefs.nsp
             CONFIG ${CMAKE_CURRENT_BINARY_DIR}/sysmodule.json
+        )
+
+        # Upload to Switch via FTP
+        find_program(CURL_EXE curl REQUIRED NO_CMAKE_FIND_ROOT_PATH)
+        add_custom_target(MiniKDEConnect_sysmodule_upload
+                COMMAND ${CURL_EXE} --ftp-create-dirs -T 4DE000000C011EC7/exefs.nsp
+                "ftp://anonymous:@192.168.178.177:5001/atmosphere/contents/4DE000000C011EC7/exefs.nsp"
+                COMMAND ${CURL_EXE} --ftp-create-dirs -T 4DE000000C011EC7/toolbox.json
+                "ftp://anonymous:@192.168.178.177:5001/atmosphere/contents/4DE000000C011EC7/toolbox.json"
+                DEPENDS MiniKDEConnect_sysmodule_nsp
+                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+                COMMENT "Uploading sysmodule to Switch"
         )
     endif()
 else()
