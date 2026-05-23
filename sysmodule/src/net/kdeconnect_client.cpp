@@ -9,6 +9,7 @@
 #include <netinet/tcp.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <array>
 #include <atomic>
@@ -38,6 +39,7 @@ constexpr int kPairingWindowSeconds = 1800;
 constexpr int kKeepaliveIdleSeconds = 8;
 constexpr int kKeepaliveIntervalSeconds = 3;
 constexpr int kKeepaliveProbeCount = 3;
+constexpr int kConnectTimeoutMs = 3000;
 
 void configure_tcp_keepalive(int fd) {
     int keepalive = 1;
@@ -45,6 +47,46 @@ void configure_tcp_keepalive(int fd) {
     setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &kKeepaliveIdleSeconds, sizeof(kKeepaliveIdleSeconds));
     setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &kKeepaliveIntervalSeconds, sizeof(kKeepaliveIntervalSeconds));
     setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &kKeepaliveProbeCount, sizeof(kKeepaliveProbeCount));
+}
+
+bool connect_with_timeout(int fd, const sockaddr_in& addr, int timeout_ms) {
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags < 0) {
+        return false;
+    }
+    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) != 0) {
+        return false;
+    }
+
+    int result = connect(fd, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr));
+    if (result == 0) {
+        fcntl(fd, F_SETFL, flags);
+        return true;
+    }
+    if (errno != EINPROGRESS) {
+        fcntl(fd, F_SETFL, flags);
+        return false;
+    }
+
+    fd_set wfds;
+    FD_ZERO(&wfds);
+    FD_SET(fd, &wfds);
+    timeval tv{timeout_ms / 1000, (timeout_ms % 1000) * 1000};
+    result = select(fd + 1, nullptr, &wfds, nullptr, &tv);
+    if (result <= 0) {
+        fcntl(fd, F_SETFL, flags);
+        return false;
+    }
+
+    int so_error = 0;
+    socklen_t len = sizeof(so_error);
+    if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &so_error, &len) != 0 || so_error != 0) {
+        fcntl(fd, F_SETFL, flags);
+        return false;
+    }
+
+    fcntl(fd, F_SETFL, flags);
+    return true;
 }
 
 } // namespace
@@ -291,7 +333,7 @@ void KdeConnectClient::handle_discovered_peer(const DeviceInfo& identity, const 
         addr.sin_family = AF_INET;
         addr.sin_port = htons(static_cast<uint16_t>(port));
         if (inet_pton(AF_INET, host.c_str(), &addr.sin_addr) != 1) return;
-        if (connect(fd.raw, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) return;
+        if (!connect_with_timeout(fd.raw, addr, kConnectTimeoutMs)) return;
 
         NetworkPacket my_identity = NetworkUtil::make_identity_packet(local_device_, identity.id, identity.protocol_version, std::nullopt);
         std::string payload = my_identity.serialize();
