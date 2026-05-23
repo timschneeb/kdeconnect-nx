@@ -31,8 +31,8 @@ tsl::elm::Element *MainGui::createUI() {
     was_running_ = running;
 
     const char *subtitle = running ? "..." : "Sysmodule not running";
+    uint32_t ver = 0;
     if (running) {
-        uint32_t ver = 0;
         if (R_SUCCEEDED(kdecIpcGetApiVersion(ver)))
             snprintf(subtitle_buf_, sizeof(subtitle_buf_), "Version %s \xc2\xb7 API v%u", MINIKDECONNECT_VERSION, ver);
         subtitle = subtitle_buf_;
@@ -41,17 +41,30 @@ tsl::elm::Element *MainGui::createUI() {
     auto *frame = new tsl::elm::OverlayFrame("KDE Connect NX", subtitle);
     tsl::elm::List *list = nullptr;
 
+    auto onClickRestartSysModule = [](u64 keys) -> bool {
+        if (keys & HidNpadButton_A) {
+            // TODO: launch the sysmodule / applet via pmshell or similar
+            // update() will automatically detect when it is online
+            return true;
+        }
+        return false;
+    };
+
     if (!running) {
         list = ErrorWidget::create(sym::errorCircleFilled, "Sysmodule not running", "Restart sysmodule",
-           [](u64 keys) -> bool {
-               if (keys & HidNpadButton_A) {
-                   // TODO: launch the sysmodule / applet via pmshell or similar
-                   // update() will automatically detect when it is online
-                   return true;
-               }
-               return false;
-           });
+                                   onClickRestartSysModule);
     } else {
+        if (ver > 0 && ver != KDEC_IPC_API_VERSION) {
+            list = ErrorWidget::create(sym::errorCircleFilled,
+                                       "IPC version mismatch\n\n"
+                                       "Overlay and sysmodule\n"
+                                       "are on different versions.\n"
+                                       "Overlay: v" + std::to_string(KDEC_IPC_API_VERSION) + "; Sysmodule: v" + std::to_string(ver),
+                                       "Restart sysmodule",
+                                       onClickRestartSysModule
+            );
+        }
+
         if (!devices_prefetched_) {
             Result rc = kdecIpcGetDevices(devices_);
             if (R_FAILED(rc)) {
@@ -106,9 +119,12 @@ tsl::elm::Element *MainGui::createUI() {
         }
 
         list->addItem(new tsl::elm::CategoryHeader("Options"));
-        auto* settings_item = new tsl::elm::ListItem(std::string(sym::settings) + " Settings", sym::chevronRight);
+        auto *settings_item = new tsl::elm::ListItem(std::string(sym::settings) + " Settings", sym::chevronRight);
         settings_item->setClickListener([](u64 keys) -> bool {
-            if (keys & HidNpadButton_A) { tsl::changeTo<SettingsGui>(); return true; }
+            if (keys & HidNpadButton_A) {
+                tsl::changeTo<SettingsGui>();
+                return true;
+            }
             return false;
         });
         list->addItem(settings_item);
