@@ -9,12 +9,25 @@
       "cacheVariables": {
         "NXLINK_HOST": "192.168.178.72"
       }
+    },
+    {
+      "name": "switch-rel",
+      "displayName": "Nintendo Switch (Release, nxlink via 192.168.178.72)",
+      "inherits": "switch-release",
+      "binaryDir": "${sourceDir}/cmake-build-release-devkita64-rel",
+      "cacheVariables": {
+        "NXLINK_HOST": "192.168.178.72"
+      }
     }
   ],
   "buildPresets": [
     {
       "name": "switch-dev",
       "configurePreset": "switch-dev"
+    },
+    {
+      "name": "switch-rel",
+      "configurePreset": "switch-rel"
     }
   ]
 }

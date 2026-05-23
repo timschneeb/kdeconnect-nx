@@ -12,6 +12,6 @@ target_include_directories(minikdeconnect_common
         ${CMAKE_CURRENT_LIST_DIR}/src/utils
 )
 
-if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(minikdeconnect_common PUBLIC NXLINK_ENABLED)
 endif()
