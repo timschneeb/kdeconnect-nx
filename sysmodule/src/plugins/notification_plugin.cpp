@@ -1,5 +1,6 @@
 #include "notification_plugin.h"
 #include "utils/logger.h"
+#include "utils/storage.h"
 #include "../utils/settings_store.h"
 #include <atomic>
 #include <cstdint>
@@ -177,12 +178,7 @@ void NotificationPlugin::post_notification(const std::string& app_id,
         {"alignment",  "left"},
     };
 
-    FILE* f = fopen(path.c_str(), "w");
-    if (f) {
-        const std::string content = notify_json.dump(2);
-        fwrite(content.data(), 1, content.size(), f);
-        fclose(f);
-    } else {
+    if (!Storage::write_file(path, notify_json.dump(2))) {
         Logger::error("Failed to write notify file: " + path);
     }
 #endif
@@ -225,11 +221,8 @@ void NotificationPlugin::write_app_icon(const std::string& icon_hash, const Netw
     }
     stbi_image_free(img);
 
-    FILE* f = fopen(icon_path.c_str(), "wb");
-    if (f) {
-        fwrite(px, 1, sizeof(px), f);
-        fclose(f);
-    } else {
+    std::string payload(reinterpret_cast<const char*>(px), sizeof(px));
+    if (!Storage::write_file(icon_path, payload)) {
         Logger::error("Failed to write icon: " + icon_path);
     }
 #endif

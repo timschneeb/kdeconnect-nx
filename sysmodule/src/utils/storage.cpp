@@ -38,9 +38,14 @@ std::filesystem::path paired_path(const std::filesystem::path& base, const std::
 } // namespace
 
 Storage::Storage() {
+#ifdef __SWITCH__
+    base_path_ =  std::filesystem::path("/config/kdeconnect");
+#else
     const char* home = getenv("HOME");
     const std::filesystem::path home_path = home ? std::filesystem::path(home) : std::filesystem::current_path();
     base_path_ = home_path / ".config" / "minikdeconnect";
+#endif
+
     std::filesystem::create_directories(base_path_ / "paired");
 }
 
@@ -108,6 +113,29 @@ std::filesystem::path Storage::key_path() const {
 }
 
 std::string Storage::read_file(const std::string &path) {
+#if defined(__SWITCH__)
+    FsFileSystem* fs = fsdevGetDeviceFileSystem("sdmc");
+    if (!fs) return {};
+
+    FsFile file;
+    if (R_FAILED(fsFsOpenFile(fs, path.c_str(), FsOpenMode_Read, &file))) {
+        return {};
+    }
+
+    s64 size = 0;
+    if (R_FAILED(fsFileGetSize(&file, &size)) || size <= 0) {
+        fsFileClose(&file);
+        return {};
+    }
+
+    std::string out(static_cast<size_t>(size), '\0');
+    u64 read = 0;
+    Result rc = fsFileRead(&file, 0, out.data(), static_cast<size_t>(size), FsReadOption_None, &read);
+    fsFileClose(&file);
+    if (R_FAILED(rc) || read == 0) return {};
+    if (read < static_cast<u64>(size)) out.resize(static_cast<size_t>(read));
+    return out;
+#else
     FILE* f = fopen(path.c_str(), "rb");
     if (!f) return {};
     fseek(f, 0, SEEK_END);
@@ -118,12 +146,31 @@ std::string Storage::read_file(const std::string &path) {
     fread(out.data(), 1, static_cast<size_t>(size), f);
     fclose(f);
     return out;
+#endif
 }
 
 bool Storage::write_file(const std::string &path, const std::string &data) {
+#if defined(__SWITCH__)
+    FsFileSystem* fs = fsdevGetDeviceFileSystem("sdmc");
+    if (!fs) return false;
+
+    std::filesystem::create_directories(std::filesystem::path(path).parent_path());
+
+    fsFsCreateFile(fs, path.c_str(), 0, 0);
+
+    FsFile file;
+    if (R_FAILED(fsFsOpenFile(fs, path.c_str(), FsOpenMode_Write, &file))) {
+        return false;
+    }
+
+    Result rc = fsFileWrite(&file, 0, data.data(), data.size(), FsWriteOption_Flush);
+    fsFileClose(&file);
+    return R_SUCCEEDED(rc);
+#else
     FILE* f = fopen(path.c_str(), "wb");
     if (!f) return false;
     const size_t written = fwrite(data.data(), 1, data.size(), f);
     fclose(f);
     return written == data.size();
+#endif
 }

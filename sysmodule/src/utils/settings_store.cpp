@@ -11,6 +11,7 @@
 #include <nlohmann/json.hpp>
 
 #include "logger.h"
+#include "storage.h"
 
 namespace {
 
@@ -86,17 +87,8 @@ void load() {
     apply_defaults_locked();
 
     const auto path = settings_path();
-    FILE* f = fopen(path.c_str(), "rb");
-    if (!f) return;
-
-    fseek(f, 0, SEEK_END);
-    const long sz = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    if (sz <= 0) { fclose(f); return; }
-
-    std::string buf(static_cast<size_t>(sz), '\0');
-    fread(buf.data(), 1, static_cast<size_t>(sz), f);
-    fclose(f);
+    const std::string buf = Storage::read_file(path.string());
+    if (buf.empty()) return;
 
     const auto j = nlohmann::json::parse(buf, nullptr, false);
     if (j.is_discarded()) return;
@@ -139,12 +131,8 @@ void save() {
 
     const auto path = settings_path();
     std::filesystem::create_directories(path.parent_path());
-    FILE* f = fopen(path.c_str(), "wb");
-    if (f) {
-        const std::string data = j.dump(2);
-        fwrite(data.data(), 1, data.size(), f);
-        fclose(f);
-    } else {
+    const std::string data = j.dump(2);
+    if (!Storage::write_file(path.string(), data)) {
         Logger::error("SettingsStore: failed to write " + path.string());
     }
 }
