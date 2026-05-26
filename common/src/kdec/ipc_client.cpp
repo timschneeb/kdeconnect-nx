@@ -1,8 +1,10 @@
-#include <switch.h>
+
 #include <atomic>
 #include <cstring>
 #include <string>
 #include <vector>
+
+#include <switch.h>
 
 #include "ipc.h"
 #include "ipc_client.h"

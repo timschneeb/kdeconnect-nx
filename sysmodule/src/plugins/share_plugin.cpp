@@ -143,6 +143,7 @@ bool SharePlugin::send_screenshot() const {
 std::vector<unsigned char> SharePlugin::capture_screenshot_to_buffer() {
     std::vector<unsigned char> jpegBuffer;
 
+#ifdef __SWITCH__
     std::lock_guard lock(s_screenshot_mutex_);
     if (R_FAILED(capsscInitialize())) {
         Logger::error("Failed to initialize caps:sc");
@@ -163,5 +164,6 @@ std::vector<unsigned char> SharePlugin::capture_screenshot_to_buffer() {
     }
 
     capsscExit();
+#endif
     return std::move(jpegBuffer);
 }

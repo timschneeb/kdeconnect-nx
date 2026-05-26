@@ -186,11 +186,8 @@ bool TlsContext::load_from_files(const std::string& cert_path, const std::string
         return false;
     }
 
-#ifdef __SWITCH__
     ret = mbedtls_pk_parse_key(&key_, reinterpret_cast<const unsigned char*>(key_pem.c_str()), key_pem.size() + 1, nullptr, 0);
-#else
-    ret = mbedtls_pk_parse_key(&key_, reinterpret_cast<const unsigned char*>(key_pem.c_str()), key_pem.size() + 1, nullptr, 0, mbedtls_ctr_drbg_random, &ctr_drbg_);
-#endif
+
     if (ret != 0) {
         return false;
     }

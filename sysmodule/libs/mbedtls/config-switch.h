@@ -66,8 +66,10 @@
 #define MBEDTLS_ECP_NIST_OPTIM
 
 /* Switch specific */
+#ifdef __SWITCH__
 #define MBEDTLS_ENTROPY_HARDWARE_ALT
 #define MBEDTLS_NO_PLATFORM_ENTROPY
+#endif
 
 /* Size optimizations */
 #define MBEDTLS_AES_ROM_TABLES

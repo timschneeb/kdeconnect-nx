@@ -1,9 +1,17 @@
-add_library(minikdeconnect_common STATIC
+set(MINIKDECONNECT_COMMON_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/src/utils/logger.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/utils/nxlink_sink.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/src/kdec/ipc_client.cpp
-        src/constants.h
+    ${CMAKE_CURRENT_LIST_DIR}/src/constants.h
 )
+
+if(CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch")
+    add_library(minikdeconnect_common STATIC
+        ${MINIKDECONNECT_COMMON_SOURCES}
+        ${CMAKE_CURRENT_LIST_DIR}/src/kdec/ipc_client.cpp
+    )
+else()
+    add_library(minikdeconnect_common STATIC ${MINIKDECONNECT_COMMON_SOURCES})
+endif()
 
 target_include_directories(minikdeconnect_common
     PUBLIC
