@@ -41,9 +41,10 @@ void __appInit(void)
             .tcp_rx_buf_size     = 32 * 1024,
             .tcp_tx_buf_max_size = 64 * 1024,
             .tcp_rx_buf_max_size = 64 * 1024,
-            .udp_tx_buf_size     = 8 * 1024,
-            .udp_rx_buf_size     = 8 * 1024,
-            .sb_efficiency       = 1,
+            // TODO: check
+            .udp_tx_buf_size     = 0x2400,
+            .udp_rx_buf_size     = 0xA500,
+            .sb_efficiency       = 4,
             .bsd_service_type    = BsdServiceType_Auto
         };
 

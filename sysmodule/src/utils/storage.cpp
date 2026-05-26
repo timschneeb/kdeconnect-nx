@@ -154,12 +154,19 @@ bool Storage::write_file(const std::string &path, const std::string &data) {
     FsFileSystem* fs = fsdevGetDeviceFileSystem("sdmc");
     if (!fs) return false;
 
-    std::filesystem::create_directories(std::filesystem::path(path).parent_path());
+    std::filesystem::create_directories(std::filesystem::path(path).parent_path().string());
 
-    fsFsCreateFile(fs, path.c_str(), 0, 0);
+    // Create the file if it doesn't exist; ignore the error if it does.
+    fsFsCreateFile(fs, path.c_str(), static_cast<s64>(data.size()), 0);
 
     FsFile file;
     if (R_FAILED(fsFsOpenFile(fs, path.c_str(), FsOpenMode_Write, &file))) {
+        return false;
+    }
+
+    // Resize to match actual data: required when overwriting a smaller file.
+    if (R_FAILED(fsFileSetSize(&file, static_cast<s64>(data.size())))) {
+        fsFileClose(&file);
         return false;
     }
 

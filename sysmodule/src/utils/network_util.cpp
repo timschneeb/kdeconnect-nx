@@ -150,7 +150,8 @@ int create_udp_broadcast_socket(int port) {
     addr.sin_port = htons(port);
     
     if (bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
-        // Warning is logged by the caller if needed
+        close(fd);
+        return -1;
     }
     return fd;
 }
