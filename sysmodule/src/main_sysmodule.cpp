@@ -1,10 +1,12 @@
 #include <switch.h>
 #include <cstring>
+#include <exception>
+#include <stdexcept>
 
 #include "nx_application.h"
 #include "utils/logger.h"
 
-#define INNER_HEAP_SIZE 1'000'000 // 1MB
+#define INNER_HEAP_SIZE 4'000'000 // 4MB
 
 #define R_ABORT_UNLESS(expr) {if (Result rc = expr; R_FAILED(rc)) fatalThrow(rc);}
 
@@ -79,6 +81,18 @@ void __appExit(void)
 
 int main(int argc, char* argv[])
 {
+    std::set_terminate([]() {
+        try {
+            std::rethrow_exception(std::current_exception());
+        } catch (const std::exception& e) {
+            Logger::error(std::string("terminate: unhandled exception: ") + e.what());
+        } catch (...) {
+            Logger::error("terminate: unhandled exception of unknown type");
+        }
+        svcSleepThread(500'000'000LL); // give log time to flush
+        std::abort();
+    });
+
     Logger::open_log_file("kdeconnect_sysmodule");
     auto app = NxApplication();
     while (true) {

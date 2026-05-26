@@ -82,7 +82,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch")
         )
         target_include_directories(MiniKDEConnect_sysmodule PRIVATE ${MINIKDECONNECT_INCLUDE_DIRS})
         target_compile_definitions(MiniKDEConnect_sysmodule PRIVATE MINIKDECONNECT_SYSMODULE)
-        target_compile_options(MiniKDEConnect_sysmodule PRIVATE -flto -fno-exceptions -Os -ffunction-sections -fdata-sections)
+        target_compile_options(MiniKDEConnect_sysmodule PRIVATE -flto -Os -ffunction-sections -fdata-sections)
         target_link_libraries(MiniKDEConnect_sysmodule PRIVATE ${MINIKDECONNECT_LINK_LIBS} nx)
         target_link_options(MiniKDEConnect_sysmodule PRIVATE -Wl,--gc-sections -Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/MiniKDEConnect_sysmodule.map)
 
