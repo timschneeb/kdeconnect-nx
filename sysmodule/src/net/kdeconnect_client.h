@@ -81,6 +81,13 @@ private:
   mutable std::mutex session_mutex_;
   std::unordered_map<std::string, std::shared_ptr<DeviceSession>> sessions_;
 
+  struct PendingTask {
+    std::thread thread;
+    std::shared_ptr<std::atomic<bool>> done;
+  };
+
+  void reap_pending_threads_locked(); // call with pending_mutex_ held
+
   std::mutex pending_mutex_;
-  std::vector<std::thread> pending_threads_;
+  std::vector<PendingTask> pending_threads_;
 };

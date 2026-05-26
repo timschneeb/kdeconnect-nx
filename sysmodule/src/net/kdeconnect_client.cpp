@@ -186,8 +186,8 @@ void KdeConnectClient::stop() {
     // SO_RCVTIMEO on their sockets bounds the wait to ~5 s in the worst case.
     {
         std::lock_guard lock(pending_mutex_);
-        for (auto& t : pending_threads_) {
-            if (t.joinable()) t.join();
+        for (auto& task : pending_threads_) {
+            if (task.thread.joinable()) task.thread.join();
         }
         pending_threads_.clear();
     }
@@ -234,8 +234,26 @@ void KdeConnectClient::send_udp_identity_probe(const std::string& device_id, con
     sendto(udp_fd_, payload.data(), payload.size(), 0, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
 }
 
+void KdeConnectClient::reap_pending_threads_locked() {
+    pending_threads_.erase(
+        std::remove_if(pending_threads_.begin(), pending_threads_.end(),
+            [](PendingTask& task) {
+                if (task.done->load()) {
+                    if (task.thread.joinable()) task.thread.join();
+                    return true;
+                }
+                return false;
+            }),
+        pending_threads_.end());
+}
+
 void KdeConnectClient::network_loop() {
     while (running_.load()) {
+        {
+            std::lock_guard lock(pending_mutex_);
+            reap_pending_threads_locked();
+        }
+
         fd_set rfds;
         FD_ZERO(&rfds);
         int nfds = 0;
@@ -264,22 +282,27 @@ void KdeConnectClient::network_loop() {
                 timeval recv_timeout{5, 0};
                 setsockopt(fd.raw, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(recv_timeout));
                 // Offload to a thread so network_loop is never blocked by a slow peer.
-                std::lock_guard lock(pending_mutex_);
-                pending_threads_.emplace_back([this, fd = std::move(fd)]() mutable {
-                    auto line = NetworkUtil::read_line_fd(fd.raw, kMaxPacketSize);
-                    auto packet = line ? NetworkPacket::parse(*line) : std::optional<NetworkPacket>{};
-                    bool valid = packet && packet->type == PacketTypes::Identity;
-                    if (valid && packet->body.contains("targetDeviceId")) {
-                        const auto tid = packet->body.value("targetDeviceId", "");
-                        if (!tid.empty() && tid != local_device_.id) valid = false;
-                    }
-                    if (valid && packet->body.contains("targetProtocolVersion")) {
-                        if (packet->body.value("targetProtocolVersion", kProtocolVersion) != kProtocolVersion)
-                            valid = false;
-                    }
-                    if (valid)
-                        handle_new_connection(NetworkUtil::info_from_identity(*packet), std::move(fd), true);
+                auto done = std::make_shared<std::atomic<bool>>(false);
+                auto t = std::thread([this, fd = std::move(fd), done]() mutable {
+                    [&]() {
+                        auto line = NetworkUtil::read_line_fd(fd.raw, kMaxPacketSize);
+                        auto packet = line ? NetworkPacket::parse(*line) : std::optional<NetworkPacket>{};
+                        bool valid = packet && packet->type == PacketTypes::Identity;
+                        if (valid && packet->body.contains("targetDeviceId")) {
+                            const auto tid = packet->body.value("targetDeviceId", "");
+                            if (!tid.empty() && tid != local_device_.id) valid = false;
+                        }
+                        if (valid && packet->body.contains("targetProtocolVersion")) {
+                            if (packet->body.value("targetProtocolVersion", kProtocolVersion) != kProtocolVersion)
+                                valid = false;
+                        }
+                        if (valid)
+                            handle_new_connection(NetworkUtil::info_from_identity(*packet), std::move(fd), true);
+                    }();
+                    done->store(true);
                 });
+                std::lock_guard lock(pending_mutex_);
+                pending_threads_.push_back({std::move(t), std::move(done)});
             }
         }
 
@@ -326,25 +349,30 @@ void KdeConnectClient::udp_broadcast_loop() {
 }
 
 void KdeConnectClient::handle_discovered_peer(const DeviceInfo& identity, const std::string& host, int port) {
-    std::lock_guard lock(pending_mutex_);
-    pending_threads_.emplace_back([this, identity, host, port]() {
-        ScopedFd fd{socket(AF_INET, SOCK_STREAM, 0)};
-        if (!fd) return;
-        configure_tcp_keepalive(fd.raw);
-        timeval recv_timeout{5, 0};
-        setsockopt(fd.raw, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(recv_timeout));
-        sockaddr_in addr{};
-        addr.sin_family = AF_INET;
-        addr.sin_port = htons(static_cast<uint16_t>(port));
-        if (inet_pton(AF_INET, host.c_str(), &addr.sin_addr) != 1) return;
-        if (!connect_with_timeout(fd.raw, addr, kConnectTimeoutMs)) return;
+    auto done = std::make_shared<std::atomic<bool>>(false);
+    auto t = std::thread([this, identity, host, port, done]() {
+        [&]() {
+            ScopedFd fd{socket(AF_INET, SOCK_STREAM, 0)};
+            if (!fd) return;
+            configure_tcp_keepalive(fd.raw);
+            timeval recv_timeout{5, 0};
+            setsockopt(fd.raw, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(recv_timeout));
+            sockaddr_in addr{};
+            addr.sin_family = AF_INET;
+            addr.sin_port = htons(static_cast<uint16_t>(port));
+            if (inet_pton(AF_INET, host.c_str(), &addr.sin_addr) != 1) return;
+            if (!connect_with_timeout(fd.raw, addr, kConnectTimeoutMs)) return;
 
-        NetworkPacket my_identity = NetworkUtil::make_identity_packet(local_device_, identity.id, identity.protocol_version, std::nullopt);
-        std::string payload = my_identity.serialize();
-        send(fd.raw, payload.data(), payload.size(), 0);
+            NetworkPacket my_identity = NetworkUtil::make_identity_packet(local_device_, identity.id, identity.protocol_version, std::nullopt);
+            std::string payload = my_identity.serialize();
+            send(fd.raw, payload.data(), payload.size(), 0);
 
-        handle_new_connection(identity, std::move(fd), false);
+            handle_new_connection(identity, std::move(fd), false);
+        }();
+        done->store(true);
     });
+    std::lock_guard lock(pending_mutex_);
+    pending_threads_.push_back({std::move(t), std::move(done)});
 }
 
 void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, ScopedFd fd, bool tcp_server_side) {
@@ -818,22 +846,27 @@ bool KdeConnectClient::send_payload(const std::string& device_id, NetworkPacket 
     if (!send_packet(device_id, pkt)) return false;
 
     auto payload = std::make_shared<std::vector<uint8_t>>(std::move(pkt.payload));
-    std::lock_guard lock(pending_mutex_);
-    pending_threads_.emplace_back([this, srv_fd = std::move(srv_fd), payload]() mutable {
-        // Give the receiver 15 s to connect after receiving the share packet.
-        timeval timeout{15, 0};
-        setsockopt(srv_fd.raw, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    auto done = std::make_shared<std::atomic<bool>>(false);
+    auto t = std::thread([this, srv_fd = std::move(srv_fd), payload, done]() mutable {
+        [&]() {
+            // Give the receiver 15 s to connect after receiving the share packet.
+            timeval timeout{15, 0};
+            setsockopt(srv_fd.raw, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
 
-        ScopedFd client_fd{accept(srv_fd.raw, nullptr, nullptr)};
-        if (!client_fd) return;
+            ScopedFd client_fd{accept(srv_fd.raw, nullptr, nullptr)};
+            if (!client_fd) return;
 
-        // Receiver connects as TLS client; we are TLS server.
-        auto tls_session = tls_.create_session(client_fd.raw, false);
-        if (!tls_session || !NetworkUtil::perform_tls_handshake(*tls_session)) return;
+            // Receiver connects as TLS client; we are TLS server.
+            auto tls_session = tls_.create_session(client_fd.raw, false);
+            if (!tls_session || !NetworkUtil::perform_tls_handshake(*tls_session)) return;
 
-        NetworkUtil::send_all_tls(*tls_session, *payload);
-        mbedtls_ssl_close_notify(&tls_session->ssl);
+            NetworkUtil::send_all_tls(*tls_session, *payload);
+            mbedtls_ssl_close_notify(&tls_session->ssl);
+        }();
+        done->store(true);
     });
+    std::lock_guard lock(pending_mutex_);
+    pending_threads_.push_back({std::move(t), std::move(done)});
 
     return true;
 }
