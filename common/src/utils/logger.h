@@ -16,7 +16,7 @@ public:
     // Set once before starting any threads. Pass nullptr to reset.
     using Sink = std::function<void(std::string_view level, std::string_view msg)>;
     static void set_nxlink_host(const std::string& host_address_str, uint16_t port = NxLink::kDefaultPort);
-    [[nodiscard]] static bool connect_nxlink();
+    static bool connect_nxlink();
     static void set_custom_sink(Sink sink);
     static void open_log_file(const char* name);
     static void shutdown();
