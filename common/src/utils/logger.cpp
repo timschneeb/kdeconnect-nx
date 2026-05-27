@@ -51,28 +51,26 @@ void Logger::shutdown() {
     }
 }
 
-std::string Logger::format(const char* fmt, ...) {
+namespace {
+
+[[gnu::format(printf, 1, 0)]]
+std::string vformat(const char* fmt, va_list args) {
     if (!fmt) return {};
 
-    // perf: prefer stack alloc if possible
     char stack_buf[256];
-    va_list args;
-    va_start(args, fmt);
-    const int len = std::vsnprintf(stack_buf, sizeof(stack_buf), fmt, args);
-    va_end(args);
+    va_list args_copy;
+    va_copy(args_copy, args);
+    const int len = std::vsnprintf(stack_buf, sizeof(stack_buf), fmt, args_copy);
+    va_end(args_copy);
 
     if (len < 0) return {};
     if (len < static_cast<int>(sizeof(stack_buf))) return {stack_buf, static_cast<size_t>(len)};
 
-    // fallback to std::string allocation if string too long
     std::string result(len, '\0');
-    va_start(args, fmt);
     std::vsnprintf(result.data(), len + 1, fmt, args);
-    va_end(args);
     return result;
 }
 
-namespace {
 constexpr std::string_view extract_class_name(std::string_view function) {
     if (function.empty()) return {};
     const auto paren = function.find('(');
@@ -86,6 +84,34 @@ constexpr std::string_view extract_class_name(std::string_view function) {
 }
 
 } // namespace
+
+void Logger::info(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    log("I", vformat(fmt, args));
+    va_end(args);
+}
+
+void Logger::warn(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    log("W", vformat(fmt, args));
+    va_end(args);
+}
+
+void Logger::error(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    log("E", vformat(fmt, args));
+    va_end(args);
+}
+
+void Logger::log(std::string_view level, const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    log(level, vformat(fmt, args));
+    va_end(args);
+}
 
 void Logger::log(std::string_view level, std::string_view msg, const std::source_location& loc) {
     const auto cls = extract_class_name(loc.function_name());
@@ -109,7 +135,7 @@ void Logger::log(std::string_view level, std::string_view msg) {
     localtime_r(&tt, &tm);
     strftime(time_buf, 9, "%H:%M:%S", &tm);
 
-    // "[HH:MM:SS][L] msg\n": pre-reserve
+    // "[HH:MM:SS][L] msg\n": pre-reserve to avoid reallocations
     std::string out;
     out.reserve(12 + level.size() + msg.size());
     out = '[';

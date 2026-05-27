@@ -5,8 +5,6 @@
 #include <source_location>
 #include <string>
 #include <string_view>
-#include <type_traits>
-#include <utility>
 
 #include "nxlink_sink.h"
 
@@ -22,7 +20,7 @@ public:
     static void shutdown();
 
     static void log(std::string_view level, std::string_view msg);
-    static void log(std::string_view level, std::string_view msg, const std::source_location &loc);
+    static void log(std::string_view level, std::string_view msg, const std::source_location& loc);
     static void info(std::string_view msg, const std::source_location& loc = std::source_location::current()) {
         log("I", msg, loc);
     }
@@ -33,35 +31,13 @@ public:
         log("E", msg, loc);
     }
 
-    template <typename... Args, typename = std::enable_if_t<(sizeof...(Args) > 0)>>
-    [[gnu::format(printf, 1, 2)]]
-    static void info(const char* fmt, Args&&... args) {
-        log("I", format(fmt, std::forward<Args>(args)...));
-    }
-
-    template <typename... Args, typename = std::enable_if_t<(sizeof...(Args) > 0)>>
-    [[gnu::format(printf, 1, 2)]]
-    static void warn(const char* fmt, Args&&... args) {
-        log("W", format(fmt, std::forward<Args>(args)...));
-    }
-
-    template <typename... Args, typename = std::enable_if_t<(sizeof...(Args) > 0)>>
-    [[gnu::format(printf, 1, 2)]]
-    static void error(const char* fmt, Args&&... args) {
-        log("E", format(fmt, std::forward<Args>(args)...));
-    }
-
-    template <typename... Args, typename = std::enable_if_t<(sizeof...(Args) > 0)>>
-    [[gnu::format(printf, 2, 3)]]
-    static void log(std::string_view level, const char* fmt, Args&&... args) {
-        log(level, format(fmt, std::forward<Args>(args)...));
-    }
+    [[gnu::format(printf, 1, 2)]] static void info(const char* fmt, ...);
+    [[gnu::format(printf, 1, 2)]] static void warn(const char* fmt, ...);
+    [[gnu::format(printf, 1, 2)]] static void error(const char* fmt, ...);
+    [[gnu::format(printf, 2, 3)]] static void log(std::string_view level, const char* fmt, ...);
 
 private:
     static Sink sink_;
     static NxLink nxlink_;
     static FILE* log_file_;
-
-    [[gnu::format(printf, 1, 2)]]
-    static std::string format(const char* fmt, ...);
 };
