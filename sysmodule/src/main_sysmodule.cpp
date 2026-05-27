@@ -93,6 +93,16 @@ int main(int argc, char* argv[])
             Logger::error("terminate: unhandled exception of unknown type");
         }
         svcSleepThread(500'000'000LL); // give log time to flush
+
+        // Try to kill self instead of taking down the whole system
+        if (R_SUCCEEDED(pmshellInitialize())) {
+            u64 id;
+            if (R_SUCCEEDED(svcGetProcessId(&id, CUR_PROCESS_HANDLE))) {
+                pmshellTerminateProcess(id);
+                pmshellExit();
+                svcSleepThread(500'000'000LL); // wait for termination
+            }
+        }
         std::abort();
     });
 
