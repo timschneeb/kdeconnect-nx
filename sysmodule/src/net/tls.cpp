@@ -240,13 +240,13 @@ bool TlsContext::generate_self_signed(const std::string& cert_path, const std::s
 
     if ((ret = mbedtls_pk_setup(&key_, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA))) != 0) {
         mbedtls_strerror(ret, errbuf, sizeof(errbuf));
-        Logger::error(std::string("mbedtls_pk_setup failed: ") + errbuf);
+        Logger::error("mbedtls_pk_setup failed: %s", errbuf);
         return false;
     }
     Logger::info("TLS: generating 2048-bit RSA key...");
     if ((ret = mbedtls_rsa_gen_key(mbedtls_pk_rsa(key_), drbg_random_cb, this, 2048, 65537)) != 0) {
         mbedtls_strerror(ret, errbuf, sizeof(errbuf));
-        Logger::error(std::string("mbedtls_rsa_gen_key failed: ") + errbuf);
+        Logger::error("mbedtls_rsa_gen_key failed: %s", errbuf);
         return false;
     }
     Logger::info("TLS: RSA key generated.");
@@ -260,13 +260,13 @@ bool TlsContext::generate_self_signed(const std::string& cert_path, const std::s
     std::string subject = "CN=" + device_id_;
     if ((ret = mbedtls_x509write_crt_set_subject_name(&write_cert, subject.c_str())) != 0) {
         mbedtls_strerror(ret, errbuf, sizeof(errbuf));
-        Logger::error(std::string("mbedtls_x509write_crt_set_subject_name failed: ") + errbuf);
+        Logger::error("mbedtls_x509write_crt_set_subject_name failed: %s", errbuf);
         mbedtls_x509write_crt_free(&write_cert);
         return false;
     }
     if ((ret = mbedtls_x509write_crt_set_issuer_name(&write_cert, subject.c_str())) != 0) {
         mbedtls_strerror(ret, errbuf, sizeof(errbuf));
-        Logger::error(std::string("mbedtls_x509write_crt_set_issuer_name failed: ") + errbuf);
+        Logger::error("mbedtls_x509write_crt_set_issuer_name failed: %s", errbuf);
         mbedtls_x509write_crt_free(&write_cert);
         return false;
     }
@@ -280,7 +280,7 @@ bool TlsContext::generate_self_signed(const std::string& cert_path, const std::s
     unsigned char cert_buf[4096];
     if ((ret = mbedtls_x509write_crt_pem(&write_cert, cert_buf, sizeof(cert_buf), drbg_random_cb, this)) != 0) {
         mbedtls_strerror(ret, errbuf, sizeof(errbuf));
-        Logger::error(std::string("mbedtls_x509write_crt_pem failed: ") + errbuf);
+        Logger::error("mbedtls_x509write_crt_pem failed: %s", errbuf);
         mbedtls_mpi_free(&serial);
         mbedtls_x509write_crt_free(&write_cert);
         return false;
@@ -288,7 +288,7 @@ bool TlsContext::generate_self_signed(const std::string& cert_path, const std::s
     cert_pem_.assign(reinterpret_cast<char*>(cert_buf));
 
     if (!Storage::write_file(cert_path, cert_pem_)) {
-        Logger::error("Failed to write certificate to " + cert_path);
+        Logger::error("Failed to write certificate to %s", cert_path);
         mbedtls_mpi_free(&serial);
         mbedtls_x509write_crt_free(&write_cert);
         return false;
@@ -297,13 +297,13 @@ bool TlsContext::generate_self_signed(const std::string& cert_path, const std::s
     unsigned char key_buf[4096];
     if ((ret = mbedtls_pk_write_key_pem(&key_, key_buf, sizeof(key_buf))) != 0) {
         mbedtls_strerror(ret, errbuf, sizeof(errbuf));
-        Logger::error(std::string("mbedtls_pk_write_key_pem failed: ") + errbuf);
+        Logger::error("mbedtls_pk_write_key_pem failed: %s", errbuf);
         mbedtls_mpi_free(&serial);
         mbedtls_x509write_crt_free(&write_cert);
         return false;
     }
     if (!Storage::write_file(key_path, reinterpret_cast<char*>(key_buf))) {
-        Logger::error("Failed to write key to " + key_path);
+        Logger::error("Failed to write key to %s", key_path.c_str());
         mbedtls_mpi_free(&serial);
         mbedtls_x509write_crt_free(&write_cert);
         return false;
@@ -313,10 +313,10 @@ bool TlsContext::generate_self_signed(const std::string& cert_path, const std::s
     mbedtls_x509write_crt_free(&write_cert);
     if ((ret = mbedtls_x509_crt_parse(&cert_, reinterpret_cast<const unsigned char*>(cert_pem_.c_str()), cert_pem_.size() + 1)) != 0) {
         mbedtls_strerror(ret, errbuf, sizeof(errbuf));
-        Logger::error(std::string("mbedtls_x509_crt_parse failed after generation: ") + errbuf);
+        Logger::error("mbedtls_x509_crt_parse failed after generation: %s", errbuf);
         return false;
     }
-    Logger::info("TLS: self-signed certificate generated, device id: " + device_id_);
+    Logger::info("TLS: self-signed certificate generated, device id: %s", device_id_.c_str());
     return true;
 }
 

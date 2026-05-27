@@ -88,7 +88,7 @@ int main(int argc, char* argv[])
         try {
             std::rethrow_exception(std::current_exception());
         } catch (const std::exception& e) {
-            Logger::error(std::string("terminate: unhandled exception: ") + e.what());
+            Logger::error("terminate: unhandled exception: %s", e.what());
         } catch (...) {
             Logger::error("terminate: unhandled exception of unknown type");
         }
@@ -106,10 +106,6 @@ int main(int argc, char* argv[])
         std::abort();
     });
 
-#ifdef MEM_DEBUG
-    char buf[128];
-#endif
-
     Logger::open_log_file("kdeconnect_sysmodule");
     auto app = NxApplication();
     while (true) {
@@ -120,17 +116,12 @@ int main(int argc, char* argv[])
 #else
         const auto mem = get_mem_stats();
         const auto al  = get_alloc_stats();
-        Logger::info(buf);
-        sprintf(buf, "  Heap : %5zu KB used / %5zu KB total  (peak %5zu KB)",
-            mem.heap_used_kb, mem.heap_total_kb, mem.heap_peak_kb);
-        Logger::info(buf);
-        sprintf(buf, "  new  : %5zu KB live  (peak %5zu KB)  allocs: %zu live / %zu total",
-            al.live_kb, al.peak_kb, al.live_allocs, al.total_allocs);
-        Logger::info(buf);
+
+        Logger::info("Heap : %5zu KB used / %5zu KB total  (peak %5zu KB)", mem.heap_used_kb, mem.heap_total_kb, mem.heap_peak_kb);
+        Logger::info("new  : %5zu KB live  (peak %5zu KB)  allocs: %zu live / %zu total", al.live_kb, al.peak_kb, al.live_allocs, al.total_allocs);
 
         svcSleepThread(1'000'000'000LL);
 #endif
-
     }
     return 0;
 }

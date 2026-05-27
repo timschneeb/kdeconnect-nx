@@ -16,6 +16,6 @@ void FindMyPhonePlugin::find() const {
     NetworkPacket pkt;
     pkt.type = PacketTypes::FindMyPhoneRequest;
     pkt.body = nlohmann::json::object();
-    Logger::info("Sending find request to " + device_id_);
+    Logger::info("Sending find request to %s", device_id_.c_str());
     send_packet(pkt);
 }

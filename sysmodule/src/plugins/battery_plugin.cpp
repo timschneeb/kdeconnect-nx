@@ -95,10 +95,8 @@ bool BatteryPlugin::on_packet_received(const NetworkPacket& np) {
     if (np.type == PacketTypes::Battery) {
         int remote_charge = np.body.value("currentCharge", -1);
         bool remote_charging = np.body.value("isCharging", false);
-        std::string msg = "Remote: " + std::to_string(remote_charge) + "%" +
-                          (remote_charging ? " (charging)" : "");
-        if (remote_charge <= 15 && np.body.value("thresholdEvent", 0) == 1) msg += " LOW";
-        Logger::info(msg);
+        bool is_low = remote_charge <= 15 && np.body.value("thresholdEvent", 0) == 1;
+        Logger::info("Remote: %d%%%s%s", remote_charge, remote_charging ? " (charging)" : "", is_low ? " LOW" : "");
 
         cached_remote_charge_ = remote_charge;
         cached_remote_charging_ = remote_charging;

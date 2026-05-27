@@ -133,7 +133,7 @@ void save() {
     std::filesystem::create_directories(path.parent_path());
     const std::string data = j.dump(2);
     if (!Storage::write_file(path.string(), data)) {
-        Logger::error("SettingsStore: failed to write " + path.string());
+        Logger::error("SettingsStore: failed to write %s", path.string().c_str());
     }
 }
 

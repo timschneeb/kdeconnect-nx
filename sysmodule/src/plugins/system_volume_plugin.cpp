@@ -72,7 +72,7 @@ bool SystemVolumePlugin::on_packet_received(const NetworkPacket& np) {
             else         set_system_volume(volume_);
         }
 
-        Logger::info(std::to_string(volume_) + "%" + (muted_ ? " (muted)" : ""));
+        Logger::info("%d%%%s", volume_, muted_ ? " (muted)" : "");
 
         NetworkPacket pkt;
         pkt.type = PacketTypes::SystemVolume;

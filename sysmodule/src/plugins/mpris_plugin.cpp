@@ -49,7 +49,7 @@ bool MprisPlugin::on_packet_received(const NetworkPacket& np) {
 
         std::string list;
         for (const auto& p : players) list += " '" + p + "'";
-        Logger::info("Players:" + (list.empty() ? " (none)" : list));
+        Logger::info("Players:%s", list.empty() ? " (none)" : list.c_str());
 
         if (!first_new_player.empty()) {
             request_status(first_new_player);
@@ -100,7 +100,9 @@ bool MprisPlugin::on_packet_received(const NetworkPacket& np) {
         }
 
         std::string who = state_.artist.empty() ? state_.title : state_.artist + " - " + state_.title;
-        Logger::info("'" + player + "' " + (state_.is_playing ? "[playing]" : "[paused]") + " " + who);
+        Logger::info("'%s' %s %s", player.c_str(),
+                 state_.is_playing ? "[playing]" : "[paused]",
+                 who);
         return true;
     }
 

@@ -94,8 +94,7 @@ void RunCommandPlugin::run_remote_command(const std::string& key) const {
 }
 
 void RunCommandPlugin::run_local_command(const std::string& key) const {
-    // TODO: check this warning: Clangd: In template: cannot pass object of non-trivial type 'const std::basic_string<char>' through variadic function; call will abort at runtime
-    Logger::info("Executing command: %s", key);
+    Logger::info("Executing command: %s", key.c_str());
 
 #ifdef __SWITCH__
     // --- Power ---

@@ -222,7 +222,8 @@ Result kdecIpcGetAllSettings(std::vector<KdecWireSettingEntry>& out) {
     if (R_FAILED(rc)) return rc;
 
     if (count > constants::kMaxSettings) {
-        Logger::error("GetAllSettings returned more entries than expected: %u (max %u)", count, constants::kMaxSettings);
+        Logger::error("GetAllSettings returned more entries than expected: %u (max %u)",
+                  count, constants::kMaxSettings);
         count = constants::kMaxSettings;
     }
     out.assign(buf, buf + count);

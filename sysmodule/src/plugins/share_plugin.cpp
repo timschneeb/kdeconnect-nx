@@ -30,7 +30,7 @@ bool SharePlugin::on_packet_received(const NetworkPacket& np) {
 
     if (np.body.contains("url") && np.body["url"].is_string()) {
         const std::string url = np.body["url"].get<std::string>();
-        Logger::info("URL: " + url);
+        Logger::info("URL: %s", url.c_str());
         std::lock_guard lock(s_url_mutex_);
         if (s_pending_urls_.size() > 1) s_pending_urls_.pop();
         s_pending_urls_.push(url);
@@ -38,7 +38,7 @@ bool SharePlugin::on_packet_received(const NetworkPacket& np) {
     }
 
     if (np.body.contains("text") && np.body["text"].is_string()) {
-        Logger::info("Text: " + np.body["text"].get<std::string>());
+        Logger::info("Text: %s", np.body["text"].get<std::string>().c_str());
         NotificationPlugin::post_notification(
             "kdeconnect_share",
             std::string("From " + provider_->device(device_id_)->info.name).c_str(),
@@ -49,7 +49,7 @@ bool SharePlugin::on_packet_received(const NetworkPacket& np) {
 
     if (np.body.contains("filename") && np.body["filename"].is_string() && np.has_payload()) {
         const std::string filename = np.body["filename"].get<std::string>();
-        Logger::info("File: " + filename);
+        Logger::info("File: %s", filename.c_str());
 
         if (np.payload_size > 1024 * 1024) {
             NotificationPlugin::post_notification(
@@ -116,7 +116,7 @@ bool SharePlugin::open_pending_url() {
     WebCommonReply ret{};
     webConfigShow(&config, &ret);
 #else
-    Logger::info("Would open URL: " + url);
+    Logger::info("Would open URL: %s", url.c_str());
 #endif
     return true;
 }

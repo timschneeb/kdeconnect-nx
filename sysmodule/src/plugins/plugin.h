@@ -54,7 +54,8 @@ public:
                     return typed_plugin;
                 }
             }
-            Logger::error("Plugin of requested type not found for device " + info.name + " (" + info.id + ")");
+            Logger::error("Plugin of requested type not found for device %s (%s)",
+                      info.name.c_str(), info.id.c_str());
             return nullptr;
         }
     };

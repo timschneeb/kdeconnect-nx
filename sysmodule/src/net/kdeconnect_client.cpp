@@ -139,7 +139,7 @@ bool KdeConnectClient::start(bool enable_mdns) {
                 }
             }
 
-            Logger::info("mDNS: Sending probe to " + device_id + " at " + host);
+            Logger::info("mDNS: Sending probe to %s at %s", device_id.c_str(), host.c_str());
             send_udp_identity_probe(device_id, host);
         });
     }
@@ -149,7 +149,7 @@ bool KdeConnectClient::start(bool enable_mdns) {
     network_thread_ = std::thread(&KdeConnectClient::network_loop, this);
     broadcast_thread_ = std::thread(&KdeConnectClient::udp_broadcast_loop, this);
 
-    Logger::info("Listening on TCP port " + std::to_string(tcp_port_) + ".");
+    Logger::info("Listening on TCP port %d.", tcp_port_);
 
     if (!mdns_discovery_) {
         Logger::warn("mDNS discovery is disabled");
@@ -232,7 +232,7 @@ void KdeConnectClient::send_udp_identity_probe(const std::string& device_id, con
     addr.sin_family = AF_INET;
     addr.sin_port = htons(kUdpPort);
     if (inet_pton(AF_INET, host.c_str(), &addr.sin_addr) != 1) {
-        Logger::warn("Ignoring mDNS peer with invalid IPv4 address: " + host);
+        Logger::warn("Ignoring mDNS peer with invalid IPv4 address: %s", host.c_str());
         return;
     }
 
@@ -240,16 +240,14 @@ void KdeConnectClient::send_udp_identity_probe(const std::string& device_id, con
 }
 
 void KdeConnectClient::reap_pending_threads_locked() {
-    pending_threads_.erase(
-        std::remove_if(pending_threads_.begin(), pending_threads_.end(),
-            [](PendingTask& task) {
-                if (task.done->load()) {
-                    if (task.thread.joinable()) task.thread.join();
-                    return true;
-                }
-                return false;
-            }),
-        pending_threads_.end());
+    std::erase_if(pending_threads_,
+                  [](PendingTask& task) {
+                      if (task.done->load()) {
+                          if (task.thread.joinable()) task.thread.join();
+                          return true;
+                      }
+                      return false;
+                  });
 }
 
 void KdeConnectClient::network_loop() {
@@ -278,7 +276,7 @@ void KdeConnectClient::network_loop() {
             ScopedFd fd{accept(tcp_fd_, reinterpret_cast<sockaddr*>(&client_addr), &addr_len)};
             if (!fd) {
                 if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) continue;
-                Logger::warn("TCP accept failed (" + std::string(strerror(errno)) + ")");
+                Logger::warn("TCP accept failed (%s)", strerror(errno));
                 needs_restart_.store(true);
                 break;
             } else {
@@ -388,7 +386,8 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, ScopedF
         auto it = sessions_.find(identity.id);
         if (it != sessions_.end() && !it->second->disconnected.load()) {
             // TODO: allow old but alive connections to be replaced?
-            Logger::warn("Already connected to " + identity.name + " (" + identity.id + ") but a new connection was received.");
+            Logger::warn("Already connected to %s (%s) but a new connection was received.",
+                     identity.name.c_str(), identity.id.c_str());
             return;
         }
     }
@@ -399,46 +398,53 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, ScopedF
 
     auto tls_session = tls_.create_session(fd.raw, tcp_server_side);
     if (!tls_session) {
-        Logger::error("Failed to create TLS session for device " + identity.id + (tcp_server_side ? " (server-side)" : " (client-side)"));
+        Logger::error("Failed to create TLS session for device %s (%s)", identity.id.c_str(),
+                  tcp_server_side ? "server-side" : "client-side");
         return;
     }
 
     if (!NetworkUtil::perform_tls_handshake(*tls_session)) {
-        Logger::error("TLS handshake failed for device " + identity.id + (tcp_server_side ? " (server-side)" : " (client-side)"));
+        Logger::error("TLS handshake failed for device %s (%s)", identity.id.c_str(),
+                  tcp_server_side ? "server-side" : "client-side");
         return;
     }
 
     std::string peer_pem = TlsContext::peer_cert_pem(*tls_session);
     if (peer_pem.empty() && tcp_server_side) {
-        Logger::warn("Peer did not present a TLS certificate for device " + identity.id + (tcp_server_side ? " (server-side)" : " (client-side)"));
+        Logger::warn("Peer did not present a TLS certificate for device %s (%s)", identity.id.c_str(),
+                 tcp_server_side ? "server-side" : "client-side");
         return;
     }
 
     if (paired && !stored_pem.empty() && peer_pem != stored_pem && tcp_server_side) {
-        Logger::warn("Certificate mismatch for paired device " + identity.id + ", aborting connection");
+        Logger::warn("Certificate mismatch for paired device %s, aborting connection", identity.id.c_str());
         return;
     }
 
     NetworkPacket secure_identity = NetworkUtil::make_identity_packet(local_device_, std::nullopt, std::nullopt, std::nullopt);
     if (!NetworkUtil::send_all_tls(*tls_session, secure_identity.serialize())) {
-        Logger::error("Failed to send identity packet to " + identity.name + " (" + identity.id + ") after TLS handshake.");
+        Logger::error("Failed to send identity packet to %s (%s) after TLS handshake.",
+                  identity.name.c_str(), identity.id.c_str());
         return;
     }
 
     auto line = NetworkUtil::read_line_tls(*tls_session, kMaxPacketSize);
     if (!line) {
-        Logger::error("Failed to read data from " + identity.name + " (" + identity.id + ") after TLS handshake.");
+        Logger::error("Failed to read data from %s (%s) after TLS handshake.",
+                  identity.name.c_str(), identity.id.c_str());
         return;
     }
     auto packet = NetworkPacket::parse(*line);
     if (!packet || packet->type != PacketTypes::Identity) {
-        Logger::error("Failed to parse packet from " + identity.name + " (" + identity.id + ") after TLS handshake.");
+        Logger::error("Failed to parse packet from %s (%s) after TLS handshake.",
+                  identity.name.c_str(), identity.id.c_str());
         return;
     }
 
     DeviceInfo secure_info = NetworkUtil::info_from_identity(*packet);
     if (secure_info.id != identity.id || secure_info.protocol_version != identity.protocol_version) {
-        Logger::error("Identity mismatch for " + identity.name + " (" + identity.id + ") after TLS handshake.");
+        Logger::error("Identity mismatch for %s (%s) after TLS handshake.",
+                  identity.name.c_str(), identity.id.c_str());
         return;
     }
 
@@ -489,7 +495,10 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, ScopedF
         }
     }
 
-    Logger::info("Connected to " + session->info.name + " (" + session->info.id + ", " + (tcp_server_side ? "server-side" : "client-side") + ", " + (session->paired ? "paired" : "unpaired") + ").");
+    Logger::info("Connected to %s (%s, %s, %s).",
+             session->info.name.c_str(), session->info.id.c_str(),
+             tcp_server_side ? "server-side" : "client-side",
+             session->paired ? "paired" : "unpaired");
 
     if (session->paired && SettingsStore::get(KdecBoolSettingKey::NotificationShowOnConnect)) {
         NotificationPlugin::post_notification(
@@ -593,7 +602,7 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
             Logger::info("Download aborted");
             return false;
         }
-        Logger::info("Streamed payload to " + file_path);
+        Logger::info("Streamed payload to %s", file_path.c_str());
         return true;
 #else
         // TODO: remove this
@@ -617,7 +626,7 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
                 std::remove(file_path.c_str());
                 return false;
             }
-            Logger::info("Streamed payload to " + file_path);
+            Logger::info("Streamed payload to %s", file_path.c_str());
             return true;
         } else {
             Logger::error("Failed to open %s for writing", file_path.c_str());
@@ -627,7 +636,8 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
     } else {
         // Buffer to memory with a 64KB cap (used for small payloads like app icons).
         if (packet.payload_size > 65536) {
-            Logger::warn("Payload size " + std::to_string(packet.payload_size) + " exceeds in-memory cap, truncating.");
+            Logger::warn("Payload size %lld exceeds in-memory cap, truncating.",
+                     static_cast<long long>(packet.payload_size));
         }
 
         const int64_t cap = std::min(packet.payload_size, static_cast<int64_t>(65536));
@@ -644,7 +654,7 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
 
         mbedtls_ssl_close_notify(&tls_session->ssl);
         packet.payload.resize(received);
-        Logger::info("Downloaded payload: " + std::to_string(received) + " bytes for " + packet.type);
+        Logger::info("Downloaded payload: %zu bytes for %s", received, packet.type.c_str());
         return true;
     }
 }
@@ -663,21 +673,21 @@ void KdeConnectClient::handle_pair_packet(const std::shared_ptr<DeviceSession>& 
 
         if (session->pair_state == PairState::Requested) {
             if (session->cert_pem.empty()) {
-                Logger::warn("Pairing failed for " + session->info.name + ": missing peer certificate");
+                Logger::warn("Pairing failed for %s: missing peer certificate", session->info.name.c_str());
                 return;
             }
             session->pair_state = PairState::Paired;
             session->paired = true;
             storage_.save_paired_device(session->info, session->cert_pem);
-            Logger::info("Pairing completed with " + session->info.name);
+            Logger::info("Pairing completed with %s", session->info.name.c_str());
             return;
         }
 
         session->pair_state = PairState::RequestedByPeer;
         session->pairing_timestamp = timestamp;
         std::string key = verification_key(session, timestamp);
-        Logger::info("Pair request from " + session->info.name + " (key " + key + ").");
-        Logger::info("Type: accept " + session->info.id + " or reject " + session->info.id);
+        Logger::info("Pair request from %s (key %s).", session->info.name.c_str(), key.c_str());
+        Logger::info("Type: accept %s or reject %s", session->info.id.c_str(), session->info.id.c_str());
     } else {
         auto previous_pair_state = session->pair_state;
         session->pair_state = PairState::NotPaired;
@@ -685,9 +695,9 @@ void KdeConnectClient::handle_pair_packet(const std::shared_ptr<DeviceSession>& 
         storage_.remove_paired_device(session->info.id);
 
         if (previous_pair_state == PairState::Requested)
-            Logger::info("Pair request denied by " + session->info.name);
+            Logger::info("Pair request denied by %s", session->info.name.c_str());
         else
-            Logger::info("Unpaired from " + session->info.name);
+            Logger::info("Unpaired from %s", session->info.name.c_str());
     }
 }
 
@@ -724,16 +734,16 @@ std::shared_ptr<KdeConnectClient::DeviceSession> KdeConnectClient::device(const 
     if (it != sessions_.end()) {
         return it->second;
     }
-    Logger::error("Device not found: " + device_id);
+    Logger::error("Device not found: %s", device_id.c_str());
     return nullptr;
 }
 
 void KdeConnectClient::request_pair(const std::string& device_id) {
     auto session = device(device_id);
     if (!session) return;
-    
+
     if (session->paired) {
-        Logger::warn("Already paired with " + session->info.name);
+        Logger::warn("Already paired with %s", session->info.name.c_str());
         return;
     }
 
@@ -749,7 +759,7 @@ void KdeConnectClient::request_pair(const std::string& device_id) {
         session->pair_state = PairState::Requested;
         session->pairing_timestamp = ts;
         std::string key = verification_key(session, ts);
-        Logger::info("Pair request sent to " + session->info.name + " (key " + key + ").");
+        Logger::info("Pair request sent to %s (key %s).", session->info.name.c_str(), key.c_str());
     }
 }
 
@@ -758,7 +768,7 @@ void KdeConnectClient::accept_pair(const std::string& device_id) {
     if (!session) return;
 
     if (session->cert_pem.empty()) {
-        Logger::warn("Cannot accept pair for " + session->info.name + ": missing peer certificate");
+        Logger::warn("Cannot accept pair for %s: missing peer certificate", session->info.id.c_str());
         return;
     }
 
@@ -773,7 +783,7 @@ void KdeConnectClient::accept_pair(const std::string& device_id) {
         session->pair_state = PairState::Paired;
         session->paired = true;
         storage_.save_paired_device(session->info, session->cert_pem);
-        Logger::info("Pair accepted for " + session->info.name);
+        Logger::info("Pair accepted for %s", session->info.name.c_str());
     }
 }
 
@@ -789,16 +799,17 @@ void KdeConnectClient::reject_pair(const std::string& device_id) {
         session->pair_state = PairState::NotPaired;
         session->paired = false;
         storage_.remove_paired_device(session->info.id);
-        Logger::info("Pair rejected for " + session->info.name);
+        Logger::info("Pair rejected for %s", session->info.name.c_str());
     }
 }
 
 void KdeConnectClient::unpair(const std::string& device_id) {
     auto session = device(device_id);
     if (!session) return;
-    
+
     if (!session->paired) {
-        Logger::warn("Device not paired: " + (session->info.name.empty() ? device_id : session->info.name));
+        Logger::warn("Device not paired: %s",
+                 session->info.name.empty() ? device_id.c_str() : session->info.name.c_str());
         return;
     }
 
@@ -810,7 +821,7 @@ void KdeConnectClient::unpair(const std::string& device_id) {
         session->pair_state = PairState::NotPaired;
         session->paired = false;
         storage_.remove_paired_device(session->info.id);
-        Logger::info("Unpaired from " + session->info.name);
+        Logger::info("Unpaired from %s", session->info.name.c_str());
     }
 }
 
@@ -924,6 +935,6 @@ void KdeConnectClient::io_loop(const std::shared_ptr<DeviceSession>& session) {
         mbedtls_ssl_close_notify(&session->tls->ssl);
         session->tls.reset();
     }
-    Logger::info("Disconnected from " + session->info.name + " (" + session->info.id + ")");
+    Logger::info("Disconnected from %s (%s)", session->info.name.c_str(), session->info.id.c_str());
 }
 

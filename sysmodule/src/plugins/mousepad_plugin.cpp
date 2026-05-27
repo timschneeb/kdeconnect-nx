@@ -130,7 +130,7 @@ static void hiddbg_retain() {
         Result rc = hiddbgInitialize();
         if (R_FAILED(rc)) {
             s_hiddbg_refcount.fetch_sub(1);
-            Logger::error("hiddbgInitialize failed: " + std::to_string(rc));
+            Logger::error("hiddbgInitialize failed: 0x%x", rc);
         }
     }
 }
@@ -233,12 +233,13 @@ void MousepadPlugin::inject_key(const NetworkPacket &np) const {
 
     auto do_key = [&](uint8_t hid_code, bool needs_shift, bool needs_altgr = false) {
         bool apply_shift = shift || needs_shift;
-        Logger::info("Key inject: hid=0x" + [&] {
+        std::string info = [&] {
             char buf[40];
             snprintf(buf, sizeof(buf), "%02X shift=%d ctrl=%d alt=%d gui=%d altgr=%d",
                      hid_code, apply_shift, ctrl, alt, super, needs_altgr);
             return std::string(buf);
-        }());
+        }();
+        Logger::info("Key inject: hid=0x%s", info.c_str());
         do_inject_hid(hid_code, apply_shift, ctrl, alt, super, needs_altgr);
     };
 
@@ -262,6 +263,6 @@ void MousepadPlugin::inject_key(const NetworkPacket &np) const {
     }
     setsysExit();
 #else
-    Logger::info("Key event received: " + np.body.dump(-1));
+    Logger::info("Key event received: %s", np.body.dump(-1).c_str());
 #endif
 }

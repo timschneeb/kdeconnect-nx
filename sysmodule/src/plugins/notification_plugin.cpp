@@ -77,7 +77,7 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
 
     if (np.body.value("isCancel", false)) {
         std::string cancel_id = np.body.value("id", "");
-        Logger::info("Dismissed: " + cancel_id);
+        Logger::info("Dismissed: %s", cancel_id.c_str());
         m_posted_ids.erase(cancel_id);
         return true;
     }
@@ -89,8 +89,7 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
     std::string id    = np.body.value("id", "");
     std::string time  = np.body.value("time", "");
 
-    std::string log_msg = "" + app + ": " + title;
-    Logger::info(log_msg);
+    Logger::info("%s: %s", app.c_str(), title.c_str());
 
     std::string body;
     if (!title.empty() && !text.empty())
@@ -150,7 +149,7 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
         : kAppId;
     const int duration = static_cast<int>(SettingsStore::get(KdecIntSettingKey::NotificationDuration));
 
-    Logger::info("Posting: " + icon_hash + "-" + id);
+    Logger::info("Posting: %s-%s", icon_hash.c_str(), id.c_str());
     post_notification(app_id, app, body, id, duration);
     return true;
 }
@@ -179,7 +178,7 @@ void NotificationPlugin::post_notification(const std::string& app_id,
     };
 
     if (!Storage::write_file(path, notify_json.dump(2))) {
-        Logger::error("Failed to write notify file: " + path);
+        Logger::error("Failed to write notify file: %s", path.c_str());
     }
 #endif
     (void)app_id; (void)title; (void)body; (void)id;
@@ -195,7 +194,7 @@ void NotificationPlugin::write_app_icon(const std::string& icon_hash, const Netw
                                      static_cast<int>(np_with_payload.payload.size()),
                                          &w, &h, &channels, 4);
     if (!img) {
-        Logger::warn("Failed to decode icon PNG for hash " + icon_hash);
+        Logger::warn("Failed to decode icon PNG for hash %s", icon_hash.c_str());
         return;
     }
 
@@ -223,7 +222,7 @@ void NotificationPlugin::write_app_icon(const std::string& icon_hash, const Netw
 
     std::string payload(reinterpret_cast<const char*>(px), sizeof(px));
     if (!Storage::write_file(icon_path, payload)) {
-        Logger::error("Failed to write icon: " + icon_path);
+        Logger::error("Failed to write icon: %s", icon_path.c_str());
     }
 #endif
     (void)icon_hash; (void)np;

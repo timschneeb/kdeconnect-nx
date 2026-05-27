@@ -12,20 +12,20 @@
 namespace {
 void print_help() {
     Logger::info("Commands:\n"
-              "  help\n"
-              "  list\n"
-              "  pair <deviceId>\n"
-              "  unpair <deviceId>\n"
-              "  accept <deviceId>\n"
-              "  reject <deviceId>\n"
-              "  ping <deviceId> [message]\n"
-              "  find <deviceId>\n"
-              "  mpris <deviceId> list\n"
-              "  mpris <deviceId> status [player]\n"
-              "  mpris <deviceId> play|pause|playpause|stop|next|prev [player]\n"
-              "  mpris <deviceId> volume <0-100> [player]\n"
-              "  sinks <deviceId>\n"
-              "  quit");
+             "  help\n"
+             "  list\n"
+             "  pair <deviceId>\n"
+             "  unpair <deviceId>\n"
+             "  accept <deviceId>\n"
+             "  reject <deviceId>\n"
+             "  ping <deviceId> [message]\n"
+             "  find <deviceId>\n"
+             "  mpris <deviceId> list\n"
+             "  mpris <deviceId> status [player]\n"
+             "  mpris <deviceId> play|pause|playpause|stop|next|prev [player]\n"
+             "  mpris <deviceId> volume <0-100> [player]\n"
+             "  sinks <deviceId>\n"
+             "  quit");
 }
 } // namespace
 
@@ -38,7 +38,7 @@ void prompt_device(
     iss >> id;
     auto device = client.device(id);
     if (!device) {
-        Logger::error("Device not found: " + id);
+        Logger::error("Device not found: %s", id.c_str());
     }
     else {
         action(device);
@@ -48,12 +48,12 @@ void prompt_device(
 int main() {
     Storage storage;
     KdeConnectClient client(storage);
-    if (!client.start()) {
+    if (!client.start(true)) {
         Logger::error("Failed to start client.");
         return 1;
     }
 
-    Logger::info("MiniKDEConnect prototype running. Device ID: " + client.local_device().id);
+    Logger::info("MiniKDEConnect prototype running. Device ID: %s", client.local_device().id.c_str());
     print_help();
 
     std::string line;
@@ -77,7 +77,7 @@ int main() {
                 if (session->disconnected.load()) {
                     state = "disconnected";
                 }
-                Logger::info(session->info.name + " (" + id + ") - " + state);
+                Logger::info("%s (%s) - %s", session->info.name.c_str(), id.c_str(), state.c_str());
             }
         } else if (cmd == "pair") {
             std::string id;
@@ -137,7 +137,7 @@ int main() {
                         {"stop", "Stop"}, {"next", "Next"}, {"prev", "Previous"}
                     };
                     auto it = action_map.find(sub);
-                    if (it == action_map.end()) { Logger::warn("Unknown mpris subcommand: " + sub); return; }
+                    if (it == action_map.end()) { Logger::warn("Unknown mpris subcommand: %s", sub.c_str()); return; }
 
                     std::string player;
                     iss >> player;

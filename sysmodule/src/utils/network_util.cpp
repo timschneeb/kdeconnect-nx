@@ -163,7 +163,7 @@ bool perform_tls_handshake(TlsSession& session) {
         if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
             char errbuf[128];
             mbedtls_strerror(ret, errbuf, sizeof(errbuf));
-            Logger::warn(std::string("SSL error: ") + errbuf);
+            Logger::warn("SSL error: %s", errbuf);
             return false;
         }
     }
