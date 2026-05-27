@@ -24,7 +24,7 @@ public:
   explicit KdeConnectClient(Storage storage);
   ~KdeConnectClient() override;
 
-  bool start();
+  bool start(bool enable_mdns);
   void stop();
   bool needs_restart() const { return needs_restart_.load(); }
 

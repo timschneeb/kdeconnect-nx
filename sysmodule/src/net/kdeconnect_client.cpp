@@ -103,7 +103,7 @@ KdeConnectClient::~KdeConnectClient() {
     stop();
 }
 
-bool KdeConnectClient::start() {
+bool KdeConnectClient::start(bool enable_mdns) {
     needs_restart_.store(false);
 
     if (running_.load()) {
@@ -129,18 +129,20 @@ bool KdeConnectClient::start() {
         Logger::warn("Unable to bind UDP socket for listening; discovery receive disabled.");
     }
 
-    mdns_discovery_ = std::make_unique<MdnsDiscovery>(local_device_, tcp_port_, [this](const std::string& device_id, const std::string& host) {
-        {
-            std::lock_guard lock(session_mutex_);
-            if (sessions_.contains(device_id) && !sessions_[device_id]->disconnected.load()) {
-                // already connected
-                return;
+    if (enable_mdns) {
+        mdns_discovery_ = std::make_unique<MdnsDiscovery>(local_device_, tcp_port_, [this](const std::string& device_id, const std::string& host) {
+            {
+                std::lock_guard lock(session_mutex_);
+                if (sessions_.contains(device_id) && !sessions_[device_id]->disconnected.load()) {
+                    // already connected
+                    return;
+                }
             }
-        }
 
-        Logger::info("mDNS: Sending probe to " + device_id + " at " + host);
-        send_udp_identity_probe(device_id, host);
-    });
+            Logger::info("mDNS: Sending probe to " + device_id + " at " + host);
+            send_udp_identity_probe(device_id, host);
+        });
+    }
 
     needs_restart_.store(false);
     running_.store(true);
@@ -149,7 +151,10 @@ bool KdeConnectClient::start() {
 
     Logger::info("Listening on TCP port " + std::to_string(tcp_port_) + ".");
 
-    if (!mdns_discovery_->start()) {
+    if (!mdns_discovery_) {
+        Logger::warn("mDNS discovery is disabled");
+    }
+    else if (!mdns_discovery_->start()) {
         Logger::warn("mDNS discovery could not be started; continuing with UDP broadcast discovery only.");
         mdns_discovery_.reset();
     }
