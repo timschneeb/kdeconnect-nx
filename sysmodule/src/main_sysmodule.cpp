@@ -6,7 +6,10 @@
 #include "nx_application.h"
 #include "utils/logger.h"
 
-#define INNER_HEAP_SIZE 4'000'000 // 4MB
+#define MEM_DEBUG
+#include "src/utils/mem_debug.h"
+
+#define INNER_HEAP_SIZE 3'000'000 // 3MB
 
 #define R_ABORT_UNLESS(expr) {if (Result rc = expr; R_FAILED(rc)) fatalThrow(rc);}
 
@@ -41,10 +44,9 @@ void __appInit(void)
             .tcp_rx_buf_size     = 32 * 1024,
             .tcp_tx_buf_max_size = 64 * 1024,
             .tcp_rx_buf_max_size = 64 * 1024,
-            // TODO: check
-            .udp_tx_buf_size     = 0x2400,
-            .udp_rx_buf_size     = 0xA500,
-            .sb_efficiency       = 4,
+            .udp_tx_buf_size     = 8 * 1024,
+            .udp_rx_buf_size     = 16 * 1024,
+            .sb_efficiency       = 3,
             .bsd_service_type    = BsdServiceType_Auto
         };
 
@@ -94,11 +96,31 @@ int main(int argc, char* argv[])
         std::abort();
     });
 
+#ifdef MEM_DEBUG
+    char buf[128];
+#endif
+
     Logger::open_log_file("kdeconnect_sysmodule");
     auto app = NxApplication();
     while (true) {
         app.processEvents();
+
+#ifndef MEM_DEBUG
         svcSleepThread(100'000'000LL);
+#else
+        const auto mem = get_mem_stats();
+        const auto al  = get_alloc_stats();
+        Logger::info(buf);
+        sprintf(buf, "  Heap : %5zu KB used / %5zu KB total  (peak %5zu KB)",
+            mem.heap_used_kb, mem.heap_total_kb, mem.heap_peak_kb);
+        Logger::info(buf);
+        sprintf(buf, "  new  : %5zu KB live  (peak %5zu KB)  allocs: %zu live / %zu total",
+            al.live_kb, al.peak_kb, al.live_allocs, al.total_allocs);
+        Logger::info(buf);
+
+        svcSleepThread(1'000'000'000LL);
+#endif
+
     }
     return 0;
 }
