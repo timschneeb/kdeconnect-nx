@@ -34,21 +34,25 @@ public:
     }
 
     template <typename... Args, typename = std::enable_if_t<(sizeof...(Args) > 0)>>
+    [[gnu::format(printf, 1, 2)]]
     static void info(const char* fmt, Args&&... args) {
         log("I", format(fmt, std::forward<Args>(args)...));
     }
 
     template <typename... Args, typename = std::enable_if_t<(sizeof...(Args) > 0)>>
+    [[gnu::format(printf, 1, 2)]]
     static void warn(const char* fmt, Args&&... args) {
         log("W", format(fmt, std::forward<Args>(args)...));
     }
 
     template <typename... Args, typename = std::enable_if_t<(sizeof...(Args) > 0)>>
+    [[gnu::format(printf, 1, 2)]]
     static void error(const char* fmt, Args&&... args) {
         log("E", format(fmt, std::forward<Args>(args)...));
     }
 
     template <typename... Args, typename = std::enable_if_t<(sizeof...(Args) > 0)>>
+    [[gnu::format(printf, 2, 3)]]
     static void log(std::string_view level, const char* fmt, Args&&... args) {
         log(level, format(fmt, std::forward<Args>(args)...));
     }
@@ -58,5 +62,6 @@ private:
     static NxLink nxlink_;
     static FILE* log_file_;
 
+    [[gnu::format(printf, 1, 2)]]
     static std::string format(const char* fmt, ...);
 };
