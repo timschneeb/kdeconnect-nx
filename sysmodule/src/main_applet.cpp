@@ -28,9 +28,9 @@ static constexpr size_t kMaxLogLines = 10;
 static std::deque<std::string> s_log_buf;
 static std::mutex s_log_mutex;
 
-static void log_sink(const std::string& level, const std::string& msg) {
+static void log_sink(std::string_view level, std::string_view msg) {
     std::lock_guard lock(s_log_mutex);
-    s_log_buf.push_back("[" + level + "] " + msg);
+    s_log_buf.push_back("[" + std::string(level) + "] " + std::string(msg));
     if (s_log_buf.size() > kMaxLogLines) {
         s_log_buf.pop_front();
     }
