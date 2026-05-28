@@ -12,6 +12,7 @@ public:
     std::vector<std::string> outgoing_packet_types() const override;
 
     bool on_packet_received(const NetworkPacket& np) override;
+    void process_events() override;
 
     // Pop and open one pending URL in the system browser. Returns true if a URL was opened.
     // Must be called from the main thread.

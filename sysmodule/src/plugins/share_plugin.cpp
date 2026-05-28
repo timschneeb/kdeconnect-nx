@@ -84,6 +84,10 @@ bool SharePlugin::on_packet_received(const NetworkPacket& np) {
     return false;
 }
 
+void SharePlugin::process_events() {
+    open_pending_url();
+}
+
 bool SharePlugin::open_pending_url() {
     return false; // cannot launch browser from sysmodule
 
@@ -150,20 +154,22 @@ std::vector<unsigned char> SharePlugin::capture_screenshot_to_buffer() {
         return jpegBuffer;
     }
 
-    auto jpegBuf = std::make_unique<unsigned char[]>(CAPSSC_JPEG_BUFFER_SIZE);
+    jpegBuffer.resize(CAPSSC_JPEG_BUFFER_SIZE);
     u64 outSize = 0;
 
-    Result rc = capsscCaptureJpegScreenShot(&outSize, jpegBuf.get(),
+    Result rc = capsscCaptureJpegScreenShot(&outSize, jpegBuffer.data(),
                                             CAPSSC_JPEG_BUFFER_SIZE,
                                             ViLayerStack_Screenshot, 100000000);
+    capsscExit();
 
-    if (R_SUCCEEDED(rc)) {
-        jpegBuffer.assign(jpegBuf.get(), jpegBuf.get() + outSize);
-    } else {
+    if (R_FAILED(rc)) {
         Logger::error("Failed to capture screenshot: 0x%X", rc);
+        return {};
     }
 
-    capsscExit();
+    // Release the unused tail of the 512 KB capture buffer before queuing for send.
+    jpegBuffer.resize(outSize);
+    jpegBuffer.shrink_to_fit();
 #endif
-    return std::move(jpegBuffer);
+    return jpegBuffer;
 }

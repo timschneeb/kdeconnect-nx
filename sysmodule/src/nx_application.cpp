@@ -70,7 +70,12 @@ void NxApplication::processEvents() {
     }
     was_online_ = now_online;
 
-    SharePlugin::open_pending_url();
+    for (const auto& [id, session] : client_->devices()) {
+        if (session->disconnected.load()) continue;
+        for (const auto& plugin : session->plugins) {
+            plugin->process_events();
+        }
+    }
 }
 
 bool NxApplication::isOnline() {

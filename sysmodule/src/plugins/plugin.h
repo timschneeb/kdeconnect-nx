@@ -93,6 +93,8 @@ public:
     virtual void on_connected(bool paired) {}
     virtual void on_destroy() {}
 
+    virtual void process_events() {}
+
 protected:
     void send_packet(const NetworkPacket& np) const {
         if (provider_) {

@@ -1,7 +1,6 @@
 #include "battery_plugin.h"
 #include "utils/logger.h"
 #include <chrono>
-#include <thread>
 
 #ifdef __SWITCH__
 #include <switch.h>
@@ -25,8 +24,6 @@ void BatteryPlugin::on_create() {
 }
 
 BatteryPlugin::~BatteryPlugin() {
-    running_.store(false);
-    if (poll_thread_.joinable()) poll_thread_.join();
 #ifdef __SWITCH__
     if (psm_initialized_) psmExit();
 #endif
@@ -51,39 +48,34 @@ bool BatteryPlugin::read_hardware(int32_t& charge, bool& charging) const {
 
 void BatteryPlugin::on_connected(bool paired) {
     if (!paired) return;
-    running_.store(true);
-    poll_thread_ = std::thread(&BatteryPlugin::poll_loop, this);
-}
+    active_ = true;
 
-void BatteryPlugin::poll_loop() {
     int32_t charge = 0;
     bool charging = false;
-
     if (read_hardware(charge, charging)) {
         cached_charge_.store(charge);
         cached_charging_.store(charging);
         cache_valid_.store(true);
         send_status();
     }
+    last_poll_ = std::chrono::steady_clock::now();
+}
 
-    while (running_.load()) {
-        // 10 s in 100 ms ticks so the thread exits quickly on shutdown
-        for (int i = 0; i < 100 && running_.load(); ++i)
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+void BatteryPlugin::process_events() {
+    if (!active_) return;
 
-        if (!running_.load()) break;
+    const auto now = std::chrono::steady_clock::now();
+    if (now - last_poll_ < std::chrono::seconds(10)) return;
+    last_poll_ = now;
 
-        int32_t new_charge = charge;
-        bool new_charging = charging;
-        if (read_hardware(new_charge, new_charging)) {
-            if (new_charge != charge || new_charging != charging) {
-                charge = new_charge;
-                charging = new_charging;
-                cached_charge_.store(charge);
-                cached_charging_.store(charging);
-                send_status();
-            }
-        }
+    int32_t charge = 0;
+    bool charging = false;
+    if (!read_hardware(charge, charging)) return;
+
+    if (charge != cached_charge_.load() || charging != cached_charging_.load()) {
+        cached_charge_.store(charge);
+        cached_charging_.store(charging);
+        send_status();
     }
 }
 
@@ -110,7 +102,6 @@ void BatteryPlugin::send_status() const {
     bool charging = cached_charging_.load();
 
     if (!cache_valid_.load()) {
-        // Poll thread hasn't run yet; read directly.
         read_hardware(charge, charging);
     }
 
