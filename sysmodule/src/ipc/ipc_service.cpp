@@ -109,8 +109,8 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
             return 0;
 
         case KdecIpcCmd_GetDeviceCount: {
- 3#ü           *out_size = sizeof(uint32_t);
-y            *reinterpret_cast<uint32_t*>(out_data) =
+            *out_size = sizeof(uint32_t);
+            *reinterpret_cast<uint32_t*>(out_data) =
                 client->devices().size() + client->offline_paired_devices().size();
             return 0;
         }
