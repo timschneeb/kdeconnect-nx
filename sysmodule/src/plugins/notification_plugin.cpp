@@ -9,7 +9,13 @@
 
 #ifdef __SWITCH__
 #define STB_IMAGE_IMPLEMENTATION
-#define STBI_ONLY_PNG
+#define STBI_NO_GIF
+#define STBI_NO_PSD
+#define STBI_NO_PIC
+#define STBI_NO_PNM
+#define STBI_NO_TGA
+#define STBI_NO_HDR
+#define STBI_NO_LINEAR
 #include "stb_image.h"
 #include <dirent.h>
 #include <sys/stat.h>
@@ -160,8 +166,6 @@ void NotificationPlugin::post_notification(const std::string& app_id,
                                            const std::string& id,
                                            int duration) {
 #ifdef __SWITCH__
-    mkdir(kNotifyDir, 0755);
-
     static std::atomic<int> s_counter{0};
     std::string uid = sanitize_filename(id);
     if (uid.empty()) uid = std::to_string(s_counter.fetch_add(1));
@@ -186,23 +190,27 @@ void NotificationPlugin::post_notification(const std::string& app_id,
 
 void NotificationPlugin::write_app_icon(const std::string& icon_hash, const NetworkPacket& np) const {
 #ifdef __SWITCH__
-    auto np_with_payload = np;
-    provider_->download_payload(provider_->device(device_id_), np_with_payload);
+    const std::string icon_path = "/config/ultrahand/assets/notifications/kdeconnect_" + icon_hash + ".rgba";
 
-    int w, h, channels;
-    uint8_t* img = stbi_load_from_memory(np_with_payload.payload.data(),
-                                     static_cast<int>(np_with_payload.payload.size()),
-                                         &w, &h, &channels, 4);
-    if (!img) {
-        Logger::warn("Failed to decode icon PNG for hash %s", icon_hash.c_str());
+    // Icon content is addressed by its hash; if the file already exists it is identical.
+    if (Storage::file_exists(icon_path)) return;
+
+    auto np_with_payload = np;
+    if (!provider_->download_payload(provider_->device(device_id_), np_with_payload) ||
+            np_with_payload.payload.empty()) {
+        Logger::warn("Failed to download icon payload for hash %s", icon_hash.c_str());
         return;
     }
 
-    mkdir("/config/ultrahand", 0755);
-    mkdir("/config/ultrahand/assets", 0755);
-    mkdir("/config/ultrahand/assets/notifications", 0755);
-
-    std::string icon_path = "/config/ultrahand/assets/notifications/kdeconnect_" + icon_hash + ".rgba";
+    int w, h, channels;
+    uint8_t* img = stbi_load_from_memory(np_with_payload.payload.data(),
+                                         static_cast<int>(np_with_payload.payload.size()),
+                                         &w, &h, &channels, 4);
+    if (!img) {
+        Logger::warn("Failed to decode icon for hash %s (%zu B, %dx%d)",
+                     icon_hash.c_str(), np_with_payload.payload.size(), w, h);
+        return;
+    }
 
     static constexpr int OUT = 50;
     uint8_t px[OUT * OUT * 4];

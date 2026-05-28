@@ -88,6 +88,13 @@ std::optional<PairedDeviceInfo> Storage::load_paired_device(const std::string& d
     return info;
 }
 
+bool Storage::file_exists(const std::string& path) {
+#if defined(__SWITCH__)
+    std::lock_guard lock(s_fs_mutex);
+#endif
+    return std::filesystem::exists(path);
+}
+
 void Storage::save_paired_device(const DeviceInfo& info, const std::string& certificate_pem) const {
     nlohmann::json data;
     data["deviceId"] = info.id;

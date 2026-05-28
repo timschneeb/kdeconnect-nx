@@ -10,9 +10,9 @@ constexpr SocketInitConfig socketInitConfig = {
     .udp_tx_buf_size = 8 * 1024,
     .udp_rx_buf_size = 16 * 1024,
 #ifdef NXLINK_ENABLED
-    .sb_efficiency = 3,
+    .sb_efficiency = 4,
 #else
-    .sb_efficiency = 2,
+    .sb_efficiency = 3, // TODO check if 2 works for payload transfers
 #endif
 
     .bsd_service_type = BsdServiceType_Auto

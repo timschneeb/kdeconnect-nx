@@ -28,6 +28,7 @@ public:
 
     static std::string read_file(const std::string& path);
     static bool write_file(const std::string& path, const std::string& data);
+    static bool file_exists(const std::string& path);
 
 private:
     std::filesystem::path base_path_;
