@@ -12,7 +12,7 @@ Prerequisites:
 cmake --preset "switch-release"
 cmake --build cmake-build-release-devkita64 -j 6 --target publish
 ```
-Copy `cmake-build-release-devkita64/stage/*` to the SD card on the Switch.
+Copy the directories under `cmake-build-release-devkita64/stage/*` to the SD card on the Switch.
 
 ### Remote logging
 
