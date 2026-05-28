@@ -154,8 +154,8 @@ bool KdeConnectClient::start(bool enable_mdns) {
 
     needs_restart_.store(false);
     running_.store(true);
-    network_thread_ = StackThread(96 * 1024, "kc-network", &KdeConnectClient::network_loop, this);
-    broadcast_thread_ = StackThread(32 * 1024, "kc-broadcast", &KdeConnectClient::udp_broadcast_loop, this);
+    network_thread_ = StackThread(64 * 1024, "kc-network", &KdeConnectClient::network_loop, this);
+    broadcast_thread_ = StackThread(4 * 1024, "kc-broadcast", &KdeConnectClient::udp_broadcast_loop, this);
 
     Logger::info("Listening on TCP port %d.", tcp_port_);
 
@@ -481,7 +481,7 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, ScopedF
     // handle_new_connection for the same device can race in, find the session in
     // the map with io_thread not yet started (not joinable), skip the join, and
     // drop the reference. -> thread will be destructed without join -> std::terminate called.
-    session->io_thread = StackThread(64 * 1024, "kc-io", &KdeConnectClient::io_loop, this, session);
+    session->io_thread = StackThread(32 * 1024, "kc-io", &KdeConnectClient::io_loop, this, session);
 
     std::shared_ptr<DeviceSession> old_session;
     {

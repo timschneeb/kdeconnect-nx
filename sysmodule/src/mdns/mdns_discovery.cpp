@@ -281,7 +281,7 @@ struct MdnsDiscovery::Impl {
         announced = build_announced_info();
         announce(false);
         send_query();
-        mdns_thread = StackThread(32 * 1024, "kc-mdns", &Impl::mdns_loop, this);
+        mdns_thread = StackThread(16 * 1024, "kc-mdns", &Impl::mdns_loop, this);
         return true;
     }
     void stop() {
