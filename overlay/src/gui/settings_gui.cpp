@@ -75,8 +75,64 @@ tsl::elm::Element* SettingsGui::createUI() {
     });
     list->addItem(seek_bar, tsl::style::TrackBarDefaultHeight);
 
+    list->addItem(new tsl::elm::CategoryHeader("Debugging"));
+
+    KdecMemoryInfo mem_info{};
+    kdecIpcGetMemoryInfo(mem_info);
+    char heap_buf[64];
+    std::snprintf(heap_buf, sizeof(heap_buf), "%zu KB / %zu KB",
+                  mem_info.heap_used_kb, mem_info.heap_max_kb);
+    m_heap_item = new tsl::elm::ListItem("Heap usage");
+    m_heap_item->setValue(heap_buf);
+    list->addItem(m_heap_item);
+
+    auto* peak_heap = new tsl::elm::ListItem("Peak heap usage");
+    std::snprintf(heap_buf, sizeof(heap_buf), "%zu KB", mem_info.heap_total_kb);
+    peak_heap->setValue(heap_buf);
+    list->addItem(peak_heap);
+
+    auto* used_tmem_item = new tsl::elm::ListItem("Socket buffers (Heap)");
+    std::snprintf(heap_buf, sizeof(heap_buf), "%zu KB", mem_info.socket_tmem_kb);
+    used_tmem_item->setValue(heap_buf);
+    list->addItem(used_tmem_item);
+
+    auto* used_mem_item = new tsl::elm::ListItem("Total used memory");
+    std::snprintf(heap_buf, sizeof(heap_buf), "%zu KB", mem_info.proc_used_kb);
+    used_mem_item->setValue(heap_buf);
+    list->addItem(used_mem_item);
+
+    auto* kill_sysmodule = new tsl::elm::ListItem("Kill sysmodule");
+    kill_sysmodule->setValue(sym::cross);
+    kill_sysmodule->setValueColor(tsl::Color(255, 0, 0, 255));
+    kill_sysmodule->setClickListener([](u64 keys) {
+        if (keys & HidNpadButton_A) {
+            if (R_SUCCEEDED(pmshellInitialize())) {
+                pmshellTerminateProgram(SYSMODULE_TITLE_ID);
+                pmshellExit();
+                svcSleepThread(500'000'000LL);
+                tsl::goBack();
+            }
+            return true;
+        }
+        return false;
+    });
+    list->addItem(kill_sysmodule);
+
     frame->setContent(list);
     return frame;
+}
+
+void SettingsGui::update() {
+    if (!m_heap_item) return;
+    if (++m_update_counter < 120) return; // ~2 s at 60 fps
+    m_update_counter = 0;
+
+    KdecMemoryInfo mem_info{};
+    kdecIpcGetMemoryInfo(mem_info);
+    char heap_buf[64];
+    std::snprintf(heap_buf, sizeof(heap_buf), "%zu KB / %zu KB",
+                  mem_info.heap_used_kb, mem_info.heap_max_kb);
+    m_heap_item->setValue(heap_buf);
 }
 
 bool SettingsGui::handleInput(u64 keysDown, u64, const HidTouchState&,

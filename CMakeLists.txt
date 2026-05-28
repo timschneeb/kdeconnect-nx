@@ -6,6 +6,10 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_compile_definitions(MINIKDECONNECT_VERSION=\"${PROJECT_VERSION}\")
 
+file(READ ${CMAKE_SOURCE_DIR}/sysmodule/toolbox.json _toolbox_contents)
+string(JSON MINIKDECONNECT_TID GET ${_toolbox_contents} tid)
+add_compile_definitions(SYSMODULE_TITLE_ID=0x${MINIKDECONNECT_TID})
+
 set(NXLINK_HOST "" CACHE STRING "IP address of the PC running nxlink (leave empty to let libnx get the host from the launch argument; only works for the applet if launched with nxlink)")
 if(NXLINK_HOST)
     add_compile_definitions(NXLINK_HOST=\"${NXLINK_HOST}\")

@@ -4,6 +4,7 @@
 namespace sym {
     constexpr auto returnArrow = "";
     constexpr auto chevronRight = "";
+    constexpr auto cross = "";
 
     constexpr auto yButton = "";
 

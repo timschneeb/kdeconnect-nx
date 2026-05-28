@@ -3,6 +3,7 @@
 #include <exception>
 #include <stdexcept>
 
+#include "config.h"
 #include "nx_application.h"
 #include "utils/logger.h"
 
@@ -39,22 +40,6 @@ void __appInit(void)
 {
     R_ABORT_UNLESS(smInitialize());
     {
-        constexpr SocketInitConfig socketInitConfig = {
-            .tcp_tx_buf_size     = 32 * 1024,
-            .tcp_rx_buf_size     = 32 * 1024,
-            .tcp_tx_buf_max_size = 64 * 1024,
-            .tcp_rx_buf_max_size = 64 * 1024,
-            .udp_tx_buf_size     = 8 * 1024,
-            .udp_rx_buf_size     = 16 * 1024,
-#ifdef NXLINK_ENABLED
-            .sb_efficiency       = 3,
-#else
-            .sb_efficiency       = 2,
-#endif
-
-            .bsd_service_type    = BsdServiceType_Auto
-        };
-
         if (hosversionGet() == 0) {
             if (R_SUCCEEDED(setsysInitialize())) {
                 SetSysFirmwareVersion fw;
@@ -124,10 +109,7 @@ int main(int argc, char* argv[])
         svcSleepThread(100'000'000LL);
 #else
         const auto mem = get_mem_stats();
-        const auto al  = get_alloc_stats();
-
         Logger::info("Heap : %5zu KB used / %5zu KB total  (peak %5zu KB)", mem.heap_used_kb, mem.heap_total_kb, mem.heap_peak_kb);
-        Logger::info("new  : %5zu KB live  (peak %5zu KB)  allocs: %zu live / %zu total", al.live_kb, al.peak_kb, al.live_allocs, al.total_allocs);
 
         svcSleepThread(1'000'000'000LL);
 #endif

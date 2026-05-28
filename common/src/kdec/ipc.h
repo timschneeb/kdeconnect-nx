@@ -39,6 +39,7 @@ enum KdecIpcCmd {
     KdecIpcCmd_GetVolumeSinks   = 18,
     KdecIpcCmd_SetVolumeSink    = 19,
     KdecIpcCmd_SendScreenshot   = 20,
+    KdecIpcCmd_GetMemoryInfo    = 21,
 };
 
 enum class DevicePairState : uint8_t {
@@ -107,6 +108,15 @@ struct KdecVolumeSinkInfo {
 static_assert(sizeof(KdecVolumeSinkInfo) == 208);
 
 // ------ Small structs that are sent inline ------
+
+struct KdecMemoryInfo {
+    size_t proc_used_kb;
+    size_t socket_tmem_kb;
+    size_t heap_used_kb;
+    size_t heap_total_kb;
+    size_t heap_max_kb;
+} __attribute__((aligned(16)));
+static_assert(sizeof(KdecMemoryInfo) == 48);
 
 struct KdecWireDeviceId {
     char device_id[KDEC_DEVICE_ID_MAX];

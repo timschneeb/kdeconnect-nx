@@ -1,9 +1,11 @@
 #include "ipc_service.h"
 #include <kdec/ipc.h>
 #include <cstring>
+#include <malloc.h>
 
 #include "utils/settings_store.h"
 
+#include "config.h"
 #include "../net/kdeconnect_client.h"
 #include "utils/logger.h"
 #include "ipc_server.h"
@@ -17,6 +19,15 @@
 #include "../plugins/share_plugin.h"
 
 #define MAX_SESSIONS 2
+
+extern "C" {
+extern void* fake_heap_start;
+extern void* fake_heap_end;
+
+size_t internal_heap_size() {
+    return static_cast<u8*>(fake_heap_end) - static_cast<u8*>(fake_heap_start);
+}
+}
 
 IpcService::IpcService(NxApplication* app) : app_(app), running_(false) {
 }
@@ -299,7 +310,7 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
                             strncpy(info.album,     state.album.c_str(),   KDEC_ALBUM_MAX     - 1);
                             info.position        = state.position;
                             info.length          = state.length;
-                            info.volume          = static_cast<int32_t>(state.volume);
+                            info.volume          = state.volume;
                             info.is_playing      = state.is_playing;
                             info.can_play        = state.can_play;
                             info.can_pause       = state.can_pause;
@@ -490,6 +501,25 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
             if (!share) return MAKERESULT(Module_Libnx, LibnxError_NotFound);
 
             return share->send_screenshot() ? 0 : MAKERESULT(Module_Libnx, LibnxError_IoError);
+        }
+
+        case KdecIpcCmd_GetMemoryInfo: {
+            KdecMemoryInfo s = {};
+
+            u64 used = 0;
+            svcGetInfo(&used, InfoType_UsedMemorySize, CUR_PROCESS_HANDLE, 0);
+            s.proc_used_kb = used / 1024ULL;
+
+            s.socket_tmem_kb = bsdGetTransferMemSizeForConfig(&socketInitConfig) / 1024;
+
+            struct mallinfo mi = mallinfo();
+            s.heap_used_kb  = mi.uordblks / 1024;
+            s.heap_total_kb = (mi.uordblks + mi.fordblks) / 1024;
+            s.heap_max_kb = internal_heap_size() / 1024;
+
+            *out_size = sizeof(KdecMemoryInfo);
+            *reinterpret_cast<KdecMemoryInfo*>(out_data) = s;
+            return 0;
         }
 
         default:

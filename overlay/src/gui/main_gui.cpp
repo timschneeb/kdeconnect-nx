@@ -43,8 +43,19 @@ tsl::elm::Element *MainGui::createUI() {
 
     auto onClickRestartSysModule = [](u64 keys) -> bool {
         if (keys & HidNpadButton_A) {
-            // TODO: launch the sysmodule / applet via pmshell or similar
-            // update() will automatically detect when it is online
+            if (R_SUCCEEDED(pmshellInitialize())) {
+                pmshellTerminateProgram(SYSMODULE_TITLE_ID);
+                svcSleepThread(100'000'000LL);
+
+                constexpr NcmProgramLocation programLocation {
+                    .program_id = SYSMODULE_TITLE_ID,
+                    .storageID = NcmStorageId_None,
+                };
+                u64 pid = 0;
+                pmshellLaunchProgram(0, &programLocation, &pid);
+                pmshellExit();
+                svcSleepThread(100'000'000LL);
+            }
             return true;
         }
         return false;
