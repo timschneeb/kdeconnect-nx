@@ -88,6 +88,22 @@ std::optional<PairedDeviceInfo> Storage::load_paired_device(const std::string& d
     return info;
 }
 
+std::vector<std::string> Storage::list_paired_device_ids() const {
+    std::vector<std::string> ids;
+    const auto paired_dir = base_path_ / "paired";
+#ifdef __SWITCH__
+    std::lock_guard lock(s_fs_mutex);
+#endif
+    std::error_code ec;
+    for (const auto& entry : std::filesystem::directory_iterator(paired_dir, ec)) {
+        if (ec) break;
+        const auto& p = entry.path();
+        if (p.extension() == ".json")
+            ids.push_back(p.stem().string());
+    }
+    return ids;
+}
+
 bool Storage::file_exists(const std::string& path) {
 #if defined(__SWITCH__)
     std::lock_guard lock(s_fs_mutex);

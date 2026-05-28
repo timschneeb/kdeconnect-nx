@@ -109,8 +109,9 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
             return 0;
 
         case KdecIpcCmd_GetDeviceCount: {
-            *out_size = sizeof(uint32_t);
-            *reinterpret_cast<uint32_t*>(out_data) = client->devices().size();
+ 3#ü           *out_size = sizeof(uint32_t);
+y            *reinterpret_cast<uint32_t*>(out_data) =
+                client->devices().size() + client->offline_paired_devices().size();
             return 0;
         }
 
@@ -161,6 +162,19 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
                 }
 
                 sess->plugin<BatteryPlugin>()->read_remote_state(info.battery_level, info.is_charging);
+                count++;
+            }
+
+            // Append paired devices that have no active session (offline/disconnected).
+            for (const auto& pdev : client->offline_paired_devices()) {
+                if ((count + 1) * sizeof(KdecDeviceInfo) > recv_size) break;
+                KdecDeviceInfo& info = recv_buf[count];
+                memset(&info, 0, sizeof(info));
+                strncpy(info.id,   pdev.info.id.c_str(),   KDEC_DEVICE_ID_MAX   - 1);
+                strncpy(info.name, pdev.info.name.c_str(), KDEC_DEVICE_NAME_MAX - 1);
+                info.pair_state   = DevicePairState::Paired;
+                info.is_connected = false;
+                info.battery_level = -1;
                 count++;
             }
 

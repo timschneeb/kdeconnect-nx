@@ -32,6 +32,7 @@ public:
 
   std::unordered_map<std::string, std::shared_ptr<DeviceSession>> devices() const override;
   std::shared_ptr<DeviceSession> device(const std::string &device_id) const override;
+  std::vector<PairedDeviceInfo> offline_paired_devices() const;
 
   void request_pair(const std::string &device_id);
   void accept_pair(const std::string &device_id);

@@ -419,8 +419,7 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, ScopedF
 
     std::string peer_pem = TlsContext::peer_cert_pem(*tls_session);
     if (peer_pem.empty() && tcp_server_side) {
-        Logger::warn("Peer did not present a TLS certificate for device %s (%s)", identity.id.c_str(),
-                 tcp_server_side ? "server-side" : "client-side");
+        Logger::warn("Peer did not present a TLS certificate for device %s (server-side)", identity.id.c_str());
         return;
     }
 
@@ -518,6 +517,15 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, ScopedF
         NotificationPlugin::post_notification(
             "kdeconnect", session->info.name, "Connected",
             "connect_" + session->info.id);
+    }
+
+    if (!session->paired) {
+        // Send an unpair packet in case the remote still thinks we are connected after doing an offline unpair
+        NetworkPacket pkt;
+        pkt.type = PacketTypes::Pair;
+        pkt.body = nlohmann::json::object();
+        pkt.body["pair"] = false;
+        send_packet(identity.id, pkt);
     }
 
     // Quirk: the desktop client will not display us as connected, until we send another packet, so just resend the identity packet.
@@ -831,7 +839,12 @@ void KdeConnectClient::unpair(const std::string& device_id) {
     Logger::info("Requesting unpair for %s", device_id.c_str());
 
     auto session = device(device_id);
-    if (!session) return;
+    if (!session) {
+        // Device is offline — remove from storage directly, no packet can be sent.
+        storage_.remove_paired_device(device_id);
+        Logger::info("Unpaired offline device %s", device_id.c_str());
+        return;
+    }
 
     if (!session->paired) {
         Logger::warn("Device not paired: %s",
@@ -849,6 +862,17 @@ void KdeConnectClient::unpair(const std::string& device_id) {
         storage_.remove_paired_device(session->info.id);
         Logger::info("Unpaired from %s", session->info.name.c_str());
     }
+}
+
+std::vector<PairedDeviceInfo> KdeConnectClient::offline_paired_devices() const {
+    const auto active = devices();
+    std::vector<PairedDeviceInfo> offline;
+    for (const auto& id : storage_.list_paired_device_ids()) {
+        if (active.count(id)) continue;
+        auto info = storage_.load_paired_device(id);
+        if (info) offline.push_back(std::move(*info));
+    }
+    return offline;
 }
 
 bool KdeConnectClient::send_packet(const std::string& device_id, const NetworkPacket& pkt) {

@@ -26,6 +26,8 @@ public:
     [[nodiscard]] std::filesystem::path cert_path() const;
     [[nodiscard]] std::filesystem::path key_path() const;
 
+    [[nodiscard]] std::vector<std::string> list_paired_device_ids() const;
+
     static std::string read_file(const std::string& path);
     static bool write_file(const std::string& path, const std::string& data);
     static bool file_exists(const std::string& path);
