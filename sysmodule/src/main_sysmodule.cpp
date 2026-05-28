@@ -72,6 +72,10 @@ void __appExit(void)
 }
 }
 
+#ifdef MEM_DEBUG
+static uint8_t tick = 0;
+#endif
+
 int main(int argc, char* argv[])
 {
     std::set_terminate([]() {
@@ -105,14 +109,15 @@ int main(int argc, char* argv[])
     while (true) {
         app.processEvents();
 
-#ifndef MEM_DEBUG
-        svcSleepThread(100'000'000LL);
-#else
-        const auto mem = get_mem_stats();
-        Logger::info("Heap : %5zu KB used / %5zu KB total  (peak %5zu KB)", mem.heap_used_kb, mem.heap_total_kb, mem.heap_peak_kb);
-
-        svcSleepThread(1'000'000'000LL);
+#ifdef MEM_DEBUG
+        if (tick >= 10) {
+            const auto mem = get_mem_stats();
+            Logger::info("Heap : %5zu KB used / %5zu KB total  (peak %5zu KB)", mem.heap_used_kb, mem.heap_total_kb, mem.heap_peak_kb);
+            tick = 0;
+        }
+        tick++;
 #endif
+        svcSleepThread(100'000'000LL);
     }
     return 0;
 }
