@@ -661,6 +661,8 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
 
 void KdeConnectClient::handle_pair_packet(const std::shared_ptr<DeviceSession>& session, const nlohmann::json& body) {
     bool wants_pair = body.value("pair", false);
+    Logger::info("Got pair packet from %s (wants_pair=%d) %s", session->info.name.c_str(), wants_pair, body.dump(-1).c_str());
+
     if (wants_pair) {
         long timestamp = body.value("timestamp", 0L);
         long now = std::chrono::duration_cast<std::chrono::seconds>(
@@ -804,6 +806,8 @@ void KdeConnectClient::reject_pair(const std::string& device_id) {
 }
 
 void KdeConnectClient::unpair(const std::string& device_id) {
+    Logger::info("Requesting unpair for %s", device_id.c_str());
+
     auto session = device(device_id);
     if (!session) return;
 
