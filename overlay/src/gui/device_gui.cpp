@@ -1,5 +1,6 @@
 #include "device_gui.h"
 #include "commands_gui.h"
+#include "main_gui.h"
 #include "media_gui.h"
 #include "volume_gui.h"
 #include "gui_common.h"
@@ -36,14 +37,14 @@ tsl::elm::Element* DeviceGui::createUI() {
         case DevicePairState::RequestedByPeer: {
             auto* accept = new tsl::elm::ListItem("Accept pair request");
             accept->setClickListener([id](u64 keys) -> bool {
-                if (keys & HidNpadButton_A) { kdecIpcAcceptPair(id); tsl::goBack(); return true; }
+                if (keys & HidNpadButton_A) { kdecIpcAcceptPair(id); tsl::swapTo<MainGui>(SwapDepth{2}); return true; }
                 return false;
             });
             list->addItem(accept);
 
             auto* reject = new tsl::elm::ListItem("Reject pair request");
             reject->setClickListener([id](u64 keys) -> bool {
-                if (keys & HidNpadButton_A) { kdecIpcRejectPair(id); tsl::goBack(); return true; }
+                if (keys & HidNpadButton_A) { kdecIpcRejectPair(id); tsl::swapTo<MainGui>(SwapDepth{2}); return true; }
                 return false;
             });
             list->addItem(reject);
@@ -52,7 +53,7 @@ tsl::elm::Element* DeviceGui::createUI() {
         case DevicePairState::None: {
             auto* pair = new tsl::elm::ListItem("Request pair");
             pair->setClickListener([id](u64 keys) -> bool {
-                if (keys & HidNpadButton_A) { kdecIpcRequestPair(id); tsl::goBack(); return true; }
+                if (keys & HidNpadButton_A) { kdecIpcRequestPair(id); tsl::swapTo<MainGui>(SwapDepth{2}); return true; }
                 return false;
             });
             list->addItem(pair);
@@ -132,7 +133,7 @@ tsl::elm::Element* DeviceGui::createUI() {
         auto* unpair = new tsl::elm::ListItem("Unpair");
         unpair->setValue(sym::cancel, true);
         unpair->setClickListener([id](u64 keys) -> bool {
-            if (keys & HidNpadButton_A) { kdecIpcUnpair(id); tsl::goBack(); return true; }
+            if (keys & HidNpadButton_A) { kdecIpcUnpair(id); tsl::swapTo<MainGui>(SwapDepth{2}); return true; }
             return false;
         });
         list->addItem(unpair);
