@@ -95,6 +95,14 @@ bool connect_with_timeout(int fd, const sockaddr_in& addr, int timeout_ms) {
 
 } // namespace
 
+DeviceProvider::DeviceSession::~DeviceSession() {
+    // Safety net: if this destructor is reached with io_thread still joinable,
+    // the thread is the sole owner of 'this'. Detach
+    // rather than join to avoid std::terminate. io_loop has already returned at
+    // this point so the thread exits on its own.
+    if (io_thread.joinable()) io_thread.detach();
+}
+
 KdeConnectClient::KdeConnectClient(Storage storage) : storage_(std::move(storage)) {
     local_device_ = storage_.load_or_create_local_device(this);
 }
@@ -469,6 +477,12 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, ScopedF
 
     PluginRegistry::instantiate_plugins(this, session->info.id, session->plugins);
 
+    // Start io_thread before map insertion. Without this ordering, a concurrent
+    // handle_new_connection for the same device can race in, find the session in
+    // the map with io_thread not yet started (not joinable), skip the join, and
+    // drop the reference. -> thread will be destructed without join -> std::terminate called.
+    session->io_thread = std::thread(&KdeConnectClient::io_loop, this, session);
+
     std::shared_ptr<DeviceSession> old_session;
     {
         std::lock_guard lock(session_mutex_);
@@ -505,8 +519,6 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, ScopedF
             "kdeconnect", session->info.name, "Connected",
             "connect_" + session->info.id);
     }
-
-    session->io_thread = std::thread(&KdeConnectClient::io_loop, this, session);
 
     // Quirk: the desktop client will not display us as connected, until we send another packet, so just resend the identity packet.
     send_packet(identity.id, NetworkUtil::make_identity_packet(local_device_, identity.id, identity.protocol_version, tcp_port_));

@@ -47,6 +47,8 @@ public:
 
         std::vector<std::unique_ptr<Plugin>> plugins;
 
+        ~DeviceSession();
+
         template<typename T>
         T* plugin() {
             for (const auto& plugin : plugins) {
