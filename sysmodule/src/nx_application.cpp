@@ -12,7 +12,7 @@
 #include "utils/mem_debug.h"
 #include "ipc/ipc_service.h"
 
-constexpr bool enable_mdns = false;
+constexpr bool kEnableMdns = true;
 
 NxApplication::NxApplication() : was_online_(false), storage_(Storage()),
                                  last_restart_(std::chrono::steady_clock::now()),
@@ -29,7 +29,7 @@ NxApplication::NxApplication() : was_online_(false), storage_(Storage()),
 
     client_ = std::make_shared<KdeConnectClient>(storage_);
 
-    if (!client_->start(enable_mdns))
+    if (!client_->start(kEnableMdns))
         Logger::error("Failed to start KDE Connect client");
 
     ipc_service_ = std::make_unique<IpcService>(this);
@@ -49,7 +49,7 @@ void NxApplication::restart_client(const char* reason) {
     Logger::info(reason);
     last_restart_ = std::chrono::steady_clock::now();
     client_ = std::make_shared<KdeConnectClient>(storage_);
-    if (!client_->start(enable_mdns)) {
+    if (!client_->start(kEnableMdns)) {
         Logger::error("Failed to restart client.");
     }
 }

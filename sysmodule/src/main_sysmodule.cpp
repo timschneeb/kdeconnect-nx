@@ -85,25 +85,29 @@ void __appExit(void)
 int main(int argc, char* argv[])
 {
     std::set_terminate([]() {
-        try {
-            std::rethrow_exception(std::current_exception());
-        } catch (const std::exception& e) {
-            Logger::error("terminate: unhandled exception: %s", e.what());
-        } catch (...) {
-            Logger::error("terminate: unhandled exception of unknown type");
-        }
-        svcSleepThread(500'000'000LL); // give log time to flush
-
-        // Try to kill self instead of taking down the whole system
-        if (R_SUCCEEDED(pmshellInitialize())) {
-            u64 id;
-            if (R_SUCCEEDED(svcGetProcessId(&id, CUR_PROCESS_HANDLE))) {
-                pmshellTerminateProcess(id);
-                pmshellExit();
-                svcSleepThread(500'000'000LL); // wait for termination
+        if (auto eptr = std::current_exception()) {
+            try {
+                std::rethrow_exception(eptr);
+            } catch (const std::exception& e) {
+                Logger::error("terminate: unhandled exception: %s", e.what());
+            } catch (...) {
+                Logger::error("terminate: unhandled exception of unknown type");
             }
+
+            svcSleepThread(500'000'000LL); // give log time to flush
+            // Try to kill self instead of taking down the whole system
+            if (R_SUCCEEDED(pmshellInitialize())) {
+                u64 id;
+                if (R_SUCCEEDED(svcGetProcessId(&id, CUR_PROCESS_HANDLE))) {
+                    pmshellTerminateProcess(id);
+                    pmshellExit();
+                    svcSleepThread(500'000'000LL); // wait for termination
+                }
+            }
+            std::abort();
+        } else {
+            Logger::error("terminate: called without active exception (joinable thread destroyed?)");
         }
-        std::abort();
     });
 
     Logger::open_log_file("kdeconnect_sysmodule");
