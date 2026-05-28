@@ -98,21 +98,21 @@ int main(int argc, char* argv[])
             } catch (...) {
                 Logger::error("terminate: unhandled exception of unknown type");
             }
-
-            svcSleepThread(500'000'000LL); // give log time to flush
-            // Try to kill self instead of taking down the whole system
-            if (R_SUCCEEDED(pmshellInitialize())) {
-                u64 id;
-                if (R_SUCCEEDED(svcGetProcessId(&id, CUR_PROCESS_HANDLE))) {
-                    pmshellTerminateProcess(id);
-                    pmshellExit();
-                    svcSleepThread(500'000'000LL); // wait for termination
-                }
-            }
-            std::abort();
         } else {
             Logger::error("terminate: called without active exception (joinable thread destroyed?)");
         }
+
+        svcSleepThread(500'000'000LL); // give log time to flush
+        // Try to kill self instead of taking down the whole system
+        if (R_SUCCEEDED(pmshellInitialize())) {
+            u64 id;
+            if (R_SUCCEEDED(svcGetProcessId(&id, CUR_PROCESS_HANDLE))) {
+                pmshellTerminateProcess(id);
+                pmshellExit();
+                svcSleepThread(500'000'000LL); // wait for termination
+            }
+        }
+        std::abort();
     });
 
     Logger::open_log_file("kdeconnect_sysmodule");
