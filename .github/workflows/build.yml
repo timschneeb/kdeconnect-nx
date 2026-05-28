@@ -12,14 +12,37 @@ jobs:
     container:
       image: devkitpro/devkita64:20260219
 
+    env:
+      CCACHE_DIR: /ccache
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
+      - name: Install ccache
+        run: apt-get update -q && apt-get install -y -q ccache cmake
+
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: /ccache
+          key: ccache-${{ github.sha }}
+          restore-keys: ccache-
+
+      - name: Restore FetchContent cache
+        uses: actions/cache@v4
+        with:
+          path: /fetchcontent
+          key: fetchcontent-${{ hashFiles('CMakeLists.txt', 'sysmodule/libs/mbedtls/CMakeLists.txt') }}
+
       - name: Configure
-        run: cmake --preset switch-release
+        run: |
+          cmake --preset switch-release \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DFETCHCONTENT_BASE_DIR=/fetchcontent
 
       - name: Build
         run: cmake --build --preset switch-release
