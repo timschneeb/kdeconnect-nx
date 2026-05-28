@@ -46,7 +46,12 @@ void __appInit(void)
             .tcp_rx_buf_max_size = 64 * 1024,
             .udp_tx_buf_size     = 8 * 1024,
             .udp_rx_buf_size     = 16 * 1024,
+#ifdef NXLINK_ENABLED
             .sb_efficiency       = 3,
+#else
+            .sb_efficiency       = 2,
+#endif
+
             .bsd_service_type    = BsdServiceType_Auto
         };
 
