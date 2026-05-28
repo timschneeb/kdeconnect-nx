@@ -589,7 +589,6 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
         constexpr size_t kChunkSize = 16384 * 4;
         auto chunk = std::make_unique<uint8_t[]>(kChunkSize);
         int64_t remaining = packet.payload_size;
-        // TODO: remove duplicated debug code
 #if defined(__SWITCH__)
         FsFileSystem* fs = fsdevGetDeviceFileSystem("sdmc");
         if (!fs) {
@@ -635,34 +634,6 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
         }
         Logger::info("Streamed payload to %s", file_path.c_str());
         return true;
-#else
-        // TODO: remove this
-        FILE* f = std::fopen(file_path.c_str(), "wb");
-
-        while (remaining > 0 && !session->disconnected.load()) {
-            size_t to_read = static_cast<size_t>(std::min(static_cast<int64_t>(kChunkSize), remaining));
-            int ret = mbedtls_ssl_read(&tls_session->ssl, chunk.get(), to_read);
-            if (ret <= 0) break;
-            if (f) std::fwrite(chunk.get(), 1, static_cast<size_t>(ret), f);
-            remaining -= ret;
-        }
-
-        mbedtls_ssl_close_notify(&tls_session->ssl);
-
-        const bool aborted = session->disconnected.load() || remaining > 0;
-        if (f) {
-            std::fclose(f);
-            if (aborted) {
-                Logger::info("Download aborted");
-                std::remove(file_path.c_str());
-                return false;
-            }
-            Logger::info("Streamed payload to %s", file_path.c_str());
-            return true;
-        } else {
-            Logger::error("Failed to open %s for writing", file_path.c_str());
-            return false;
-        }
 #endif
     } else {
         // Buffer to memory with a 64KB cap (used for small payloads like app icons).
