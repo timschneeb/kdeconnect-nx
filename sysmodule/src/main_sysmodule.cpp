@@ -7,7 +7,10 @@
 #include "nx_application.h"
 #include "utils/logger.h"
 
+#ifdef DEBUG
 #define MEM_DEBUG
+#endif
+
 #include "src/utils/mem_debug.h"
 
 #define INNER_HEAP_SIZE 3'000'000 // 3MB

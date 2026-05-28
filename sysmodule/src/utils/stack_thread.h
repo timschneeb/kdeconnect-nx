@@ -10,7 +10,9 @@
 
 #include "logger.h"
 
+#ifdef DEBUG
 #define STACK_THREAD_MEASURE
+#endif
 
 // Drop-in replacement for std::thread with an explicit stack size.
 // Move-only; must be joined or detached before destruction.
