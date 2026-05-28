@@ -43,4 +43,19 @@ add_subdirectory(tools)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch")
     add_subdirectory(overlay)
+
+    set(STAGE_DIR "${CMAKE_BINARY_DIR}/stage")
+    add_custom_target(publish
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "${STAGE_DIR}/atmosphere/contents"
+            "${STAGE_DIR}/switch/.overlays"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_BINARY_DIR}/sysmodule/${MINIKDECONNECT_TID}"
+            "${STAGE_DIR}/atmosphere/contents/${MINIKDECONNECT_TID}"
+        COMMAND ${CMAKE_COMMAND} -E copy
+            "${CMAKE_BINARY_DIR}/overlay/MiniKDEConnect_overlay.ovl"
+            "${STAGE_DIR}/switch/.overlays/kdeconnect-nx.ovl"
+        DEPENDS MiniKDEConnect_sysmodule_nsp MiniKDEConnect_overlay
+        COMMENT "Staging SD card layout to ${STAGE_DIR}"
+    )
 endif()

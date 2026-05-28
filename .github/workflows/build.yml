@@ -40,27 +40,19 @@ jobs:
       - name: Configure
         run: |
           cmake --preset switch-release \
+            -DBUILD_APPLET=OFF \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DFETCHCONTENT_BASE_DIR=/fetchcontent
 
       - name: Build
-        run: cmake --build --preset switch-release
-
-      - name: Stage artifact
-        run: |
-          mkdir -p artifact/atmosphere/contents
-          mkdir -p artifact/switch/.overlays
-          cp -r cmake-build-release-devkita64/sysmodule/4DE000000C011EC7 \
-             artifact/atmosphere/contents/4DE000000C011EC7
-          cp cmake-build-release-devkita64/overlay/MiniKDEConnect_overlay.ovl \
-             artifact/switch/.overlays/kdeconnect-nx.ovl
+        run: cmake --build --preset switch-release --target publish
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: kdeconnect-nx
-          path: artifact/
+          path: cmake-build-release-devkita64/stage/
           include-hidden-files: true
 
       - name: Upload ELF files
