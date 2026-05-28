@@ -700,6 +700,8 @@ void KdeConnectClient::handle_pair_packet(const std::shared_ptr<DeviceSession>& 
                        .count();
         if (timestamp != 0 && std::llabs(now - timestamp) > kPairingWindowSeconds) {
             Logger::warn("Pair request rejected due to clock skew.");
+            NotificationPlugin::post_notification("kdeconnect", session->info.name,
+                "Pair request rejected due to clock skew. Check the system time.", session->info.id + "_error");
             return;
         }
 
@@ -712,6 +714,9 @@ void KdeConnectClient::handle_pair_packet(const std::shared_ptr<DeviceSession>& 
             session->paired = true;
             storage_.save_paired_device(session->info, session->cert_pem);
             Logger::info("Pairing completed with %s", session->info.name.c_str());
+
+            NotificationPlugin::post_notification("kdeconnect", session->info.name,
+                "Pair request accepted", session->info.id + "_accepted");
             return;
         }
 
@@ -720,14 +725,20 @@ void KdeConnectClient::handle_pair_packet(const std::shared_ptr<DeviceSession>& 
         std::string key = verification_key(session, timestamp);
         Logger::info("Pair request from %s (key %s).", session->info.name.c_str(), key.c_str());
         Logger::info("Type: accept %s or reject %s", session->info.id.c_str(), session->info.id.c_str());
+
+        NotificationPlugin::post_notification("kdeconnect", session->info.name,
+            "Incoming pair request. Open the overlay to accept. Key: " + key, session->info.id + "_incoming");
     } else {
         auto previous_pair_state = session->pair_state;
         session->pair_state = PairState::NotPaired;
         session->paired = false;
         storage_.remove_paired_device(session->info.id);
 
-        if (previous_pair_state == PairState::Requested)
+        if (previous_pair_state == PairState::Requested) {
+            NotificationPlugin::post_notification("kdeconnect", session->info.name,
+                "Pair request denied", session->info.id + "_denied");
             Logger::info("Pair request denied by %s", session->info.name.c_str());
+        }
         else
             Logger::info("Unpaired from %s", session->info.name.c_str());
     }
@@ -840,7 +851,7 @@ void KdeConnectClient::unpair(const std::string& device_id) {
 
     auto session = device(device_id);
     if (!session) {
-        // Device is offline — remove from storage directly, no packet can be sent.
+        // Device is offline: remove from storage directly
         storage_.remove_paired_device(device_id);
         Logger::info("Unpaired offline device %s", device_id.c_str());
         return;

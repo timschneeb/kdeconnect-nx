@@ -3,7 +3,8 @@
 #include <cstdint>
 
 // X-macro tables: X(enum_name, default_value)
-// NOTE: Do not change order or enum entry names after release!
+// NOTE: Do not enum entry names after release! They are written to JSON.
+//       If the order is changed, the API version must be incremented. IPC uses enum number values.
 
 #define KDEC_BOOL_SETTINGS(X) \
     X(NotificationShowRemoteMessages, true)  \
