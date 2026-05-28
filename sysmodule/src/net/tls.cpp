@@ -198,16 +198,23 @@ bool TlsContext::load_from_files(const std::string& cert_path, const std::string
     std::string cert_pem = Storage::read_file(cert_path);
     std::string key_pem = Storage::read_file(key_path);
     if (cert_pem.empty() || key_pem.empty()) {
+        Logger::error("Local certificate and/or key do not exist");
         return false;
     }
-    int ret = mbedtls_x509_crt_parse(&cert_, reinterpret_cast<const unsigned char*>(cert_pem.c_str()), cert_pem.size() + 1);
+
+    char errbuf[128];
+
+    int ret = mbedtls_x509_crt_parse(&cert_, reinterpret_cast<const unsigned char *>(cert_pem.c_str()), cert_pem.size() + 1);
     if (ret != 0) {
+        mbedtls_strerror(ret, errbuf, sizeof(errbuf));
+        Logger::error("Failed to parse local certificate: %s", errbuf);
         return false;
     }
 
     ret = mbedtls_pk_parse_key(&key_, reinterpret_cast<const unsigned char*>(key_pem.c_str()), key_pem.size() + 1, nullptr, 0);
-
     if (ret != 0) {
+        mbedtls_strerror(ret, errbuf, sizeof(errbuf));
+        Logger::error("Failed to parse local key: %s", errbuf);
         return false;
     }
 
@@ -216,6 +223,7 @@ bool TlsContext::load_from_files(const std::string& cert_path, const std::string
     std::string subject(buf);
     auto pos = subject.find("CN=");
     if (pos == std::string::npos) {
+        Logger::error("Certificate subject has invalid format: %s", buf);
         mbedtls_x509_crt_free(&cert_);
         mbedtls_x509_crt_init(&cert_);
         mbedtls_pk_free(&key_);

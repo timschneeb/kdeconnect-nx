@@ -118,22 +118,29 @@ std::string Storage::read_file(const std::string &path) {
     if (!fs) return {};
 
     FsFile file;
-    if (R_FAILED(fsFsOpenFile(fs, path.c_str(), FsOpenMode_Read, &file))) {
+    Result rc;
+
+    if (rc = fsFsOpenFile(fs, path.c_str(), FsOpenMode_Read, &file); R_FAILED(rc)) {
+        Logger::error("Failed to open file %s: %d-%d", path.c_str(), R_MODULE(rc), R_DESCRIPTION(rc));
         return {};
     }
 
     s64 size = 0;
-    if (R_FAILED(fsFileGetSize(&file, &size)) || size <= 0) {
+    if (rc = fsFileGetSize(&file, &size); R_FAILED(rc) || size <= 0) {
+        Logger::error("Failed to get file size of %s: %d-%d", path.c_str(), R_MODULE(rc), R_DESCRIPTION(rc));
         fsFileClose(&file);
         return {};
     }
 
     std::string out(static_cast<size_t>(size), '\0');
     u64 read = 0;
-    Result rc = fsFileRead(&file, 0, out.data(), static_cast<size_t>(size), FsReadOption_None, &read);
+    rc = fsFileRead(&file, 0, out.data(), static_cast<size_t>(size), FsReadOption_None, &read);
     fsFileClose(&file);
-    if (R_FAILED(rc) || read == 0) return {};
-    if (read < static_cast<u64>(size)) out.resize(static_cast<size_t>(read));
+    if (R_FAILED(rc) || read == 0) {
+        Logger::error("Failed to read file %s: %d-%d", path.c_str(), R_MODULE(rc), R_DESCRIPTION(rc));
+        return {};
+    }
+    if (read < static_cast<u64>(size)) out.resize(read);
     return out;
 #else
     FILE* f = fopen(path.c_str(), "rb");
@@ -160,19 +167,27 @@ bool Storage::write_file(const std::string &path, const std::string &data) {
     fsFsCreateFile(fs, path.c_str(), static_cast<s64>(data.size()), 0);
 
     FsFile file;
-    if (R_FAILED(fsFsOpenFile(fs, path.c_str(), FsOpenMode_Write, &file))) {
+    Result rc;
+
+    if (rc = fsFsOpenFile(fs, path.c_str(), FsOpenMode_Write, &file); R_FAILED(rc)) {
+        Logger::error("Failed to open file %s: %d-%d", path.c_str(), R_MODULE(rc), R_DESCRIPTION(rc));
         return false;
     }
 
     // Resize to match actual data: required when overwriting a smaller file.
-    if (R_FAILED(fsFileSetSize(&file, static_cast<s64>(data.size())))) {
+    if (rc = fsFileSetSize(&file, static_cast<s64>(data.size())); R_FAILED(rc)) {
+        Logger::error("Failed to set file size of %s: %d-%d", path.c_str(), R_MODULE(rc), R_DESCRIPTION(rc));
         fsFileClose(&file);
         return false;
     }
 
-    Result rc = fsFileWrite(&file, 0, data.data(), data.size(), FsWriteOption_Flush);
+    rc = fsFileWrite(&file, 0, data.data(), data.size(), FsWriteOption_Flush);
     fsFileClose(&file);
-    return R_SUCCEEDED(rc);
+    if (R_FAILED(rc)) {
+        Logger::error("Failed to write file %s: %d-%d", path.c_str(), R_MODULE(rc), R_DESCRIPTION(rc));
+        return false;
+    }
+    return true;
 #else
     FILE* f = fopen(path.c_str(), "wb");
     if (!f) return false;
