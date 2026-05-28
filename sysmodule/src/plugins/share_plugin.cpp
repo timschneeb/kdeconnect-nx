@@ -64,7 +64,7 @@ bool SharePlugin::on_packet_received(const NetworkPacket& np) {
         auto sep = base.find_last_of("/\\");
         if (sep != std::string::npos) base = base.substr(sep + 1);
         if (base.empty()) base = "received_file";
-        const std::string path = "sdmc:/" + base;
+        const std::string path = "/" + base;
 
         std::string notify_body;
         auto np_with_payload = np;

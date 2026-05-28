@@ -590,14 +590,14 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
             return false;
         }
 
-        std::filesystem::create_directories(std::filesystem::path(file_path).parent_path());
+        std::filesystem::create_directories(std::filesystem::path("sdmc:" + file_path).parent_path());
         fsFsCreateFile(fs, file_path.c_str(), 0, 0);
 
         FsFile file;
         Result rc;
 
-        if (rc = fsFsOpenFile(fs, file_path.c_str(), FsOpenMode_Write, &file); R_FAILED(rc)) {
-            Logger::error("Failed to open %s for writing", file_path.c_str());
+        if (rc = fsFsOpenFile(fs, file_path.c_str(), FsOpenMode_Write | FsOpenMode_Append, &file); R_FAILED(rc)) {
+            Logger::error("Failed to open %s for writing: %d-%d", file_path.c_str(), R_MODULE(rc), R_DESCRIPTION(rc));
             mbedtls_ssl_close_notify(&tls_session->ssl);
             return false;
         }
