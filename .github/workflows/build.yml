@@ -61,3 +61,11 @@ jobs:
         with:
           name: kdeconnect-nx
           path: artifact/*
+
+      - name: Upload ELF files
+        uses: actions/upload-artifact@v4
+        with:
+          name: kdeconnect-nx-elf
+          path: |
+            cmake-build-release-devkita64/sysmodule/MiniKDEConnect_sysmodule.elf
+            cmake-build-release-devkita64/overlay/MiniKDEConnect_overlay.elf
