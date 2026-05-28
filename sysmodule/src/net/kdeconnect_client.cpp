@@ -565,10 +565,16 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
     addr.sin_family = AF_INET;
     addr.sin_port = htons(static_cast<uint16_t>(packet.payload_port));
     if (inet_pton(AF_INET, session->peer_host.c_str(), &addr.sin_addr) != 1) return false;
-    if (connect(fd.raw, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) return false;
+    if (connect(fd.raw, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
+        Logger::error("Failed to connect to peer for payload download (port %d): %s", packet.payload_port, strerror(errno));
+        return false;
+    }
 
     auto tls_session = tls_.create_session(fd.raw, true);
-    if (!tls_session || !NetworkUtil::perform_tls_handshake(*tls_session)) return false;
+    if (!tls_session || !NetworkUtil::perform_tls_handshake(*tls_session)) {
+        Logger::error("download_payload: TLS handshake failed");
+        return false;
+    }
 
     if (!file_path.empty()) {
         // Stream directly to file
@@ -579,6 +585,7 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
 #if defined(__SWITCH__)
         FsFileSystem* fs = fsdevGetDeviceFileSystem("sdmc");
         if (!fs) {
+            Logger::error("downloadPayload: fsdevGetDeviceFileSystem failed");
             mbedtls_ssl_close_notify(&tls_session->ssl);
             return false;
         }
@@ -587,17 +594,21 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
         fsFsCreateFile(fs, file_path.c_str(), 0, 0);
 
         FsFile file;
-        if (R_FAILED(fsFsOpenFile(fs, file_path.c_str(), FsOpenMode_Write, &file))) {
+        Result rc;
+
+        if (rc = fsFsOpenFile(fs, file_path.c_str(), FsOpenMode_Write, &file); R_FAILED(rc)) {
+            Logger::error("Failed to open %s for writing", file_path.c_str());
             mbedtls_ssl_close_notify(&tls_session->ssl);
             return false;
         }
 
-        s64 offset = 0;
+        u64 offset = 0;
         while (remaining > 0 && !session->disconnected.load()) {
             size_t to_read = static_cast<size_t>(std::min(static_cast<int64_t>(kChunkSize), remaining));
             int ret = mbedtls_ssl_read(&tls_session->ssl, chunk.get(), to_read);
             if (ret <= 0) break;
-            if (R_FAILED(fsFileWrite(&file, offset, chunk.get(), static_cast<size_t>(ret), FsWriteOption_None))) {
+            if (rc = fsFileWrite(&file, offset, chunk.get(), static_cast<size_t>(ret), FsWriteOption_None); R_FAILED(rc)) {
+                Logger::error("Failed to write to %s (offset 0x%lx, length 0x%x): %d-%d", file_path.c_str(), offset, ret, R_MODULE(rc), R_DESCRIPTION(rc));
                 break;
             }
             offset += ret;
@@ -648,8 +659,7 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
     } else {
         // Buffer to memory with a 64KB cap (used for small payloads like app icons).
         if (packet.payload_size > 65536) {
-            Logger::warn("Payload size %lld exceeds in-memory cap, truncating.",
-                     static_cast<long long>(packet.payload_size));
+            Logger::warn("Payload size %ld exceeds in-memory cap, truncating.", packet.payload_size);
         }
 
         const int64_t cap = std::min(packet.payload_size, static_cast<int64_t>(65536));

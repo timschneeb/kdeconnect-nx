@@ -102,7 +102,7 @@ bool MprisPlugin::on_packet_received(const NetworkPacket& np) {
         std::string who = state_.artist.empty() ? state_.title : state_.artist + " - " + state_.title;
         Logger::info("'%s' %s %s", player.c_str(),
                  state_.is_playing ? "[playing]" : "[paused]",
-                 who);
+                 who.c_str());
         return true;
     }
 
