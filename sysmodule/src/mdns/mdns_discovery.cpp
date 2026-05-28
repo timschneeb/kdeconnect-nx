@@ -23,7 +23,7 @@
 #include <chrono>
 #include <memory>
 #include <string_view>
-#include <thread>
+#include "utils/stack_thread.h"
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -281,7 +281,7 @@ struct MdnsDiscovery::Impl {
         announced = build_announced_info();
         announce(false);
         send_query();
-        mdns_thread = std::thread(&Impl::mdns_loop, this);
+        mdns_thread = StackThread(32 * 1024, "kc-mdns", &Impl::mdns_loop, this);
         return true;
     }
     void stop() {
@@ -390,7 +390,7 @@ struct MdnsDiscovery::Impl {
     int discovery_socket = -1;
     sockaddr_in service_addr{};
     AnnouncedInfo announced;
-    std::thread mdns_thread;
+    StackThread mdns_thread;
 };
 MdnsDiscovery::MdnsDiscovery(const DeviceInfo& local_device, int tcp_port, PeerFoundCallback on_peer_found)
     : impl_(std::make_unique<Impl>(local_device, tcp_port, std::move(on_peer_found))) {}

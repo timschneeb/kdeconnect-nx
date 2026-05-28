@@ -9,6 +9,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "../utils/stack_thread.h"
+
 #include <nlohmann/json.hpp>
 
 #include "kdeconnect_types.h"
@@ -75,8 +77,8 @@ private:
 
   std::unique_ptr<MdnsDiscovery> mdns_discovery_;
 
-  std::thread network_thread_;
-  std::thread broadcast_thread_;
+  StackThread network_thread_;
+  StackThread broadcast_thread_;
 
   mutable std::mutex session_mutex_;
   std::unordered_map<std::string, std::shared_ptr<DeviceSession>> sessions_;

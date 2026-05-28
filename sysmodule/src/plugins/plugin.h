@@ -2,8 +2,9 @@
 
 #include <queue>
 #include <string>
-#include <thread>
 #include <vector>
+
+#include "../utils/stack_thread.h"
 
 #include "../net/kdeconnect_types.h"
 #include "../net/network_packet.h"
@@ -40,7 +41,7 @@ public:
 
         std::unique_ptr<TlsSession> tls;
         int fd = -1;
-        std::thread io_thread;
+        StackThread io_thread;
         std::mutex send_queue_mutex;
         std::queue<std::string> send_queue;
         std::atomic<bool> disconnected{false};
