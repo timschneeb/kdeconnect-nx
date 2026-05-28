@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <mutex>
 #include <string>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -14,6 +15,9 @@
 
 #include "../net/network_packet.h"
 #include "../plugins/plugin_registry.h"
+
+// The sdmc FsFileSystem session is not thread-safe. All FS operations hold this lock.
+static std::mutex s_fs_mutex;
 
 namespace {
 std::string hostname_or_default() {
@@ -66,8 +70,9 @@ DeviceInfo Storage::load_or_create_local_device(DeviceProvider* device_provider)
 
 std::optional<PairedDeviceInfo> Storage::load_paired_device(const std::string& device_id) const {
     auto path = paired_path(base_path_, device_id);
-    if (!std::filesystem::exists(path)) {
-        return std::nullopt;
+    {
+        std::lock_guard lock(s_fs_mutex);
+        if (!std::filesystem::exists(path)) return std::nullopt;
     }
     const std::string content = read_file(path);
     if (content.empty()) return std::nullopt;
@@ -95,6 +100,7 @@ void Storage::save_paired_device(const DeviceInfo& info, const std::string& cert
 
 auto Storage::remove_paired_device(const std::string &device_id) const -> void {
     const auto path = paired_path(base_path_, device_id);
+    std::lock_guard lock(s_fs_mutex);
     if (std::filesystem::exists(path)) {
         std::filesystem::remove(path);
     }
@@ -114,6 +120,7 @@ std::filesystem::path Storage::key_path() const {
 
 std::string Storage::read_file(const std::string &path) {
 #if defined(__SWITCH__)
+    std::lock_guard lock(s_fs_mutex);
     FsFileSystem* fs = fsdevGetDeviceFileSystem("sdmc");
     if (!fs) return {};
 
@@ -158,6 +165,7 @@ std::string Storage::read_file(const std::string &path) {
 
 bool Storage::write_file(const std::string &path, const std::string &data) {
 #if defined(__SWITCH__)
+    std::lock_guard lock(s_fs_mutex);
     FsFileSystem* fs = fsdevGetDeviceFileSystem("sdmc");
     if (!fs) return false;
 
