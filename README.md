@@ -1,19 +1,20 @@
 # kdeconnect-nx
 
-## Build
+## Building from source
 
 Prerequisites:
 * devkitPro
   * devkitA64
   * switch-curl
   * switch-zlib
- 
+
 ```
 cmake --preset "switch-release"
-cmake --build cmake-build-release-devkita64 -j 6
+cmake --build cmake-build-release-devkita64 -j 6 --target publish
 ```
+Copy `cmake-build-release-devkita64/stage/*` to the SD card on the Switch.
 
-## Remote logging
+### Remote logging
 
 This project uses a modified version of nxlink which implements custom port support, reconnection support, and support for sysmodules.
 With it, you can use multiple nxlink sessions simultaneously for the overlay and sysmodule.
@@ -44,6 +45,8 @@ cmake-build-debug-host/tools/nxtool -l -P 28771
 # Run server for the overlay to connect to:
 cmake-build-debug-host/tools/nxlink -l -P 28772
 ```
+
+###
 
 ## License
 
