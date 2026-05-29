@@ -49,7 +49,10 @@ public:
         smExit();
     }
 
-    void onShow() override {}
+    void onShow() override {
+        if (kdecIpcIsConnected())
+            kdecIpcSendBroadcast();
+    }
     void onHide() override {}
 
     std::unique_ptr<tsl::Gui> loadInitialGui() override {

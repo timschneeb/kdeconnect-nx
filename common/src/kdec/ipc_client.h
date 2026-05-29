@@ -35,3 +35,4 @@ Result kdecIpcSetVolumeSink(const std::string& device_id, const std::string& sin
 Result kdecIpcSendScreenshot(const std::string& device_id);
 Result kdecIpcGetMemoryInfo(KdecMemoryInfo& out);
 Result kdecIpcSendTestNotification();
+Result kdecIpcSendBroadcast();

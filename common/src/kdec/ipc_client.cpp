@@ -215,6 +215,10 @@ Result kdecIpcSendTestNotification() {
     return serviceDispatch(&g_kdecSrv, KdecIpcCmd_SendTestNotification);
 }
 
+Result kdecIpcSendBroadcast() {
+    return serviceDispatch(&g_kdecSrv, KdecIpcCmd_SendBroadcast);
+}
+
 Result kdecIpcGetMemoryInfo(KdecMemoryInfo& out) {
     return serviceDispatchOut(&g_kdecSrv, KdecIpcCmd_GetMemoryInfo, out);
 }

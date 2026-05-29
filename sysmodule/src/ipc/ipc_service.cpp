@@ -546,6 +546,10 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
                 "nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.", "");
             return 0;
 
+        case KdecIpcCmd_SendBroadcast:
+            client->send_broadcast();
+            return 0;
+
         default:
             return 1;
     }

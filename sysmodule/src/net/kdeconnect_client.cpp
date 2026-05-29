@@ -345,6 +345,18 @@ void KdeConnectClient::network_loop() {
     }
 }
 
+void KdeConnectClient::send_broadcast() {
+    if (udp_fd_ < 0) return;
+    Logger::info("Sending single UDP broadcast...");
+    NetworkPacket identity = NetworkUtil::make_identity_packet(local_device_, std::nullopt, std::nullopt, tcp_port_);
+    std::string payload = identity.serialize();
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(kUdpPort);
+    addr.sin_addr.s_addr = INADDR_BROADCAST;
+    sendto(udp_fd_, payload.data(), payload.size(), MSG_DONTWAIT, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+}
+
 void KdeConnectClient::udp_broadcast_loop() {
     int broadcast_count = 0;
     while (running_.load() && broadcast_count < 5) {

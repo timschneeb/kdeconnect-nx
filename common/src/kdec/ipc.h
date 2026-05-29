@@ -41,6 +41,7 @@ enum KdecIpcCmd {
     KdecIpcCmd_SendScreenshot        = 20,
     KdecIpcCmd_GetMemoryInfo         = 21,
     KdecIpcCmd_SendTestNotification  = 22,
+    KdecIpcCmd_SendBroadcast         = 23,
 };
 
 enum class DevicePairState : uint8_t {
