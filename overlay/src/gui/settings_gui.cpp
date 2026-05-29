@@ -1,11 +1,13 @@
 #include "settings_gui.h"
 #include "gui_common.h"
 #include "../utils/symbols.h"
+#include "elements/font_size_bar.h"
 
 #include <kdec/ipc_client.h>
 
-static constexpr int32_t kDurationSteps[] = {1000, 2000, 3000, 4000, 5000, 6000, 8000, 10000, 15000};
-static constexpr int32_t kSeekSteps[]     = {5000, 10000, 15000, 20000, 30000, 45000, 60000};
+static constexpr int32_t kDurationSteps[]  = {1000, 2000, 3000, 4000, 5000, 6000, 8000, 10000, 15000};
+static constexpr int32_t kSeekSteps[]      = {5000, 10000, 15000, 20000, 30000, 45000, 60000};
+static constexpr int32_t kFontSizeSteps[]  = {14, 16, 18, 20, 22, 24, 26};
 
 static int findStepIndex(const int32_t* steps, size_t count, int32_t value) {
     for (size_t i = 0; i < count; ++i)
@@ -42,6 +44,32 @@ tsl::elm::Element* SettingsGui::createUI() {
         kdecIpcWriteBoolSetting(KdecBoolSettingKey::NotificationShowIcon, v);
     });
     list->addItem(toggle_icon);
+
+    // Create the font size bar first so the toggle's listener can capture it
+    int32_t font_size = 22;
+    kdecIpcReadIntSetting(KdecIntSettingKey::NotificationFontSize, font_size);
+    constexpr size_t kFontCount = std::size(kFontSizeSteps);
+    auto* font_bar = new FontSizeBar(
+        "",
+        {"14", "16", "18", "20", "22", "24", "26"},
+        true, "Font size"
+    );
+    font_bar->setProgress(static_cast<u16>(findStepIndex(kFontSizeSteps, kFontCount, font_size)));
+    font_bar->setValueChangedListener([](u16 idx) {
+        if (idx < kFontCount)
+            kdecIpcWriteIntSetting(KdecIntSettingKey::NotificationFontSize, kFontSizeSteps[idx]);
+    });
+
+    bool dynamic_font = false;
+    kdecIpcReadBoolSetting(KdecBoolSettingKey::NotificationDynamicFontSize, dynamic_font);
+    font_bar->setEnabled(!dynamic_font);
+    auto* toggle_dynfont = new tsl::elm::ToggleListItem("Dynamic font size", dynamic_font);
+    toggle_dynfont->setStateChangedListener([font_bar](bool v) {
+        kdecIpcWriteBoolSetting(KdecBoolSettingKey::NotificationDynamicFontSize, v);
+        font_bar->setEnabled(!v);
+    });
+    list->addItem(toggle_dynfont);
+    list->addItem(font_bar, tsl::style::TrackBarDefaultHeight);
 
     int32_t duration = 4000;
     kdecIpcReadIntSetting(KdecIntSettingKey::NotificationDuration, duration);

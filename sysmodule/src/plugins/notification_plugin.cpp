@@ -182,6 +182,23 @@ void NotificationPlugin::post_notification(const std::string& app_id,
         {"alignment",  "left"},
     };
 
+    {
+        int font_size;
+        if (SettingsStore::get(KdecBoolSettingKey::NotificationDynamicFontSize)) {
+            static constexpr int kBase = 24;
+            static constexpr int kMin  = 16;
+            // ~30 chars/line at size 24 in a 406px area; target 3 lines before shrinking
+            static constexpr int kTargetChars = 90;
+            const int len = static_cast<int>(body.length());
+            font_size = (len > kTargetChars)
+                ? std::max(kMin, kBase * kTargetChars / len)
+                : kBase;
+        } else {
+            font_size = static_cast<int>(SettingsStore::get(KdecIntSettingKey::NotificationFontSize));
+        }
+        notify_json["font_size"] = font_size;
+    }
+
     if (!Storage::write_file(path, notify_json.dump(2))) {
         Logger::error("Failed to write notify file: %s", path.c_str());
     }

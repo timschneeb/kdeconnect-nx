@@ -9,11 +9,13 @@
 #define KDEC_BOOL_SETTINGS(X) \
     X(NotificationShowRemoteMessages, true)  \
     X(NotificationShowOnConnect, false) \
-    X(NotificationShowIcon, true)
+    X(NotificationShowIcon, true) \
+    X(NotificationDynamicFontSize, false)
 
 #define KDEC_INT_SETTINGS(X) \
     X(NotificationDuration, 4000) \
-    X(MprisSeekStepSize, 10000) /* ms */
+    X(MprisSeekStepSize, 10000) /* ms */ \
+    X(NotificationFontSize, 22)
 
 #define _KDEC_X_ENUM(name, def) name,
 

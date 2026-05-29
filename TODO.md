@@ -1,6 +1,5 @@
 * ux: add troubleshooting hint to "No devices found" screen
-* feat(settings): notification title style (app name + title: content or title + content) 
-* feat(settings): dynamic font size based on message length
-* font(settings): font size selection (only if dynamic font size is disabled) 
+* detect sleep mode and disable restarts & client until wakeup (add setting for that; disable connectivity during sleep by default)
+* feat(settings): notification title style (app name + title: content or title + content)
 * feat: remote mouse pad mode?
 * low-prio: Troubleshoot file transfer speed
