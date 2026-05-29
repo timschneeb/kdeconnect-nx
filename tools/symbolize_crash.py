@@ -21,7 +21,7 @@ def get_gdb_symbols(items_to_symbolize, gdb_path, elf_file):
             f.write(f'info line *{offset_hex}\n')
 
     try:
-        # 2. Run GDB in batch mode
+        # Run GDB in batch mode
         cmd = [gdb_path, '--batch', '-nx', '-ex', f'file {elf_file}', '-x', script_path]
         result = subprocess.run(cmd, capture_output=True, text=True)
         output = result.stdout
