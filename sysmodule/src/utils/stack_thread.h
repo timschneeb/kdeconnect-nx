@@ -31,6 +31,7 @@ class StackThread {
 #ifdef STACK_THREAD_MEASURE
     const char* name_      = nullptr;
     size_t      peak_used_ = 0;       // valid after join(); copied from payload
+    size_t      stack_size_hint_ = 0; // for informational purposes only; not used for actual stack allocation
     static constexpr unsigned char kMagic = 0xCD;
     static constexpr size_t kPaintGuard   = 2048;
 #endif
@@ -116,6 +117,7 @@ class StackThread {
 
 #ifdef STACK_THREAD_MEASURE
         name_    = name;
+        stack_size_hint_ = stack_size;
         payload_ = p;
 #endif
 
@@ -143,7 +145,7 @@ public:
     StackThread(StackThread&& o) noexcept
         : tid_(o.tid_), valid_(o.valid_)
 #ifdef STACK_THREAD_MEASURE
-        , name_(o.name_), peak_used_(o.peak_used_), payload_(o.payload_)
+        , name_(o.name_), peak_used_(o.peak_used_), payload_(o.payload_), stack_size_hint_(o.stack_size_hint_)
 #endif
     {
         o.valid_ = false;
@@ -160,6 +162,7 @@ public:
         o.valid_ = false;
 #ifdef STACK_THREAD_MEASURE
         name_     = o.name_;
+        stack_size_hint_ = o.stack_size_hint_;
         peak_used_ = o.peak_used_;
         payload_   = o.payload_;
         o.peak_used_ = 0;
@@ -190,7 +193,7 @@ public:
             // Thread has exited; mirror is unmapped: use value pre-computed in trampoline.
             if (!peak_used_) return;
             used  = peak_used_;
-            total = payload_ ? payload_->paint_size : peak_used_; // payload_ freed by join
+            total = stack_size_hint_; // payload_ freed by join
         } else {
             if (!payload_ || !payload_->paint_base) return;
             const auto* p = static_cast<const unsigned char*>(payload_->paint_base);
