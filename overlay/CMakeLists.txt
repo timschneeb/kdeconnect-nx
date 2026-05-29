@@ -61,7 +61,7 @@ add_custom_command(
 find_program(CURL_EXE curl REQUIRED NO_CMAKE_FIND_ROOT_PATH)
 add_custom_target(MiniKDEConnect_overlay_upload
     COMMAND ${CURL_EXE} -T MiniKDEConnect_overlay.ovl
-            "ftp://anonymous:@192.168.178.177:5001/switch/.overlays/MiniKDEConnect_overlay.ovl"
+            "${SWITCH_FTP_BASE_URL}/switch/.overlays/kdeconnect-nx.ovl"
     DEPENDS MiniKDEConnect_overlay
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Uploading overlay to Switch"

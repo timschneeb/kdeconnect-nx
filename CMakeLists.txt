@@ -11,6 +11,7 @@ string(JSON MINIKDECONNECT_TID GET ${_toolbox_contents} tid)
 add_compile_definitions(SYSMODULE_TITLE_ID=0x${MINIKDECONNECT_TID})
 
 set(NXLINK_HOST "" CACHE STRING "IP address of the PC running nxlink (leave empty to let libnx get the host from the launch argument; only works for the applet if launched with nxlink)")
+set(SWITCH_FTP_BASE_URL "" CACHE STRING "Base FTP URL for upload targets, e.g. ftp://anonymous:@192.168.1.1:5001 (no trailing slash)")
 if(NXLINK_HOST)
     add_compile_definitions(NXLINK_HOST=\"${NXLINK_HOST}\")
 else ()

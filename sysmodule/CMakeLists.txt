@@ -105,10 +105,10 @@ if(CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch")
         # Upload to Switch via FTP
         find_program(CURL_EXE curl REQUIRED NO_CMAKE_FIND_ROOT_PATH)
         add_custom_target(MiniKDEConnect_sysmodule_upload
-                COMMAND ${CURL_EXE} --ftp-create-dirs -T 4DE000000C011EC7/exefs.nsp
-                "ftp://anonymous:@192.168.178.177:5001/atmosphere/contents/4DE000000C011EC7/exefs.nsp"
-                COMMAND ${CURL_EXE} --ftp-create-dirs -T 4DE000000C011EC7/toolbox.json
-                "ftp://anonymous:@192.168.178.177:5001/atmosphere/contents/4DE000000C011EC7/toolbox.json"
+                COMMAND ${CURL_EXE} --ftp-create-dirs -T ${MINIKDECONNECT_TID}/exefs.nsp
+                "${SWITCH_FTP_BASE_URL}/atmosphere/contents/${MINIKDECONNECT_TID}/exefs.nsp"
+                COMMAND ${CURL_EXE} --ftp-create-dirs -T ${MINIKDECONNECT_TID}/toolbox.json
+                "${SWITCH_FTP_BASE_URL}/atmosphere/contents/${MINIKDECONNECT_TID}/toolbox.json"
                 DEPENDS MiniKDEConnect_sysmodule_nsp
                 WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
                 COMMENT "Uploading sysmodule to Switch"
