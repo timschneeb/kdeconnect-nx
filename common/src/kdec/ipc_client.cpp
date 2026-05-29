@@ -211,6 +211,10 @@ Result kdecIpcSendScreenshot(const std::string& device_id) {
     return serviceDispatchIn(&g_kdecSrv, KdecIpcCmd_SendScreenshot, wire);
 }
 
+Result kdecIpcSendTestNotification() {
+    return serviceDispatch(&g_kdecSrv, KdecIpcCmd_SendTestNotification);
+}
+
 Result kdecIpcGetMemoryInfo(KdecMemoryInfo& out) {
     return serviceDispatchOut(&g_kdecSrv, KdecIpcCmd_GetMemoryInfo, out);
 }

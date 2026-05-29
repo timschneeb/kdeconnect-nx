@@ -98,14 +98,6 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
 
     Logger::info("%s: %s", app.c_str(), title.c_str());
 
-    std::string body;
-    if (!title.empty() && !text.empty())
-        body = title + ": " + text;
-    else if (!title.empty())
-        body = title;
-    else
-        body = text;
-
     std::string icon_hash = np.body.value("payloadHash", "");
     if (icon_hash.empty()) {
         auto it = m_app_icon_hash.find(app);
@@ -149,12 +141,16 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
 
     if (silent) return true;
     if (!SettingsStore::get(KdecBoolSettingKey::NotificationShowRemoteMessages)) return true;
+    post_app_notification(id, app, title, text, icon_hash);
+    return true;
+}
 
+void NotificationPlugin::post_app_notification(const std::string& id, const std::string& app, const std::string& title, const std::string& text, const std::string& icon_hash) {
     const bool show_icon = SettingsStore::get(KdecBoolSettingKey::NotificationShowIcon);
     const std::string app_id = (show_icon && !icon_hash.empty())
         ? std::string(kAppId) + "_" + icon_hash
         : kAppId;
-    const int duration = static_cast<int>(SettingsStore::get(KdecIntSettingKey::NotificationDuration));
+    const int duration = SettingsStore::get(KdecIntSettingKey::NotificationDuration);
 
     Logger::info("Posting: %s-%s", icon_hash.c_str(), id.c_str());
 
@@ -179,12 +175,16 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
             break;
         default: // AppName_TitleBody
             post_title = app;
-            post_body  = body;
+            if (!title.empty() && !text.empty())
+                post_body = title + ": " + text;
+            else if (!title.empty())
+                post_body = title;
+            else
+                post_body = text;
             break;
     }
 
     post_notification(app_id, post_title, post_body, id, duration);
-    return true;
 }
 
 void NotificationPlugin::post_notification(const std::string& app_id,

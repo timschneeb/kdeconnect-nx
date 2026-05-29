@@ -38,8 +38,9 @@ enum KdecIpcCmd {
     KdecIpcCmd_Ring             = 17,
     KdecIpcCmd_GetVolumeSinks   = 18,
     KdecIpcCmd_SetVolumeSink    = 19,
-    KdecIpcCmd_SendScreenshot   = 20,
-    KdecIpcCmd_GetMemoryInfo    = 21,
+    KdecIpcCmd_SendScreenshot        = 20,
+    KdecIpcCmd_GetMemoryInfo         = 21,
+    KdecIpcCmd_SendTestNotification  = 22,
 };
 
 enum class DevicePairState : uint8_t {

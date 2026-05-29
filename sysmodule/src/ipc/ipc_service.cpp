@@ -17,6 +17,7 @@
 #include "../net/network_packet.h"
 #include "plugins/battery_plugin.h"
 #include "../plugins/share_plugin.h"
+#include "../plugins/notification_plugin.h"
 
 #define MAX_SESSIONS 2
 
@@ -535,6 +536,15 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
             *reinterpret_cast<KdecMemoryInfo*>(out_data) = s;
             return 0;
         }
+
+        case KdecIpcCmd_SendTestNotification:
+            static std::atomic_uint32_t test_notification_id = 0;
+            NotificationPlugin::post_app_notification(
+                "test" + std::to_string(test_notification_id++), "KDE Connect", "Test notification",
+                "This is a long test notification. Lorem ipsum dolor sit amet, consectetur adipiscing elit, "
+                "sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis "
+                "nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.", "");
+            return 0;
 
         default:
             return 1;

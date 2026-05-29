@@ -17,6 +17,9 @@ public:
 
     void request_active_notifications() const;
 
+    static void post_app_notification(const std::string &id, const std::string &app, const std::string &title,
+                            const std::string &text, const std::string &icon_hash);
+
     static void post_notification(const std::string& app_id,
                                   const std::string& title,
                                   const std::string& body,

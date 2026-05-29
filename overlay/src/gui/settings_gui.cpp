@@ -107,6 +107,17 @@ tsl::elm::Element* SettingsGui::createUI() {
     });
     list->addItem(dur_bar, tsl::style::TrackBarDefaultHeight);
 
+    auto* test_notif = new tsl::elm::ListItem("Send test notification");
+    test_notif->setValue(sym::mail, true);
+    test_notif->setClickListener([](u64 keys) {
+        if (keys & HidNpadButton_A) {
+            kdecIpcSendTestNotification();
+            return true;
+        }
+        return false;
+    });
+    list->addItem(test_notif);
+
     list->addItem(new tsl::elm::CategoryHeader("Media"));
 
     int32_t seek_step = 10000;

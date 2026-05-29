@@ -28,4 +28,5 @@ namespace sym {
 
     constexpr auto volume = "";
     constexpr auto settings = "";
+    constexpr auto mail = "";
 }
