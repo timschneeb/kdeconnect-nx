@@ -10,5 +10,6 @@ public:
                      HidAnalogStickState leftJoyStick, HidAnalogStickState rightJoyStick) override;
 private:
     tsl::elm::ListItem* m_heap_item = nullptr;
+    tsl::elm::ListItem* m_heap_arena = nullptr;
     int m_update_counter = 0;
 };

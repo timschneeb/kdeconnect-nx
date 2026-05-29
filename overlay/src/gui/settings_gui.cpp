@@ -86,10 +86,10 @@ tsl::elm::Element* SettingsGui::createUI() {
     m_heap_item->setValue(heap_buf);
     list->addItem(m_heap_item);
 
-    auto* peak_heap = new tsl::elm::ListItem("Peak heap usage");
+    m_heap_arena = new tsl::elm::ListItem("Heap arena size");
     std::snprintf(heap_buf, sizeof(heap_buf), "%zu KB", mem_info.heap_total_kb);
-    peak_heap->setValue(heap_buf);
-    list->addItem(peak_heap);
+    m_heap_arena->setValue(heap_buf);
+    list->addItem(m_heap_arena);
 
     auto* used_tmem_item = new tsl::elm::ListItem("Socket buffers (Heap)");
     std::snprintf(heap_buf, sizeof(heap_buf), "%zu KB", mem_info.socket_tmem_kb);
@@ -133,6 +133,8 @@ void SettingsGui::update() {
     std::snprintf(heap_buf, sizeof(heap_buf), "%zu KB / %zu KB",
                   mem_info.heap_used_kb, mem_info.heap_max_kb);
     m_heap_item->setValue(heap_buf);
+    std::snprintf(heap_buf, sizeof(heap_buf), "%zu KB", mem_info.heap_total_kb);
+    m_heap_arena->setValue(heap_buf);
 }
 
 bool SettingsGui::handleInput(u64 keysDown, u64, const HidTouchState&,
