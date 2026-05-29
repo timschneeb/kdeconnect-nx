@@ -3,6 +3,7 @@ kdeconnect-kde/
 build/
 build-*/
 .idea/
+.cache/
 CMakeFiles/
 cmake-build-*
 CMakeUserPresets.json
