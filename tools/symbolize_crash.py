@@ -145,14 +145,10 @@ def parse_crash_log(log_file, elf_file, gdb_path, parse_all_threads=False):
     print(f"Successfully wrote symbolized log to: {output_log_file}")
 
 if __name__ == '__main__':
-    # Check for the flag and remove it from args so positional args still work
-    parse_all_threads = False
-    if '--all-threads' in sys.argv:
-        parse_all_threads = True
-        sys.argv.remove('--all-threads')
+    parse_all_threads = True
 
     if len(sys.argv) < 3:
-        print("Usage: python3 symbolize_crash.py <crash_log.log> <executable.elf> [gdb_path] [--all-threads]")
+        print("Usage: python3 symbolize_crash.py <crash_log.log> <executable.elf> [gdb_path]")
         sys.exit(1)
 
     log_file = sys.argv[1]
