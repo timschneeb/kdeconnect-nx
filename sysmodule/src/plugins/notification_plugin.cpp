@@ -157,7 +157,33 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
     const int duration = static_cast<int>(SettingsStore::get(KdecIntSettingKey::NotificationDuration));
 
     Logger::info("Posting: %s-%s", icon_hash.c_str(), id.c_str());
-    post_notification(app_id, app, body, id, duration);
+
+    const auto style = static_cast<NotificationStyle>(SettingsStore::get(KdecIntSettingKey::NotificationStyle));
+    std::string post_title, post_body;
+    switch (style) {
+        case NotificationStyle::AppName_Title:
+            post_title = app;
+            post_body  = title;
+            break;
+        case NotificationStyle::Title_Body:
+            post_title = title.empty() ? app : title;
+            post_body  = text;
+            break;
+        case NotificationStyle::TitleAppName_Body:
+            post_title = title.empty() ? app : title + " \xc2\xb7 " + app;
+            post_body  = text;
+            break;
+        case NotificationStyle::AppNameTitle_Body:
+            post_title = title.empty() ? app : app + " \xc2\xb7 " + title;
+            post_body = text;
+            break;
+        default: // AppName_TitleBody
+            post_title = app;
+            post_body  = body;
+            break;
+    }
+
+    post_notification(app_id, post_title, post_body, id, duration);
     return true;
 }
 

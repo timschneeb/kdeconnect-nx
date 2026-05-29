@@ -2,6 +2,16 @@
 
 #include <cstdint>
 
+enum class NotificationStyle : int32_t {
+    // <Title contents>_<Body contents>
+    AppName_TitleBody = 0,
+    AppName_Title = 1,
+    Title_Body = 2,
+    TitleAppName_Body = 3,
+    AppNameTitle_Body = 4,
+
+};
+
 // X-macro tables: X(enum_name, default_value)
 // NOTE: Do not enum entry names after release! They are written to JSON.
 //       If the order is changed, the API version must be incremented. IPC uses enum number values.
@@ -15,7 +25,8 @@
 #define KDEC_INT_SETTINGS(X) \
     X(NotificationDuration, 4000) \
     X(MprisSeekStepSize, 10000) /* ms */ \
-    X(NotificationFontSize, 22)
+    X(NotificationFontSize, 22) \
+    X(NotificationStyle, (int)NotificationStyle::AppName_TitleBody)
 
 #define _KDEC_X_ENUM(name, def) name,
 

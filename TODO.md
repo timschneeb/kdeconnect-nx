@@ -1,5 +1,4 @@
 * ux: add troubleshooting hint to "No devices found" screen
 * detect sleep mode and disable restarts & client until wakeup (add setting for that; disable connectivity during sleep by default)
-* feat(settings): notification title style (app name + title: content or title + content)
 * feat: remote mouse pad mode?
 * low-prio: Troubleshoot file transfer speed

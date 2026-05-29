@@ -2,6 +2,7 @@
 #include "gui_common.h"
 #include "../utils/symbols.h"
 #include "elements/font_size_bar.h"
+#include "notification_style_gui.h"
 
 #include <kdec/ipc_client.h>
 
@@ -44,6 +45,18 @@ tsl::elm::Element* SettingsGui::createUI() {
         kdecIpcWriteBoolSetting(KdecBoolSettingKey::NotificationShowIcon, v);
     });
     list->addItem(toggle_icon);
+
+    int32_t style_raw = 0;
+    kdecIpcReadIntSetting(KdecIntSettingKey::NotificationStyle, style_raw);
+    auto* style_item = new tsl::elm::ListItem("Notification style", "Type " + std::to_string(style_raw + 1));
+    style_item->setClickListener([](u64 keys) -> bool {
+        if (keys & HidNpadButton_A) {
+            tsl::changeTo<NotificationStyleGui>();
+            return true;
+        }
+        return false;
+    });
+    list->addItem(style_item);
 
     // Create the font size bar first so the toggle's listener can capture it
     int32_t font_size = 22;
