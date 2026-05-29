@@ -15,7 +15,9 @@ cmake --build cmake-build-release-devkita64 -j 6 --target publish
 ```
 Copy the directories under `cmake-build-release-devkita64/stage/*` to the SD card on the Switch.
 
-## Development environment & debug mode
+## Development environment
+
+Setting up a proper dev environment can greatly speed up development using remote logging and remote deployment. If you plan on doing any 
 
 Prerequisites:
 * Everything from above
@@ -48,8 +50,8 @@ cmake --build cmake-build-debug-devkita64-dev --target MiniKDEConnect_sysmodule_
 ```
 Then use the [sysmodules overlay](https://github.com/ppkantorski/ovl-sysmodules) to reload the sysmodule on the Switch.
 
-> [!INFO]
-> Hint: You can create keycombo shortcuts for overlays in Ultrahand. That way, you'll avoid navigating Ultrahand's main menu over and over.
+> [!HINT]
+> Hint: You can create keycombo shortcuts for overlays in Ultrahand by pressing Y while hovering over an overlay in the list. That way, you'll avoid navigating Ultrahand's main menu over and over.
 
 
 To build and automatically upload the overlay to the Switch, run:
@@ -92,7 +94,7 @@ cmake --preset "switch-dev"
 cmake --build cmake-build-debug-devkita64-dev -j 6
 ```
 
-Start logging servers before running the sysmodule & overlay:
+Start the logging servers before running the sysmodule & overlay:
 ```
 # Run server for the sysmodule (or test applet) to connect to:
 cmake-build-debug-host/tools/nxtool -l -P 28771
