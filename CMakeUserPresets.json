@@ -3,7 +3,7 @@
   "configurePresets": [
     {
       "name": "switch-dev",
-      "displayName": "Nintendo Switch (Debug, nxlink, upload to 192.168.178.177)",
+      "displayName": "Nintendo Switch (Debug, nxlink, upload via FTP)",
       "inherits": "switch",
       "binaryDir": "${sourceDir}/cmake-build-debug-devkita64-dev",
       "cacheVariables": {
@@ -13,7 +13,7 @@
     },
     {
       "name": "switch-rel",
-      "displayName": "Nintendo Switch (Release, nxlink, upload to 192.168.178.177)",
+      "displayName": "Nintendo Switch (Release, nxlink, upload via FTP)",
       "inherits": "switch-release",
       "binaryDir": "${sourceDir}/cmake-build-release-devkita64-rel",
       "cacheVariables": {
