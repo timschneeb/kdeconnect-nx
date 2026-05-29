@@ -7,11 +7,33 @@
 #include <kdec/ipc_client.h>
 
 #include <cstdio>
+#include <filesystem>
 #include <vector>
 
 #include "error_widget.h"
 #include "logger.h"
 #include "../utils/symbols.h"
+#include "elements/large_icon_list_item.h"
+
+namespace {
+
+constexpr const char* kUltrahandNotifFlag =
+    "sdmc:/config/ultrahand/flags/NOTIFICATIONS.flag";
+
+bool ultrahandNotificationsEnabled() {
+    FILE* f = fopen(kUltrahandNotifFlag, "r");
+    if (!f) return false;
+    fclose(f);
+    return true;
+}
+
+bool userWantsNotifications() {
+    bool show_remote = true, show_connect = false;
+    kdecIpcReadBoolSetting(KdecBoolSettingKey::NotificationShowRemoteMessages, show_remote);
+    kdecIpcReadBoolSetting(KdecBoolSettingKey::NotificationShowOnConnect, show_connect);
+    return show_remote || show_connect;
+}
+} // namespace
 
 bool MainGui::devicesChanged(const std::vector<KdecDeviceInfo> &a, const std::vector<KdecDeviceInfo> &b) {
     if (a.size() != b.size()) return true;
@@ -89,6 +111,15 @@ tsl::elm::Element *MainGui::createUI() {
         }
 
         list = new tsl::elm::List();
+
+        if (!ultrahandNotificationsEnabled() && userWantsNotifications()) {
+            auto* warn = new LargeIconListItem(
+                "Notification support in",
+                "Ultrahand is disabled!",
+                "Check your Ultrahand settings", sym::infoCircleFilled);
+            list->addItem(warn);
+        }
+
         if (devices_.empty()) {
             list->addItem(new tsl::elm::ListItem("No devices found"));
         } else {
