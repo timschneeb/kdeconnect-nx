@@ -13,7 +13,7 @@
 
 #include "src/utils/mem_debug.h"
 
-#define INNER_HEAP_SIZE 3'000'000 // 3MB
+#define INNER_HEAP_SIZE 4'000'000 // 4MB
 
 #define R_ABORT_UNLESS(expr) {if (Result rc = expr; R_FAILED(rc)) fatalThrow(rc);}
 
