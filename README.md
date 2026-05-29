@@ -8,11 +8,54 @@ Prerequisites:
   * switch-curl
   * switch-zlib
 
+Compile in release mode: 
 ```
 cmake --preset "switch-release"
 cmake --build cmake-build-release-devkita64 -j 6 --target publish
 ```
 Copy the directories under `cmake-build-release-devkita64/stage/*` to the SD card on the Switch.
+
+## Development environment & debug mode
+
+Prerequisites:
+* Everything from above
+* [sys-ftpd](https://github.com/ELY3M/sys-ftpd) sysmodule installed on the Switch
+
+Open `CMakeUserPresets.json` and edit the `cacheVariable` blocks for both the debug and release targets.
+
+* If you want to use remote logging, set `NXLINK_HOST` to the IP address of your computer. See [below](#remote-logging) for details.
+* Set `SWITCH_FTP_BASE_URL` to the FTP url (using format: `ftp://user:pass@address:port`) so it can connect to sys-ftpd.
+You may want to check your sys-ftpd config file at `/config/sys-ftpd/config.ini` and provide the correct FTP port and credentials.
+
+Example:
+```json
+  "cacheVariables": {
+    "NXLINK_HOST": "192.168.178.72",
+    "SWITCH_FTP_BASE_URL": "ftp://anonymous:@192.168.178.177:5000"
+  }
+```
+
+Then configure the build:
+```
+cmake --preset "switch-dev"
+```
+
+### FTP upload build targets
+
+To build and automatically upload the sysmodule to the Switch, run:
+```
+cmake --build cmake-build-debug-devkita64-dev --target MiniKDEConnect_sysmodule_upload
+```
+Then use the [sysmodules overlay](https://github.com/ppkantorski/ovl-sysmodules) to reload the sysmodule on the Switch.
+
+> [!INFO]
+> Hint: You can create keycombo shortcuts for overlays in Ultrahand. That way, you'll avoid navigating Ultrahand's main menu over and over.
+
+
+To build and automatically upload the overlay to the Switch, run:
+```
+cmake --build cmake-build-debug-devkita64-dev --target MiniKDEConnect_overlay_upload
+```
 
 ### Remote logging
 
@@ -36,7 +79,7 @@ cmake --preset "switch-dev"
 cmake --build cmake-build-debug-devkita64-dev -j 6
 ```
 
-Connect to the Switch processes:
+Start logging servers before running the sysmodule & overlay:
 ```
 # Run server for the sysmodule (or test applet) to connect to:
 cmake-build-debug-host/tools/nxtool -l -P 28771
@@ -45,8 +88,6 @@ cmake-build-debug-host/tools/nxtool -l -P 28771
 # Run server for the overlay to connect to:
 cmake-build-debug-host/tools/nxlink -l -P 28772
 ```
-
-###
 
 ## License
 
