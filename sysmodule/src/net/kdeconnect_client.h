@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <memory>
 #include <mutex>
 #include <queue>
@@ -86,7 +87,7 @@ private:
   std::unordered_map<std::string, std::shared_ptr<DeviceSession>> sessions_;
 
   struct PendingTask {
-    std::thread thread;
+    StackThread thread;
     std::shared_ptr<std::atomic<bool>> done;
   };
 
@@ -94,4 +95,9 @@ private:
 
   std::mutex pending_mutex_;
   std::vector<PendingTask> pending_threads_;
+
+  // Throttle mDNS-triggered probes to once per second per device.
+  static constexpr auto kMdnsProbeCooldown = std::chrono::seconds(1);
+  mutable std::mutex mdns_probe_cooldown_mutex_;
+  std::unordered_map<std::string, std::chrono::steady_clock::time_point> mdns_probe_cooldown_;
 };

@@ -149,6 +149,24 @@ bool KdeConnectClient::start(bool enable_mdns) {
                 }
             }
 
+            // mDNS fires continuously; throttle to one probe per device per second.
+            {
+                std::lock_guard lock(mdns_probe_cooldown_mutex_);
+                auto now = std::chrono::steady_clock::now();
+                auto& last = mdns_probe_cooldown_[device_id];
+                if ((now - last) < kMdnsProbeCooldown) {
+                    Logger::info("mDNS: Skipped probe to %s due to cooldown", device_id.c_str());
+                    return;
+                }
+                last = now;
+                if (mdns_probe_cooldown_.size() > 32) {
+                    auto oldest = mdns_probe_cooldown_.begin();
+                    for (auto it = std::next(oldest); it != mdns_probe_cooldown_.end(); ++it)
+                        if (it->second < oldest->second) oldest = it;
+                    mdns_probe_cooldown_.erase(oldest);
+                }
+            }
+
             Logger::info("mDNS: Sending probe to %s at %s", device_id.c_str(), host.c_str());
             send_udp_identity_probe(device_id, host);
         });
@@ -296,7 +314,10 @@ void KdeConnectClient::network_loop() {
                 setsockopt(fd.raw, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(recv_timeout));
                 // Offload to a thread so network_loop is never blocked by a slow peer.
                 auto done = std::make_shared<std::atomic<bool>>(false);
-                auto t = std::thread([this, fd = std::move(fd), done]() mutable {
+
+                const int raw_fd = fd.release();
+                auto t = StackThread(24 * 1024, "kc-accept", [this, raw_fd, done]() mutable {
+                    ScopedFd fd{raw_fd};
                     try {
                         [&]() {
                             auto line = NetworkUtil::read_line_fd(fd.raw, kMaxPacketSize);
@@ -379,7 +400,7 @@ void KdeConnectClient::udp_broadcast_loop() {
 
 void KdeConnectClient::handle_discovered_peer(const DeviceInfo& identity, const std::string& host, int port) {
     auto done = std::make_shared<std::atomic<bool>>(false);
-    auto t = std::thread([this, identity, host, port, done]() {
+    auto t = StackThread(32 * 1024, "kc-connect", [this, identity, host, port, done]() {
         try {
             [&]() {
                 ScopedFd fd{socket(AF_INET, SOCK_STREAM, 0)};
@@ -924,7 +945,9 @@ bool KdeConnectClient::send_payload(const std::string& device_id, NetworkPacket 
 
     auto payload = std::make_shared<std::vector<uint8_t>>(std::move(pkt.payload));
     auto done = std::make_shared<std::atomic<bool>>(false);
-    auto t = std::thread([this, srv_fd = std::move(srv_fd), payload, done]() mutable {
+    const int raw_srv_fd = srv_fd.release();
+    auto t = StackThread(16 * 1024, "kc-payload", [this, raw_srv_fd, payload, done]() mutable {
+        ScopedFd srv_fd{raw_srv_fd};
         [&]() {
             // Give the receiver 15 s to connect after receiving the share packet.
             timeval timeout{15, 0};
