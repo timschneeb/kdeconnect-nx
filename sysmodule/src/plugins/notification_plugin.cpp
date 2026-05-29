@@ -283,6 +283,9 @@ void NotificationPlugin::write_app_icon(const std::string& icon_hash, const Netw
             px[di+3] = img[si+3];
         }
     }
+    // Release the compressed source payload before trimming so both large
+    // blocks are freed at the arena top together, maximising trim's reach.
+    { std::vector<uint8_t>{}.swap(np_with_payload.payload); }
     stbi_image_free(img);
     malloc_trim(0);
 
