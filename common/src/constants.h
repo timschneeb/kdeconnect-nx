@@ -20,6 +20,7 @@ enum class NotificationStyle : int32_t {
     X(NotificationShowRemoteMessages, true)  \
     X(NotificationShowOnConnect, false) \
     X(NotificationShowIcon, true) \
+    X(NotificationShowTime, true) \
     X(NotificationDynamicFontSize, false)
 
 #define KDEC_INT_SETTINGS(X) \

@@ -46,6 +46,14 @@ tsl::elm::Element* SettingsGui::createUI() {
     });
     list->addItem(toggle_icon);
 
+    bool show_time = true;
+    kdecIpcReadBoolSetting(KdecBoolSettingKey::NotificationShowTime, show_time);
+    auto* toggle_time = new tsl::elm::ToggleListItem("Show time", show_time);
+    toggle_time->setStateChangedListener([](bool v) {
+        kdecIpcWriteBoolSetting(KdecBoolSettingKey::NotificationShowTime, v);
+    });
+    list->addItem(toggle_time);
+
     int32_t style_raw = 0;
     kdecIpcReadIntSetting(KdecIntSettingKey::NotificationStyle, style_raw);
     auto* style_item = new tsl::elm::ListItem("Notification style", "Type " + std::to_string(style_raw + 1));

@@ -203,7 +203,7 @@ void NotificationPlugin::post_notification(const std::string& app_id,
         {"title",      title},
         {"text",       body},
         {"duration",   duration},
-        {"show_time",  "true"},
+        {"show_time",  SettingsStore::get(KdecBoolSettingKey::NotificationShowTime) ? "true" : "false"},
         {"split_type", "word"},
         {"alignment",  "left"},
     };
