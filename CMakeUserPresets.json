@@ -8,7 +8,7 @@
       "binaryDir": "${sourceDir}/cmake-build-debug-devkita64-dev",
       "cacheVariables": {
         "NXLINK_HOST": "192.168.178.72",
-        "SWITCH_FTP_BASE_URL": "ftp://anonymous:@192.168.178.72:5001"
+        "SWITCH_FTP_BASE_URL": "ftp://anonymous:@192.168.178.177:5001"
       }
     },
     {
@@ -18,7 +18,7 @@
       "binaryDir": "${sourceDir}/cmake-build-release-devkita64-rel",
       "cacheVariables": {
         "NXLINK_HOST": "192.168.178.72",
-        "SWITCH_FTP_BASE_URL": "ftp://anonymous:@192.168.178.72:5001"
+        "SWITCH_FTP_BASE_URL": "ftp://anonymous:@192.168.178.177:5001"
       }
     }
   ],
