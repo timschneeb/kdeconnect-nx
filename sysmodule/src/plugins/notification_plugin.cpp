@@ -203,6 +203,19 @@ void NotificationPlugin::write_app_icon(const std::string& icon_hash, const Netw
     }
 
     int w, h, channels;
+    if (!stbi_info_from_memory(np_with_payload.payload.data(),
+                               static_cast<int>(np_with_payload.payload.size()),
+                               &w, &h, &channels)) {
+        Logger::warn("Failed to read icon header for hash %s", icon_hash.c_str());
+        return;
+    }
+    // A decoded RGBA buffer of w*h*4 bytes is a large transient heap allocation;
+    // The Android client is capped at 128x128.
+    static constexpr int kMaxIconPixels = 256 * 256;
+    if (w * h > kMaxIconPixels) {
+        Logger::warn("Icon %s too large (%dx%d), skipping decode", icon_hash.c_str(), w, h);
+        return;
+    }
     uint8_t* img = stbi_load_from_memory(np_with_payload.payload.data(),
                                          static_cast<int>(np_with_payload.payload.size()),
                                          &w, &h, &channels, 4);

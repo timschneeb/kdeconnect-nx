@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <cstring>
 #include <memory>
+#include <new>
 #include <optional>
 #include <sys/select.h>
 #include <thread>
@@ -295,21 +296,25 @@ void KdeConnectClient::network_loop() {
                 // Offload to a thread so network_loop is never blocked by a slow peer.
                 auto done = std::make_shared<std::atomic<bool>>(false);
                 auto t = std::thread([this, fd = std::move(fd), done]() mutable {
-                    [&]() {
-                        auto line = NetworkUtil::read_line_fd(fd.raw, kMaxPacketSize);
-                        auto packet = line ? NetworkPacket::parse(*line) : std::optional<NetworkPacket>{};
-                        bool valid = packet && packet->type == PacketTypes::Identity;
-                        if (valid && packet->body.contains("targetDeviceId")) {
-                            const auto tid = packet->body.value("targetDeviceId", "");
-                            if (!tid.empty() && tid != local_device_.id) valid = false;
-                        }
-                        if (valid && packet->body.contains("targetProtocolVersion")) {
-                            if (packet->body.value("targetProtocolVersion", kProtocolVersion) != kProtocolVersion)
-                                valid = false;
-                        }
-                        if (valid)
-                            handle_new_connection(NetworkUtil::info_from_identity(*packet), std::move(fd), true);
-                    }();
+                    try {
+                        [&]() {
+                            auto line = NetworkUtil::read_line_fd(fd.raw, kMaxPacketSize);
+                            auto packet = line ? NetworkPacket::parse(*line) : std::optional<NetworkPacket>{};
+                            bool valid = packet && packet->type == PacketTypes::Identity;
+                            if (valid && packet->body.contains("targetDeviceId")) {
+                                const auto tid = packet->body.value("targetDeviceId", "");
+                                if (!tid.empty() && tid != local_device_.id) valid = false;
+                            }
+                            if (valid && packet->body.contains("targetProtocolVersion")) {
+                                if (packet->body.value("targetProtocolVersion", kProtocolVersion) != kProtocolVersion)
+                                    valid = false;
+                            }
+                            if (valid)
+                                handle_new_connection(NetworkUtil::info_from_identity(*packet), std::move(fd), true);
+                        }();
+                    } catch (const std::bad_alloc&) {
+                        Logger::error("Out of memory in incoming connection handler");
+                    }
                     done->store(true);
                 });
                 std::lock_guard lock(pending_mutex_);
@@ -362,24 +367,28 @@ void KdeConnectClient::udp_broadcast_loop() {
 void KdeConnectClient::handle_discovered_peer(const DeviceInfo& identity, const std::string& host, int port) {
     auto done = std::make_shared<std::atomic<bool>>(false);
     auto t = std::thread([this, identity, host, port, done]() {
-        [&]() {
-            ScopedFd fd{socket(AF_INET, SOCK_STREAM, 0)};
-            if (!fd) return;
-            configure_tcp_keepalive(fd.raw);
-            timeval recv_timeout{5, 0};
-            setsockopt(fd.raw, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(recv_timeout));
-            sockaddr_in addr{};
-            addr.sin_family = AF_INET;
-            addr.sin_port = htons(static_cast<uint16_t>(port));
-            if (inet_pton(AF_INET, host.c_str(), &addr.sin_addr) != 1) return;
-            if (!connect_with_timeout(fd.raw, addr, kConnectTimeoutMs)) return;
+        try {
+            [&]() {
+                ScopedFd fd{socket(AF_INET, SOCK_STREAM, 0)};
+                if (!fd) return;
+                configure_tcp_keepalive(fd.raw);
+                timeval recv_timeout{5, 0};
+                setsockopt(fd.raw, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(recv_timeout));
+                sockaddr_in addr{};
+                addr.sin_family = AF_INET;
+                addr.sin_port = htons(static_cast<uint16_t>(port));
+                if (inet_pton(AF_INET, host.c_str(), &addr.sin_addr) != 1) return;
+                if (!connect_with_timeout(fd.raw, addr, kConnectTimeoutMs)) return;
 
-            NetworkPacket my_identity = NetworkUtil::make_identity_packet(local_device_, identity.id, identity.protocol_version, std::nullopt);
-            std::string payload = my_identity.serialize();
-            send(fd.raw, payload.data(), payload.size(), 0);
+                NetworkPacket my_identity = NetworkUtil::make_identity_packet(local_device_, identity.id, identity.protocol_version, std::nullopt);
+                std::string payload = my_identity.serialize();
+                send(fd.raw, payload.data(), payload.size(), 0);
 
-            handle_new_connection(identity, std::move(fd), false);
-        }();
+                handle_new_connection(identity, std::move(fd), false);
+            }();
+        } catch (const std::bad_alloc&) {
+            Logger::error("Out of memory connecting to %s", identity.name.c_str());
+        }
         done->store(true);
     });
     std::lock_guard lock(pending_mutex_);
@@ -937,24 +946,28 @@ void KdeConnectClient::io_loop(const std::shared_ptr<DeviceSession>& session) {
         return false;
     };
 
-    while (running_.load() && !session->disconnected.load()) {
-        if (!drain_sends()) break;
+    try {
+        while (running_.load() && !session->disconnected.load()) {
+            if (!drain_sends()) break;
 
-        if (session->fd < 0) break;
-        fd_set rfds;
-        FD_ZERO(&rfds);
-        FD_SET(session->fd, &rfds);
-        timeval tv{0, 5'000}; // 5 ms: max latency before queued sends are flushed
-        int ret = select(session->fd + 1, &rfds, nullptr, nullptr, &tv);
-        if (ret < 0) {
-            if (errno == EINTR) continue;
-            break;
+            if (session->fd < 0) break;
+            fd_set rfds;
+            FD_ZERO(&rfds);
+            FD_SET(session->fd, &rfds);
+            timeval tv{0, 5'000}; // 5 ms: max latency before queued sends are flushed
+            int ret = select(session->fd + 1, &rfds, nullptr, nullptr, &tv);
+            if (ret < 0) {
+                if (errno == EINTR) continue;
+                break;
+            }
+            if (ret == 0) continue;
+
+            auto line = NetworkUtil::read_line_tls(*session->tls, kMaxPacketSize);
+            if (!line) break;
+            handle_packet(session, *line);
         }
-        if (ret == 0) continue;
-
-        auto line = NetworkUtil::read_line_tls(*session->tls, kMaxPacketSize);
-        if (!line) break;
-        handle_packet(session, *line);
+    } catch (const std::bad_alloc&) {
+        Logger::error("Out of memory in io_loop for %s, disconnecting", session->info.name.c_str());
     }
 
     session->disconnected.store(true);
