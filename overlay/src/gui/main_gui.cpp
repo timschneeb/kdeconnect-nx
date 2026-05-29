@@ -122,6 +122,18 @@ tsl::elm::Element *MainGui::createUI() {
 
         if (devices_.empty()) {
             list->addItem(new tsl::elm::ListItem("No devices found"));
+
+            const auto lineHeight = tsl::gfx::FontManager::getFontMetricsForCharacter('A', 16).lineHeight + 5;
+            constexpr auto topMargin = 40;
+            auto* help_item = new tsl::elm::CustomDrawer([lineHeight](tsl::gfx::Renderer* renderer, s32 x, s32 y, s32 w, s32 h) {
+                renderer->drawString("The app is scanning continuously for devices", false, x + 5, y + topMargin, 16, DESC_COLOR);
+                renderer->drawString("and will update this list automatically.", false, x + 5, y + lineHeight + topMargin, 16, DESC_COLOR);
+                renderer->drawString("- Make sure you are in the same local network.", false, x + 5, y + lineHeight*3 + topMargin, 16, DESC_COLOR);
+                renderer->drawString("- Make sure your router has client isolation off.", false, x + 5, y + lineHeight*4 + topMargin, 16, DESC_COLOR);
+
+            });
+            help_item->setBoundaries(help_item->getX(), help_item->getY(), help_item->getWidth(), lineHeight*4 + topMargin);
+            list->addItem(help_item);
         } else {
             std::vector<const KdecDeviceInfo *> connected, unpaired, disconnected;
             for (const auto &dev: devices_) {
