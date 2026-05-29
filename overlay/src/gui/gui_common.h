@@ -5,6 +5,8 @@
 #include <cstdio>
 #include <string>
 
+#include "../utils/symbols.h"
+
 #define TEXT_COLOR tsl::gfx::Renderer::a(0xFFFF)
 #define DESC_COLOR tsl::gfx::Renderer::a(tsl::Color{0xC, 0xC, 0xC, 0xF})
 
@@ -36,5 +38,19 @@ inline std::string batteryOrStatusStr(const KdecDeviceInfo& dev) {
     return statusStr(dev);
 }
 
-inline std::string devName(const KdecDeviceInfo& dev) { return dev.name; }
-inline std::string devId(const KdecDeviceInfo& dev)   { return dev.id;   }
+inline std::string devIcon(const KdecDeviceInfo& dev) {
+    switch (dev.type) {
+        case DeviceType::Phone:
+            return sym::devicePhone;
+        case DeviceType::Tablet:
+            return sym::deviceSwitchLite;
+        case DeviceType::TV:
+            return sym::deviceTv;
+        default:
+            return sym::devicePc;
+    }
+}
+
+inline std::string devName(const KdecDeviceInfo& dev) {return dev.name; }
+
+inline std::string devId(const KdecDeviceInfo& dev) { return dev.id; }

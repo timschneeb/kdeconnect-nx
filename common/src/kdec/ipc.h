@@ -51,6 +51,14 @@ enum class DevicePairState : uint8_t {
     Paired          = 3,
 };
 
+enum class DeviceType : uint8_t {
+    Desktop = 0,
+    Laptop  = 1,
+    Phone   = 2,
+    Tablet  = 3,
+    TV      = 4,
+};
+
 enum class KdecMediaAction : uint8_t {
     Play        = 0,
     Pause       = 1,
@@ -67,6 +75,7 @@ enum class KdecMediaAction : uint8_t {
 struct KdecDeviceInfo {
     char            id[KDEC_DEVICE_ID_MAX];
     char            name[KDEC_DEVICE_NAME_MAX];
+    DeviceType      type;
     DevicePairState pair_state;
     bool            is_connected;
     int8_t          battery_level; // -1 = no battery

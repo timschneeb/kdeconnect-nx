@@ -18,7 +18,7 @@ void DeviceGui::update() {
 }
 
 tsl::elm::Element* DeviceGui::createUI() {
-    auto* frame = new tsl::elm::OverlayFrame(devName(dev_), statusStr(dev_));
+    auto* frame = new tsl::elm::OverlayFrame(devIcon(dev_) + " " + dev_.name, statusStr(dev_));
     auto* list  = new tsl::elm::List();
 
     std::string id       = devId(dev_);

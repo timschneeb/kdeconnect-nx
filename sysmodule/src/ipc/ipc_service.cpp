@@ -133,6 +133,22 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
                 strncpy(info.id,   id.c_str(),           KDEC_DEVICE_ID_MAX   - 1);
                 strncpy(info.name, sess->info.name.c_str(), KDEC_DEVICE_NAME_MAX - 1);
 
+                if (sess->info.type == "phone") {
+                    info.type = DeviceType::Phone;
+                }
+                else if (sess->info.type == "laptop") {
+                    info.type = DeviceType::Laptop;
+                }
+                else if (sess->info.type == "tablet") {
+                    info.type = DeviceType::Tablet;
+                }
+                else if (sess->info.type == "tv") {
+                    info.type = DeviceType::TV;
+                }
+                else {
+                    info.type = DeviceType::Desktop;
+                }
+
                 if (sess->paired)
                     info.pair_state = DevicePairState::Paired;
                 else if (sess->pair_state == PairState::RequestedByPeer)
