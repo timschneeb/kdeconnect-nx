@@ -57,6 +57,19 @@ To build and automatically upload the overlay to the Switch, run:
 cmake --build cmake-build-debug-devkita64-dev --target MiniKDEConnect_overlay_upload
 ```
 
+### Crash reports
+
+To symbolize Atmosphère crash reports (`/atmosphere/crash_reports/*.log`), use the [tools/symbolize_crash.py] python script.
+You must provide the ELF file that was produced during build, as it contains all the debug symbols. You may also need to provide the path to the GDB from the devkitA64 toolkit.
+
+Example:
+```
+python parse_crash.py 01779993533_4de000000c011ec7.log cmake-build-debug-devkita64-dev/sysmodule/MiniKDEConnect_sysmodule.elf --all-threads
+
+# If gdb is not found, specify it:
+python parse_crash.py crash_report.log sysmodule.elf /opt/devkitpro/devkitA64/bin/aarch64-none-elf-gdb --all-threads
+```
+
 ### Remote logging
 
 This project uses a modified version of nxlink which implements custom port support, reconnection support, and support for sysmodules.
