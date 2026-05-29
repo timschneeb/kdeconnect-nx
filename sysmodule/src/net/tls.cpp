@@ -74,14 +74,13 @@ int socket_recv(void* ctx, unsigned char* buf, size_t len) {
 }
 
 std::vector<unsigned char> pem_write_buffer(const unsigned char* data, size_t data_len, const char* header, const char* footer) {
-    std::vector<unsigned char> out(4096);
+    std::array<unsigned char, 4096> out{};
     size_t olen = 0;
     int ret = mbedtls_pem_write_buffer(header, footer, data, data_len, out.data(), out.size(), &olen);
     if (ret != 0) {
         return {};
     }
-    out.resize(olen);
-    return out;
+    return { out.begin(), out.begin() + olen };
 }
 } // namespace
 
@@ -164,7 +163,7 @@ std::unique_ptr<TlsSession> TlsContext::create_session(int fd, bool is_client) {
 }
 
 std::vector<unsigned char> TlsContext::local_pubkey_bytes() const {
-    std::vector<unsigned char> out(2048);
+    std::array<unsigned char, 2048> out{};
     const int len = mbedtls_pk_write_pubkey_der(const_cast<mbedtls_pk_context*>(&key_), out.data(), out.size());
     if (len <= 0) {
         return {};
@@ -186,12 +185,12 @@ std::vector<unsigned char> TlsContext::peer_pubkey_bytes(const TlsSession& sessi
     if (!cert) {
         return {};
     }
-    std::vector<unsigned char> out(2048);
+    std::array<unsigned char, 2048> out{};
     const int len = mbedtls_pk_write_pubkey_der(const_cast<mbedtls_pk_context*>(&cert->pk), out.data(), out.size());
     if (len <= 0) {
         return {};
     }
-    return std::vector(out.end() - len, out.end());
+    return { out.end() - len, out.end() };
 }
 
 bool TlsContext::load_from_files(const std::string& cert_path, const std::string& key_path) {
