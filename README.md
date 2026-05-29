@@ -67,10 +67,10 @@ You must provide the ELF file that was produced during build, as it contains all
 
 Example:
 ```
-python parse_crash.py 01779993533_4de000000c011ec7.log cmake-build-debug-devkita64-dev/sysmodule/MiniKDEConnect_sysmodule.elf --all-threads
+python parse_crash.py 01779993533_4de000000c011ec7.log cmake-build-debug-devkita64-dev/sysmodule/MiniKDEConnect_sysmodule.elf
 
 # If gdb is not found, specify it:
-python parse_crash.py crash_report.log sysmodule.elf /opt/devkitpro/devkitA64/bin/aarch64-none-elf-gdb --all-threads
+python parse_crash.py crash_report.log sysmodule.elf /opt/devkitpro/devkitA64/bin/aarch64-none-elf-gdb
 ```
 
 ### Remote logging
