@@ -32,7 +32,7 @@ public:
         textX += icon_width + 19;
 
         renderer->drawString(m_text_clean, false, textX, this->getY() + 30, 20, a(tsl::defaultTextColor));
-        renderer->drawString(m_line2,      false, textX, this->getY() + 62, 20, a(tsl::defaultTextColor));
+        renderer->drawString(m_line2,      false, textX, this->getY() + 60, 20, a(tsl::defaultTextColor));
         renderer->drawString(m_value,      false, textX, this->getY() + 90, 18, a(kActionColor));
     }
 };
