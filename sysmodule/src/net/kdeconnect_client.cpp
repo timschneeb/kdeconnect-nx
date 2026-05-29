@@ -17,6 +17,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <malloc.h>
 #include <memory>
 #include <new>
 #include <optional>
@@ -515,7 +516,9 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, ScopedF
             mbedtls_ssl_close_notify(&old_session->tls->ssl);
             old_session->tls.reset();
         }
+        old_session.reset();
     }
+    malloc_trim(0);
 
     Logger::info("Connected to %s (%s, %s, %s).",
              session->info.name.c_str(), session->info.id.c_str(),
@@ -634,6 +637,9 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
         fsFileClose(&file);
 
         mbedtls_ssl_close_notify(&tls_session->ssl);
+        tls_session.reset();
+        chunk.reset();
+        malloc_trim(0);
 
         const bool aborted = session->disconnected.load() || remaining > 0;
         if (aborted) {
@@ -663,6 +669,8 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
         }
 
         mbedtls_ssl_close_notify(&tls_session->ssl);
+        tls_session.reset();
+        malloc_trim(0);
         packet.payload.resize(received);
         Logger::info("Downloaded payload: %zu bytes for %s", received, packet.type.c_str());
         return true;
@@ -980,6 +988,7 @@ void KdeConnectClient::io_loop(const std::shared_ptr<DeviceSession>& session) {
         mbedtls_ssl_close_notify(&session->tls->ssl);
         session->tls.reset();
     }
+    malloc_trim(0);
     Logger::info("Disconnected from %s (%s)", session->info.name.c_str(), session->info.id.c_str());
 }
 

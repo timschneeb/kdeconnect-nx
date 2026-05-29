@@ -3,6 +3,7 @@
 #include <switch.h>
 
 #include <algorithm>
+#include <malloc.h>
 #include <string>
 
 #include "net/kdeconnect_client.h"
@@ -48,6 +49,8 @@ void NxApplication::restart_client(const char* reason) {
     }
     Logger::info(reason);
     last_restart_ = std::chrono::steady_clock::now();
+    client_.reset();     // destroy old client before allocating the new one
+    malloc_trim(0);      // return top-of-arena free chunk to the sbrk pool
     client_ = std::make_shared<KdeConnectClient>(storage_);
     if (!client_->start(kEnableMdns)) {
         Logger::error("Failed to restart client.");

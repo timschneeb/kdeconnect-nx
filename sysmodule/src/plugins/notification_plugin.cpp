@@ -8,6 +8,7 @@
 #include <string>
 
 #ifdef __SWITCH__
+#include <malloc.h>
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_NO_GIF
 #define STBI_NO_PSD
@@ -240,6 +241,7 @@ void NotificationPlugin::write_app_icon(const std::string& icon_hash, const Netw
         }
     }
     stbi_image_free(img);
+    malloc_trim(0);
 
     std::string payload(reinterpret_cast<const char*>(px), sizeof(px));
     if (!Storage::write_file(icon_path, payload)) {
