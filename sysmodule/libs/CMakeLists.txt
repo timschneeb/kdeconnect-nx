@@ -1,3 +1,7 @@
+# Custom MbedTLS build for size optimization
+add_subdirectory(mbedtls)
+
+# Lightweight JSON library
 set(YYJSON_DISABLE_UTILS ON CACHE BOOL "" FORCE)
 set(YYJSON_DISABLE_NON_STANDARD ON CACHE BOOL "" FORCE)
 set(YYJSON_DISABLE_INCR_READER ON CACHE BOOL "" FORCE)
@@ -9,7 +13,7 @@ target_compile_options(yyjson PRIVATE
     $<$<NOT:$<BOOL:${STACK_USAGE}>>:-flto>
     -Os -ffunction-sections -fdata-sections)
 
-# eyalroz/printf — tiny vsnprintf/sprintf replacement
+# Tiny vsnprintf/sprintf replacement
 include(FetchContent)
 FetchContent_Declare(
     printf_library
@@ -20,7 +24,7 @@ set(PRINTF_ALIAS_STANDARD_FUNCTION_NAMES_SOFT OFF CACHE BOOL "" FORCE)
 set(PRINTF_ALIAS_STANDARD_FUNCTION_NAMES_HARD OFF CACHE BOOL "" FORCE)
 set(PRINTF_SUPPORT_EXPONENTIAL_SPECIFIERS OFF CACHE BOOL "" FORCE)
 set(PRINTF_SUPPORT_MSVC_STYLE_INTEGER_SPECIFIERS OFF CACHE BOOL "" FORCE)
-set(BUILD_STATIC_LIBRARY                  ON  CACHE BOOL "" FORCE)
+set(BUILD_STATIC_LIBRARY ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(printf_library)
 
 target_compile_options(printf PRIVATE

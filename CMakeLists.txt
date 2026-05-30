@@ -21,17 +21,10 @@ endif()
 # For puncover: -fstack-usage is incompatible with -flto (LTO defers code-gen to
 # link time, so GCC never reaches the RTL pass that emits .su files).
 # Enable this option to get .su files; it automatically suppresses -flto everywhere.
-set(STACK_USAGE OFF)
-
 option(STACK_USAGE "Generate .su files for puncover stack analysis (disables LTO)" OFF)
 if(STACK_USAGE)
     add_compile_options(-fstack-usage)
 endif()
-
-# Custom in-tree MbedTLS build for size optimization and Switch compatibility
-add_subdirectory(sysmodule/libs/mbedtls)
-set(MBEDTLS_LIBRARIES MBEDTLS::mbedtls MBEDTLS::mbedx509 MBEDTLS::mbedcrypto)
-set(MBEDTLS_INCLUDE_DIRS "") # Handled by target_link_libraries
 
 find_package(Threads REQUIRED)
 

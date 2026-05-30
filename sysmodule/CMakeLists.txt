@@ -46,11 +46,20 @@ set(MINIKDECONNECT_INCLUDE_DIRS
 
 add_subdirectory(libs)
 
+# Wrap stubs must be compiled without LTO: the LTO pass runs before --wrap symbol
+# substitution, so __wrap_* functions appear unreferenced and get eliminated.
+set_source_files_properties(
+    ${CMAKE_CURRENT_LIST_DIR}/src/utils/printf_stub.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/utils/strtod_stub.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/utils/assert_stub.cpp
+    PROPERTIES COMPILE_OPTIONS "-fno-lto"
+)
+
 set(MINIKDECONNECT_LINK_LIBS
     minikdeconnect_common
     yyjson
     printf
-    ${MBEDTLS_LIBRARIES}
+    MBEDTLS::mbedtls MBEDTLS::mbedx509 MBEDTLS::mbedcrypto
     Threads::Threads
 )
 
