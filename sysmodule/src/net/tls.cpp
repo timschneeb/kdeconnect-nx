@@ -177,7 +177,7 @@ std::string TlsContext::peer_cert_pem(const TlsSession& session) {
         return {};
     }
     const auto pem = pem_write_buffer(cert->raw.p, cert->raw.len, "-----BEGIN CERTIFICATE-----\n", "-----END CERTIFICATE-----\n");
-    return std::string(reinterpret_cast<const char*>(pem.data()), pem.size());
+    return std::string(reinterpret_cast<const char*>(pem.data()));
 }
 
 std::vector<unsigned char> TlsContext::peer_pubkey_bytes(const TlsSession& session) {
