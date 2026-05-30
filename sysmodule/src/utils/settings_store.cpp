@@ -12,6 +12,10 @@
 #include "logger.h"
 #include "storage.h"
 
+#ifndef __SWITCH__
+#include "unistd.h"
+#endif
+
 namespace {
 
 std::string settings_path() {

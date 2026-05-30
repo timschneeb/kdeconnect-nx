@@ -167,7 +167,7 @@ int service_callback(int sock,
     if (queried_name == self->service_type &&
         (record_type == MDNS_RECORDTYPE_PTR || record_type == MDNS_RECORDTYPE_ANY)) {
         mdns_record_t answer = make_record(*self, MDNS_RECORDTYPE_PTR);
-        mdns_record_t additional[16];
+        mdns_record_t additional[64];
         size_t additional_count = 0;
         additional[additional_count++] = make_record(*self, MDNS_RECORDTYPE_SRV);
         for (const auto& address : self->addresses_v4)
@@ -179,7 +179,7 @@ int service_callback(int sock,
     if (queried_name == self->service_instance &&
         (record_type == MDNS_RECORDTYPE_SRV || record_type == MDNS_RECORDTYPE_ANY)) {
         mdns_record_t answer = make_record(*self, MDNS_RECORDTYPE_SRV);
-        mdns_record_t additional[16];
+        mdns_record_t additional[64];
         size_t additional_count = 0;
         for (const auto& address : self->addresses_v4)
             additional[additional_count++] = make_record(*self, MDNS_RECORDTYPE_A, &address);
@@ -190,7 +190,7 @@ int service_callback(int sock,
     if (queried_name == self->hostname &&
         (record_type == MDNS_RECORDTYPE_A || record_type == MDNS_RECORDTYPE_ANY) && !self->addresses_v4.empty()) {
         mdns_record_t answer = make_record(*self, MDNS_RECORDTYPE_A, &self->addresses_v4.front());
-        mdns_record_t additional[16];
+        mdns_record_t additional[64];
         size_t additional_count = 0;
         for (const auto& txt : self->txt_records)
             additional[additional_count++] = make_record(*self, MDNS_RECORDTYPE_TXT, nullptr, &txt);

@@ -100,11 +100,11 @@ int main() {
                 std::string message;
                 std::getline(iss, message);
                 if (!message.empty() && message.front() == ' ') message.erase(0, 1);
-                device->plugin<PingPlugin>()->ping(message);
+                if (auto* p = device->plugin<PingPlugin>()) p->ping(message);
             });
         } else if (cmd == "find") {
             prompt_device(client, iss, [](const std::shared_ptr<KdeConnectClient::DeviceSession> &device) {
-                device->plugin<FindMyPhonePlugin>()->find();
+                if (auto* p = device->plugin<FindMyPhonePlugin>()) p->find();
             });
         } else if (cmd == "mpris") {
             prompt_device(client, iss, [&iss](const std::shared_ptr<KdeConnectClient::DeviceSession> &device) {
@@ -148,7 +148,7 @@ int main() {
             });
         } else if (cmd == "sinks") {
             prompt_device(client, iss, [](const std::shared_ptr<KdeConnectClient::DeviceSession> &device) {
-                device->plugin<SystemVolumePlugin>()->send_sink_list();
+                if (auto* p = device->plugin<SystemVolumePlugin>()) p->send_sink_list();
             });
         } else if (cmd == "quit") {
             break;

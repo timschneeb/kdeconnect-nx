@@ -4,8 +4,11 @@
 #include <cstring>
 #include <functional>
 #include <pthread.h>
+
+#ifdef __SWITCH__
 #include <switch/arm/tls.h>
 #include <switch/kernel/thread.h>
+#endif
 
 // ReSharper disable once CppUnusedIncludeDirective
 #include "config.h"
@@ -41,6 +44,7 @@ class StackThread {
     Payload* payload_ = nullptr; // owned; freed by join() (not by trampoline)
 #endif
 
+#ifdef __SWITCH__
     // This structure is exactly 0x20 bytes
     typedef struct {
         u32     magic;
@@ -53,6 +57,7 @@ class StackThread {
     static ThreadVars* getThreadVars() {
         return reinterpret_cast<ThreadVars *>(static_cast<u8 *>(armGetTls()) + 0x200 - sizeof(ThreadVars));
     }
+#endif
 
     static void* trampoline(void* arg) {
         auto* p = static_cast<Payload*>(arg);
