@@ -604,6 +604,7 @@ void KdeConnectClient::handle_packet(const std::shared_ptr<DeviceSession>& sessi
 bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& session,
                                         NetworkPacket& packet,
                                         const std::string& file_path) {
+    if (!session) return false;
     ScopedFd fd{socket(AF_INET, SOCK_STREAM, 0)};
     if (!fd) return false;
 
@@ -628,10 +629,11 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
 
     if (!file_path.empty()) {
         // Stream directly to file
+#if defined(__SWITCH__)
         constexpr size_t kChunkSize = 16384 * 4;
         auto chunk = std::make_unique<uint8_t[]>(kChunkSize);
         int64_t remaining = packet.payload_size;
-#if defined(__SWITCH__)
+
         FsFileSystem* fs = fsdevGetDeviceFileSystem("sdmc");
         if (!fs) {
             Logger::error("downloadPayload: fsdevGetDeviceFileSystem failed");
@@ -684,6 +686,8 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
         }
         Logger::info("Streamed payload to %s", file_path.c_str());
         return true;
+#else
+        return false; // file streaming not supported on non-Switch
 #endif
     } else {
         // Buffer to memory with a 64KB cap (used for small payloads like app icons).
