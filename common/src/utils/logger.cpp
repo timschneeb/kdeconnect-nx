@@ -3,7 +3,6 @@
 #include <chrono>
 #include <cstdarg>
 #include <cstdio>
-#include <ctime>
 #include <sys/stat.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -101,11 +100,13 @@ void Logger::log(std::string_view level, const char* fmt, ...) {
 
 void Logger::log(std::string_view level, std::string_view msg) {
     char time_buf[9];
-    auto now = std::chrono::system_clock::now();
-    auto tt = std::chrono::system_clock::to_time_t(now);
-    std::tm tm{};
-    localtime_r(&tt, &tm);
-    strftime(time_buf, 9, "%H:%M:%S", &tm);
+    auto secs = std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count();
+    // Avoid strftime to avoid pulling in tons of locale/parsing stuff
+    int h = (secs / 3600) % 24, m = (secs / 60) % 60, s = secs % 60;
+    time_buf[0]='0'+h/10; time_buf[1]='0'+h%10; time_buf[2]=':';
+    time_buf[3]='0'+m/10; time_buf[4]='0'+m%10; time_buf[5]=':';
+    time_buf[6]='0'+s/10; time_buf[7]='0'+s%10; time_buf[8]='\0';
 
     // "[HH:MM:SS][L] msg\n": pre-reserve to avoid reallocations
     std::string out;
