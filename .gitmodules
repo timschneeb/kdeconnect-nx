@@ -1,3 +1,6 @@
 [submodule "overlay/libs/libultrahand"]
 	path = overlay/libs/libultrahand
 	url = https://github.com/ppkantorski/libultrahand
+[submodule "sysmodule/libs/yyjson"]
+	path = sysmodule/libs/yyjson
+	url = https://github.com/ibireme/yyjson/
