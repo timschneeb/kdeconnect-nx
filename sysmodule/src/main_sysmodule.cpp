@@ -10,7 +10,7 @@
 #include "utils/logger.h"
 #include "utils/mem_debug.h"
 
-#define INNER_HEAP_SIZE 3'000'000 // 4MB
+#define INNER_HEAP_SIZE 3'000'000 // ~3 MB
 
 #define R_ABORT_UNLESS(expr) {if (Result rc = expr; R_FAILED(rc)) fatalThrow(rc);}
 
