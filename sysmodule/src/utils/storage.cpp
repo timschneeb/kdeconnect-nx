@@ -50,7 +50,11 @@ std::string paired_path(const std::string& base, const std::string& device_id) {
 } // namespace
 
 void Storage::make_directories(const std::string& path) {
+#ifdef __SWITCH__
     std::string tmp = "sdmc:/" + path;
+#else
+    std::string tmp = "/" + path;
+#endif
     for (size_t i = 1; i < tmp.size(); ++i) {
         if (tmp[i] == '/') {
             tmp[i] = '\0';
@@ -70,7 +74,7 @@ Storage::Storage() {
         base_path_ = std::string(home) + "/.config/minikdeconnect";
     } else {
         char cwd[4096] = {};
-        base_path_ = getcwd(cwd, sizeof(cwd)) ? (std::string(cwd) + ".config/minikdeconnect")
+        base_path_ = getcwd(cwd, sizeof(cwd)) ? (std::string(cwd) + "/.config/minikdeconnect")
                                                : ".config/minikdeconnect";
     }
 #endif
@@ -102,7 +106,7 @@ std::optional<PairedDeviceInfo> Storage::load_paired_device(const std::string& d
     const std::string content = read_file(path);
     if (content.empty()) return std::nullopt;
     auto data = JsonBody::parse(content.c_str());
-    if (!data.has("deviceId") && !data.has("certificatePem")) return std::nullopt;
+    if (!data.has("deviceId") || !data.has("certificatePem")) return std::nullopt;
 
     PairedDeviceInfo info;
     info.info.id = data.value("deviceId", device_id);
