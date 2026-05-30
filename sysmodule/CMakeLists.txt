@@ -58,8 +58,8 @@ if(CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch")
             ${MINIKDECONNECT_NX_SOURCES}
         )
 
-        target_compile_options(MiniKDEConnect_applet PRIVATE -flto -fno-exceptions -Oz -ffunction-sections -fdata-sections)
-        target_link_options(MiniKDEConnect_applet PRIVATE -Wl,--gc-sections)
+        target_compile_options(MiniKDEConnect_applet PUBLIC -flto -fno-exceptions -Oz -ffunction-sections -fdata-sections)
+        target_link_options(MiniKDEConnect_applet PUBLIC -Wl,--gc-sections)
 
         target_include_directories(MiniKDEConnect_applet PRIVATE ${MINIKDECONNECT_INCLUDE_DIRS})
         target_link_libraries(MiniKDEConnect_applet PRIVATE ${MINIKDECONNECT_LINK_LIBS})
@@ -81,10 +81,10 @@ if(CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch")
         )
         target_include_directories(MiniKDEConnect_sysmodule PRIVATE ${MINIKDECONNECT_INCLUDE_DIRS})
         target_compile_definitions(MiniKDEConnect_sysmodule PRIVATE MINIKDECONNECT_SYSMODULE)
-        target_compile_options(MiniKDEConnect_sysmodule PRIVATE -flto -Os -ffunction-sections -fdata-sections
+        target_compile_options(MiniKDEConnect_sysmodule PUBLIC -flto -Os -ffunction-sections -fdata-sections
             $<$<CONFIG:Debug>:-fno-omit-frame-pointer>)
         target_link_libraries(MiniKDEConnect_sysmodule PRIVATE ${MINIKDECONNECT_LINK_LIBS} nx)
-        target_link_options(MiniKDEConnect_sysmodule PRIVATE
+        target_link_options(MiniKDEConnect_sysmodule PUBLIC
             -Wl,--gc-sections -Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/MiniKDEConnect_sysmodule.map
             $<$<CONFIG:Debug>:-Wl,--wrap,malloc>
             $<$<CONFIG:Debug>:-Wl,--wrap,free>

@@ -53,7 +53,7 @@ public:
         template<typename T>
         T* plugin() {
             for (const auto& plugin : plugins) {
-                if (auto typed_plugin = dynamic_cast<T*>(plugin.get())) {
+                if (auto typed_plugin = static_cast<T*>(plugin.get())) {
                     return typed_plugin;
                 }
             }

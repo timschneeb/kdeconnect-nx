@@ -88,9 +88,9 @@ int main(int argc, char* argv[])
             try {
                 std::rethrow_exception(eptr);
             } catch (const std::exception& e) {
-                Logger::error("terminate: unhandled exception: %s", e.what());
+                Logger::error("terminate: unhandled exception %s: %s", eptr.__cxa_exception_type()->name(), e.what());
             } catch (...) {
-                Logger::error("terminate: unhandled exception of unknown type");
+                Logger::error("terminate: unhandled exception %s", eptr.__cxa_exception_type()->name());
             }
         } else {
             Logger::error("terminate: called without active exception (joinable thread destroyed?)");

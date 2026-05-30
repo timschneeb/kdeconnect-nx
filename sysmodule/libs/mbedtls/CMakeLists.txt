@@ -92,6 +92,13 @@ target_include_directories(mbedtls PUBLIC ${MBEDTLS_DIR}/include)
 target_link_libraries(mbedx509 mbedcrypto)
 target_link_libraries(mbedtls mbedx509)
 
+target_compile_options(mbedcrypto PRIVATE -flto -Os -ffunction-sections -fdata-sections)
+target_link_options(mbedcrypto PRIVATE -Wl,--gc-sections)
+target_compile_options(mbedx509 PRIVATE -flto -Os -ffunction-sections -fdata-sections)
+target_link_options(mbedx509 PRIVATE -Wl,--gc-sections)
+target_compile_options(mbedtls PRIVATE -flto -Os -ffunction-sections -fdata-sections)
+target_link_options(mbedtls PRIVATE -Wl,--gc-sections)
+
 # Export targets
 add_library(MBEDTLS::mbedtls ALIAS mbedtls)
 add_library(MBEDTLS::mbedx509 ALIAS mbedx509)

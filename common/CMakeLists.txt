@@ -20,6 +20,9 @@ target_include_directories(minikdeconnect_common
         ${CMAKE_CURRENT_LIST_DIR}/src/utils
 )
 
+target_compile_options(minikdeconnect_common PRIVATE -flto -Os -ffunction-sections -fdata-sections)
+target_link_options(minikdeconnect_common PRIVATE -Wl,--gc-sections)
+
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(minikdeconnect_common PUBLIC NXLINK_ENABLED)
 endif()
