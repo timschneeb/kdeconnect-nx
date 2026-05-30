@@ -17,6 +17,8 @@
 #define STBI_NO_TGA
 #define STBI_NO_HDR
 #define STBI_NO_LINEAR
+#define STBI_NO_STDIO
+#define STBI_NO_FAILURE_STRINGS
 #include "stb_image.h"
 #include <dirent.h>
 #include <sys/stat.h>
