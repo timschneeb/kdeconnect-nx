@@ -18,17 +18,14 @@ else ()
     add_compile_definitions(NXLINK_HOST=\"\")
 endif()
 
-include(FetchContent)
+# For puncover: -fstack-usage is incompatible with -flto (LTO defers code-gen to
+# link time, so GCC never reaches the RTL pass that emits .su files).
+# Enable this option to get .su files; it automatically suppresses -flto everywhere.
+set(STACK_USAGE OFF)
 
-find_package(nlohmann_json QUIET)
-if (NOT ${nlohmann_json_FOUND})
-    FetchContent_Declare(
-            nlohmann_json
-            GIT_REPOSITORY https://github.com/nlohmann/json.git
-            GIT_TAG v3.11.3
-            OVERRIDE_FIND_PACKAGE
-    )
-    FetchContent_MakeAvailable(nlohmann_json)
+option(STACK_USAGE "Generate .su files for puncover stack analysis (disables LTO)" OFF)
+if(STACK_USAGE)
+    add_compile_options(-fstack-usage)
 endif()
 
 # Custom in-tree MbedTLS build for size optimization and Switch compatibility

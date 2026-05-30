@@ -5,4 +5,6 @@ set(YYJSON_DISABLE_FAST_FP_CONV ON CACHE BOOL "" FORCE)
 set(YYJSON_INSTALL OFF CACHE BOOL "" FORCE)
 add_subdirectory(yyjson)
 
-target_compile_options(yyjson PRIVATE -flto -Os -ffunction-sections -fdata-sections)
+target_compile_options(yyjson PRIVATE
+    $<$<NOT:$<BOOL:${STACK_USAGE}>>:-flto>
+    -Os -ffunction-sections -fdata-sections)
