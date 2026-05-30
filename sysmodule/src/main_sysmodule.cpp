@@ -108,6 +108,12 @@ int main(int argc, char* argv[])
     });
 
     Logger::open_log_file("kdeconnect_sysmodule");
+#ifdef DEBUG_ALLOC_TRACE
+    MemTracker::init();
+#endif
+    // Load long-lived allocations first to avoid fragmentation later on
+    PluginRegistry::load_supported_types(nullptr);
+
     auto app = NxApplication();
     while (true) {
         app.processEvents();

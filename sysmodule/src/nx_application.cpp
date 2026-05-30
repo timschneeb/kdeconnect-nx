@@ -21,6 +21,9 @@ NxApplication::NxApplication() : was_online_(false), storage_(Storage()),
 #if defined(NXLINK_ENABLED)
     Logger::set_nxlink_host(NXLINK_HOST, NxLink::kDefaultPort);
 #endif
+    
+    ipc_service_ = std::make_unique<IpcService>(this);
+    ipc_service_->start();
 
     was_online_ = isOnline();
     if (was_online_) {
@@ -32,9 +35,6 @@ NxApplication::NxApplication() : was_online_(false), storage_(Storage()),
 
     if (!client_->start(kEnableMdns))
         Logger::error("Failed to start KDE Connect client");
-
-    ipc_service_ = std::make_unique<IpcService>(this);
-    ipc_service_->start();
 }
 
 NxApplication::~NxApplication() {
