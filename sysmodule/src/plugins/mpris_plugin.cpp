@@ -28,11 +28,9 @@ void MprisPlugin::on_connected(bool paired) {
 bool MprisPlugin::on_packet_received(const NetworkPacket& np) {
     if (np.type != PacketTypes::Mpris) return false;
 
-    if (np.body.contains("playerList")) {
+    if (np.body.has("playerList")) {
         std::vector<std::string> players;
-        for (const auto& p : np.body["playerList"]) {
-            if (p.is_string()) players.push_back(p.get<std::string>());
-        }
+        np.body.each_str("playerList", [&](const char* s) { players.emplace_back(s); });
 
         std::string first_new_player;
         {
@@ -57,35 +55,32 @@ bool MprisPlugin::on_packet_received(const NetworkPacket& np) {
         return true;
     }
 
-    if (np.body.contains("player") && np.body["player"].is_string()) {
-        std::string player = np.body["player"].get<std::string>();
+    if (np.body.is_str("player")) {
+        std::string player = np.body.get_str("player");
         {
             std::lock_guard lock(mutex_);
             // Ignore status updates from players other than the selected one.
             // Firefox exposes two MPRIS players ("Firefox" and "Mozilla firefox");
             // packets from the non-selected one corrupt state with pos:0 resets.
             if (!current_player_.empty() && player != current_player_) return true;
-            if (np.body.contains("isPlaying"))    state_.is_playing    = np.body["isPlaying"].get<bool>();
-            if (np.body.contains("canPause"))     state_.can_pause     = np.body["canPause"].get<bool>();
-            if (np.body.contains("canPlay"))      state_.can_play      = np.body["canPlay"].get<bool>();
-            if (np.body.contains("canGoNext"))    state_.can_go_next   = np.body["canGoNext"].get<bool>();
-            if (np.body.contains("canGoPrevious"))state_.can_go_previous = np.body["canGoPrevious"].get<bool>();
-            if (np.body.contains("canSeek"))      state_.can_seek        = np.body["canSeek"].get<bool>();
-            if (np.body.contains("title")  && np.body["title"].is_string())  state_.title  = np.body["title"].get<std::string>();
-            if (np.body.contains("artist") && np.body["artist"].is_string()) state_.artist = np.body["artist"].get<std::string>();
-            if (np.body.contains("album")  && np.body["album"].is_string())  state_.album  = np.body["album"].get<std::string>();
-            if (np.body.contains("volume") && np.body["volume"].is_number()) state_.volume = np.body["volume"].get<int>();
+            if (np.body.has("isPlaying"))     state_.is_playing      = np.body.get_bool("isPlaying");
+            if (np.body.has("canPause"))      state_.can_pause       = np.body.get_bool("canPause");
+            if (np.body.has("canPlay"))       state_.can_play        = np.body.get_bool("canPlay");
+            if (np.body.has("canGoNext"))     state_.can_go_next     = np.body.get_bool("canGoNext");
+            if (np.body.has("canGoPrevious")) state_.can_go_previous = np.body.get_bool("canGoPrevious");
+            if (np.body.has("canSeek"))       state_.can_seek        = np.body.get_bool("canSeek");
+            if (np.body.is_str("title"))      state_.title  = np.body.get_str("title");
+            if (np.body.is_str("artist"))     state_.artist = np.body.get_str("artist");
+            if (np.body.is_str("album"))      state_.album  = np.body.get_str("album");
+            if (np.body.is_num("volume"))     state_.volume = np.body.get_int("volume");
             // Protocol packets are incremental, only update fields that are present.
             // pos and length use -1 as a sentinel for "unknown/seeking"; ignore those
             // so a transient partial update doesn't corrupt previously good values.
             // Also skip pos:0 when the same packet carries length:-1 (Firefox's raw MPRIS)
             // emits {pos:0, length:-1} during buffering/transition which is not a real position.
-            if (np.body.contains("pos") && np.body["pos"].is_number()
-                    && now_ms() >= seek_lock_until_ms_) {
-                const int64_t p = np.body["pos"].get<int64_t>();
-                const bool co_length_bad = np.body.contains("length")
-                    && np.body["length"].is_number()
-                    && np.body["length"].get<int64_t>() < 0;
+            if (np.body.is_num("pos") && now_ms() >= seek_lock_until_ms_) {
+                const int64_t p = np.body.get_i64("pos");
+                const bool co_length_bad = np.body.is_num("length") && np.body.get_i64("length") < 0;
                 if (p > 0 || !co_length_bad) {
                     if (p >= 0) {
                         state_.position              = p;
@@ -93,8 +88,8 @@ bool MprisPlugin::on_packet_received(const NetworkPacket& np) {
                     }
                 }
             }
-            if (np.body.contains("length") && np.body["length"].is_number()) {
-                const int64_t l = np.body["length"].get<int64_t>();
+            if (np.body.is_num("length")) {
+                const int64_t l = np.body.get_i64("length");
                 if (l >= 0) state_.length = l;
             }
         }
@@ -112,46 +107,44 @@ bool MprisPlugin::on_packet_received(const NetworkPacket& np) {
 void MprisPlugin::request_player_list() const {
     NetworkPacket pkt;
     pkt.type = PacketTypes::MprisRequest;
-    pkt.body = { {"requestPlayerList", true} };
+    pkt.body.set("requestPlayerList", true);
     send_packet(pkt);
 }
 
 void MprisPlugin::request_status(const std::string& player) const {
     NetworkPacket pkt;
     pkt.type = PacketTypes::MprisRequest;
-    pkt.body = {
-        {"player", player},
-        {"requestNowPlaying", true},
-        {"requestVolume", true}
-    };
+    pkt.body.set("player",           player)
+            .set("requestNowPlaying", true)
+            .set("requestVolume",     true);
     send_packet(pkt);
 }
 
 void MprisPlugin::send_action(const std::string& player, const std::string& action) const {
     NetworkPacket pkt;
     pkt.type = PacketTypes::MprisRequest;
-    pkt.body = { {"player", player}, {"action", action} };
+    pkt.body.set("player", player).set("action", action);
     send_packet(pkt);
 }
 
 void MprisPlugin::set_volume(const std::string& player, int volume) const {
     NetworkPacket pkt;
     pkt.type = PacketTypes::MprisRequest;
-    pkt.body = { {"player", player}, {"setVolume", volume} };
+    pkt.body.set("player", player).set("setVolume", volume);
     send_packet(pkt);
 }
 
 void MprisPlugin::seek(const std::string& player, int64_t offset_ms) const {
     NetworkPacket pkt;
     pkt.type = PacketTypes::MprisRequest;
-    pkt.body = { {"player", player}, {"Seek", offset_ms * 1000} };
+    pkt.body.set("player", player).set("Seek", offset_ms * 1000);
     send_packet(pkt);
 }
 
 void MprisPlugin::set_position(const std::string& player, int64_t position_ms) {
     NetworkPacket pkt;
     pkt.type = PacketTypes::MprisRequest;
-    pkt.body = { {"player", player}, {"SetPosition", position_ms} };
+    pkt.body.set("player", player).set("SetPosition", position_ms);
     send_packet(pkt);
     // Mirror Android's sendSetPosition(): immediately anchor the local position so
     // subsequent player_state() calls advance from the new seek point.

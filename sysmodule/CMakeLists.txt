@@ -4,6 +4,7 @@ option(BUILD_CLI "Build the desktop test CLI app" ON)
 
 set(MINIKDECONNECT_SYSMODULE_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/src/mdns/mdns_discovery.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/net/json_body.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/net/kdeconnect_client.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/net/network_packet.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/net/tls.cpp
@@ -40,9 +41,11 @@ set(MINIKDECONNECT_INCLUDE_DIRS
     ${CMAKE_SOURCE_DIR}/common/src/utils
 )
 
+add_subdirectory(libs)
+
 set(MINIKDECONNECT_LINK_LIBS
     minikdeconnect_common
-    nlohmann_json::nlohmann_json
+    yyjson
     ${MBEDTLS_LIBRARIES}
     Threads::Threads
 )

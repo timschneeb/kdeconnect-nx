@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include <nlohmann/json.hpp>
+#include "json_body.h"
 
 namespace PacketTypes {
     constexpr const char* Identity = "kdeconnect.identity";
@@ -30,7 +30,7 @@ namespace PacketTypes {
 
 struct NetworkPacket {
     std::string type;
-    nlohmann::json body;
+    JsonBody body;
 
     // Populated by parse() when the sender advertises a binary payload.
     int64_t payload_size = -1;

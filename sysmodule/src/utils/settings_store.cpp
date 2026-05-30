@@ -7,7 +7,7 @@
 #include <string>
 #include <unordered_map>
 
-#include <nlohmann/json.hpp>
+#include "../net/json_body.h"
 
 #include "logger.h"
 #include "storage.h"
@@ -95,23 +95,16 @@ void load() {
     const std::string buf = Storage::read_file(path);
     if (buf.empty()) return;
 
-    const auto j = nlohmann::json::parse(buf, nullptr, false);
-    if (j.is_discarded()) return;
+    auto j = JsonBody::parse(buf.c_str());
 
-    if (j.contains("bool") && j["bool"].is_object()) {
-        for (const auto& [name, v] : j["bool"].items()) {
-            if (!v.is_boolean()) continue;
-            if (auto k = bool_key_from_name(name))
-                g_bool[static_cast<uint8_t>(*k)] = v.get<bool>();
-        }
-    }
-    if (j.contains("int") && j["int"].is_object()) {
-        for (const auto& [name, v] : j["int"].items()) {
-            if (!v.is_number_integer()) continue;
-            if (auto k = int_key_from_name(name))
-                g_int[static_cast<uint8_t>(*k)] = v.get<int32_t>();
-        }
-    }
+    j.each_bool("bool", [&](const char* name, bool val) {
+        if (auto k = bool_key_from_name(name))
+            g_bool[static_cast<uint8_t>(*k)] = val;
+    });
+    j.each_int("int", [&](const char* name, int val) {
+        if (auto k = int_key_from_name(name))
+            g_int[static_cast<uint8_t>(*k)] = static_cast<int32_t>(val);
+    });
 }
 
 void save() {
@@ -124,15 +117,16 @@ void save() {
         int_copy  = g_int;
     }
 
-    nlohmann::json j;
-    j["bool"] = nlohmann::json::object();
-    j["int"]  = nlohmann::json::object();
+    JsonBody j_bool, j_int;
     for (const auto& [k, v] : bool_copy)
         if (const char* name = bool_key_name(static_cast<KdecBoolSettingKey>(k)))
-            j["bool"][name] = v;
+            j_bool.set(name, v);
     for (const auto& [k, v] : int_copy)
         if (const char* name = int_key_name(static_cast<KdecIntSettingKey>(k)))
-            j["int"][name] = v;
+            j_int.set(name, static_cast<int>(v));
+
+    JsonBody j;
+    j.set("bool", std::move(j_bool)).set("int", std::move(j_int));
 
     const std::string path = settings_path();
     const auto slash = path.rfind('/');

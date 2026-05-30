@@ -107,11 +107,9 @@ void BatteryPlugin::send_status() const {
 
     NetworkPacket pkt;
     pkt.type = PacketTypes::Battery;
-    pkt.body = {
-        {"currentCharge", static_cast<int>(charge)},
-        {"isCharging", charging},
-        {"thresholdEvent", (!charging && charge <= 15u) ? 1 : 0}
-    };
+    pkt.body.set("currentCharge",  (int)charge)
+            .set("isCharging",     charging)
+            .set("thresholdEvent", (!charging && charge <= 15u) ? 1 : 0);
     send_packet(pkt);
 }
 

@@ -73,12 +73,10 @@ DeviceInfo info_from_identity(const NetworkPacket& pkt) {
     info.name = pkt.body.value("deviceName", "unknown");
     info.type = pkt.body.value("deviceType", "desktop");
     info.protocol_version = pkt.body.value("protocolVersion", kProtocolVersion);
-    if (pkt.body.contains("incomingCapabilities")) {
-        info.incoming_capabilities = pkt.body["incomingCapabilities"].get<std::vector<std::string>>();
-    }
-    if (pkt.body.contains("outgoingCapabilities")) {
-        info.outgoing_capabilities = pkt.body["outgoingCapabilities"].get<std::vector<std::string>>();
-    }
+    if (pkt.body.has("incomingCapabilities"))
+        info.incoming_capabilities = pkt.body.get_str_array("incomingCapabilities");
+    if (pkt.body.has("outgoingCapabilities"))
+        info.outgoing_capabilities = pkt.body.get_str_array("outgoingCapabilities");
     return info;
 }
 
@@ -86,22 +84,15 @@ NetworkPacket make_identity_packet(const DeviceInfo& info, std::optional<std::st
                                    std::optional<int> target_protocol, std::optional<int> tcp_port) {
     NetworkPacket pkt;
     pkt.type = PacketTypes::Identity;
-    pkt.body = nlohmann::json::object();
-    pkt.body["deviceId"] = info.id;
-    pkt.body["deviceName"] = info.name;
-    pkt.body["deviceType"] = info.type;
-    pkt.body["protocolVersion"] = info.protocol_version;
-    pkt.body["incomingCapabilities"] = info.incoming_capabilities;
-    pkt.body["outgoingCapabilities"] = info.outgoing_capabilities;
-    if (target_id) {
-        pkt.body["targetDeviceId"] = *target_id;
-    }
-    if (target_protocol) {
-        pkt.body["targetProtocolVersion"] = *target_protocol;
-    }
-    if (tcp_port) {
-        pkt.body["tcpPort"] = *tcp_port;
-    }
+    pkt.body.set("deviceId",         info.id)
+            .set("deviceName",       info.name)
+            .set("deviceType",       info.type)
+            .set("protocolVersion",  info.protocol_version)
+            .set_str_array("incomingCapabilities", info.incoming_capabilities)
+            .set_str_array("outgoingCapabilities", info.outgoing_capabilities);
+    if (target_id)       pkt.body.set("targetDeviceId",          *target_id);
+    if (target_protocol) pkt.body.set("targetProtocolVersion",   *target_protocol);
+    if (tcp_port)        pkt.body.set("tcpPort",                 *tcp_port);
     return pkt;
 }
 

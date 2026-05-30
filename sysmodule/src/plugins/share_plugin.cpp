@@ -28,8 +28,8 @@ std::vector<std::string> SharePlugin::outgoing_packet_types() const {
 bool SharePlugin::on_packet_received(const NetworkPacket& np) {
     if (np.type != PacketTypes::ShareRequest) return false;
 
-    if (np.body.contains("url") && np.body["url"].is_string()) {
-        const std::string url = np.body["url"].get<std::string>();
+    if (np.body.is_str("url")) {
+        const std::string url = np.body.get_str("url");
         Logger::info("URL: %s", url.c_str());
         std::lock_guard lock(s_url_mutex_);
         if (s_pending_urls_.size() > 1) s_pending_urls_.pop();
@@ -37,18 +37,19 @@ bool SharePlugin::on_packet_received(const NetworkPacket& np) {
         return true;
     }
 
-    if (np.body.contains("text") && np.body["text"].is_string()) {
-        Logger::info("Text: %s", np.body["text"].get<std::string>().c_str());
+    if (np.body.is_str("text")) {
+        const std::string text = np.body.get_str("text");
+        Logger::info("Text: %s", text.c_str());
         NotificationPlugin::post_notification(
             "kdeconnect_share",
             std::string("From " + provider_->device(device_id_)->info.name).c_str(),
-            np.body["text"].get<std::string>(),
+            text,
             std::to_string(notification_id_.fetch_add(1)));
         return true;
     }
 
-    if (np.body.contains("filename") && np.body["filename"].is_string() && np.has_payload()) {
-        const std::string filename = np.body["filename"].get<std::string>();
+    if (np.body.is_str("filename") && np.has_payload()) {
+        const std::string filename = np.body.get_str("filename");
         Logger::info("File: %s", filename.c_str());
 
         if (np.payload_size > 1024 * 1024) {
@@ -138,7 +139,7 @@ bool SharePlugin::send_screenshot() const {
 
     NetworkPacket pkt;
     pkt.type = PacketTypes::ShareRequest;
-    pkt.body = {{"filename", std::string(filename)}};
+    pkt.body.set("filename", std::string(filename));
     pkt.payload = std::move(buffer);
 
     return provider_->send_payload(device_id_, std::move(pkt));

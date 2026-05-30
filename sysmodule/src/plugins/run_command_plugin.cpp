@@ -25,14 +25,14 @@ void RunCommandPlugin::on_connected(bool paired) {
 
 bool RunCommandPlugin::on_packet_received(const NetworkPacket& np) {
     if (np.type == PacketTypes::RunCommand) {
-        if (np.body.contains("commandList") && np.body["commandList"].is_string()) {
-            auto list = nlohmann::json::parse(np.body["commandList"].get<std::string>());
+        if (np.body.is_str("commandList")) {
+            auto list = JsonBody::parse(np.body.get_str("commandList").c_str());
             std::lock_guard<std::mutex> lock(remote_commands_mutex_);
             remote_commands_.clear();
-            for (auto& [id, entry] : list.items()) {
-                if (entry.contains("name") && entry["name"].is_string())
-                    remote_commands_[id] = entry["name"].get<std::string>();
-            }
+            list.each_kv([&](const char* id, const JsonBody& entry) {
+                if (entry.is_str("name"))
+                    remote_commands_[id] = entry.get_str("name");
+            });
         }
         return true;
     }
@@ -42,8 +42,8 @@ bool RunCommandPlugin::on_packet_received(const NetworkPacket& np) {
             send_local_command_list();
             return true;
         }
-        if (np.body.contains("key") && np.body["key"].is_string()) {
-            run_local_command(np.body["key"].get<std::string>());
+        if (np.body.is_str("key")) {
+            run_local_command(np.body.get_str("key"));
             return true;
         }
     }
@@ -70,14 +70,14 @@ void RunCommandPlugin::send_local_command_list() const {
 
     NetworkPacket pkt;
     pkt.type = PacketTypes::RunCommand;
-    pkt.body = nlohmann::json::parse(kCommandList);
+    pkt.body = JsonBody::parse(kCommandList);
     send_packet(pkt);
 }
 
 void RunCommandPlugin::request_remote_command_list() const {
     NetworkPacket pkt;
     pkt.type = PacketTypes::RunCommandRequest;
-    pkt.body = nlohmann::json::parse(R"({"requestCommandList":true})");
+    pkt.body.set("requestCommandList", true);
     send_packet(pkt);
 }
 
@@ -89,7 +89,7 @@ std::vector<std::pair<std::string, std::string>> RunCommandPlugin::remote_comman
 void RunCommandPlugin::run_remote_command(const std::string& key) const {
     NetworkPacket pkt;
     pkt.type = PacketTypes::RunCommandRequest;
-    pkt.body = { {"key", key} };
+    pkt.body.set("key", key);
     send_packet(pkt);
 }
 

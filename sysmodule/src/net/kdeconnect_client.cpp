@@ -226,7 +226,7 @@ void KdeConnectClient::stop() {
     std::vector<std::shared_ptr<DeviceSession>> to_stop;
     {
         std::lock_guard lock(session_mutex_);
-        for (auto &session: sessions_ | std::views::values) {
+        for (auto &[_, session]: sessions_) {
             to_stop.push_back(session);
         }
         sessions_.clear();
@@ -321,11 +321,11 @@ void KdeConnectClient::network_loop() {
                             auto line = NetworkUtil::read_line_fd(fd.raw, kMaxPacketSize);
                             auto packet = line ? NetworkPacket::parse(*line) : std::optional<NetworkPacket>{};
                             bool valid = packet && packet->type == PacketTypes::Identity;
-                            if (valid && packet->body.contains("targetDeviceId")) {
+                            if (valid && packet->body.has("targetDeviceId")) {
                                 const auto tid = packet->body.value("targetDeviceId", "");
                                 if (!tid.empty() && tid != local_device_.id) valid = false;
                             }
-                            if (valid && packet->body.contains("targetProtocolVersion")) {
+                            if (valid && packet->body.has("targetProtocolVersion")) {
                                 if (packet->body.value("targetProtocolVersion", kProtocolVersion) != kProtocolVersion)
                                     valid = false;
                             }
@@ -566,8 +566,7 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, ScopedF
         // Send an unpair packet in case the remote still thinks we are connected after doing an offline unpair
         NetworkPacket pkt;
         pkt.type = PacketTypes::Pair;
-        pkt.body = nlohmann::json::object();
-        pkt.body["pair"] = false;
+        pkt.body.set("pair", false);
         send_packet(identity.id, pkt);
     }
 
@@ -713,12 +712,12 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
     }
 }
 
-void KdeConnectClient::handle_pair_packet(const std::shared_ptr<DeviceSession>& session, const nlohmann::json& body) {
+void KdeConnectClient::handle_pair_packet(const std::shared_ptr<DeviceSession>& session, const JsonBody& body) {
     bool wants_pair = body.value("pair", false);
-    Logger::info("Got pair packet from %s (wants_pair=%d) %s", session->info.name.c_str(), wants_pair, body.dump(-1).c_str());
+    Logger::info("Got pair packet from %s (wants_pair=%d) %s", session->info.name.c_str(), wants_pair, body.dump().c_str());
 
     if (wants_pair) {
-        long timestamp = body.value("timestamp", 0L);
+        int64_t timestamp = body.value("timestamp", (int64_t)0);
         long now = std::chrono::duration_cast<std::chrono::seconds>(
                        std::chrono::system_clock::now().time_since_epoch())
                        .count();
@@ -745,7 +744,7 @@ void KdeConnectClient::handle_pair_packet(const std::shared_ptr<DeviceSession>& 
         }
 
         session->pair_state = PairState::RequestedByPeer;
-        session->pairing_timestamp = timestamp;
+        session->pairing_timestamp = static_cast<long>(timestamp);
         std::string key = verification_key(session, timestamp);
         Logger::info("Pair request from %s (key %s).", session->info.name.c_str(), key.c_str());
         Logger::info("Type: accept %s or reject %s", session->info.id.c_str(), session->info.id.c_str());
@@ -774,7 +773,7 @@ std::string KdeConnectClient::verification_key(const std::shared_ptr<DeviceSessi
     if (a.empty() || b.empty()) {
         return "--------";
     }
-    bool a_less_than_b = std::ranges::lexicographical_compare(a, b);
+    bool a_less_than_b = std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end());
     std::vector<unsigned char> combined;
     if (a_less_than_b) {
         combined.insert(combined.end(), b.begin(), b.end());
@@ -816,11 +815,10 @@ void KdeConnectClient::request_pair(const std::string& device_id) {
 
     NetworkPacket pkt;
     pkt.type = PacketTypes::Pair;
-    pkt.body = {{"pair", true}};
     long ts = std::chrono::duration_cast<std::chrono::seconds>(
                   std::chrono::system_clock::now().time_since_epoch())
                   .count();
-    pkt.body["timestamp"] = ts;
+    pkt.body.set("pair", true).set("timestamp", (int64_t)ts);
 
     if (send_packet(device_id, pkt)) {
         session->pair_state = PairState::Requested;
@@ -841,10 +839,9 @@ void KdeConnectClient::accept_pair(const std::string& device_id) {
 
     NetworkPacket pkt;
     pkt.type = PacketTypes::Pair;
-    pkt.body = {
-        {"pair", true},
-        {"timestamp", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()}
-    };
+    pkt.body.set("pair", true)
+            .set("timestamp", (int64_t)std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count());
 
     if (send_packet(device_id, pkt)) {
         session->pair_state = PairState::Paired;
@@ -860,7 +857,7 @@ void KdeConnectClient::reject_pair(const std::string& device_id) {
 
     NetworkPacket pkt;
     pkt.type = PacketTypes::Pair;
-    pkt.body = {{"pair", false}};
+    pkt.body.set("pair", false);
 
     if (send_packet(device_id, pkt)) {
         session->pair_state = PairState::NotPaired;
@@ -889,7 +886,7 @@ void KdeConnectClient::unpair(const std::string& device_id) {
 
     NetworkPacket pkt;
     pkt.type = PacketTypes::Pair;
-    pkt.body = {{"pair", false}};
+    pkt.body.set("pair", false);
 
     if (send_packet(device_id, pkt)) {
         session->pair_state = PairState::NotPaired;

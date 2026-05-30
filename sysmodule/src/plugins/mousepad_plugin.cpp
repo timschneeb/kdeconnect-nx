@@ -175,31 +175,28 @@ void MousepadPlugin::on_connected(bool paired) {
 void MousepadPlugin::send_keyboard_state() const {
     NetworkPacket pkt;
     pkt.type = PacketTypes::MousepadKeyboardState;
-    pkt.body = {{"state", true}};
+    pkt.body.set("state", true);
     send_packet(pkt);
 }
 
 void MousepadPlugin::send_echo(const NetworkPacket &np) const {
     NetworkPacket echo;
     echo.type = PacketTypes::MousepadEcho;
-    echo.body = nlohmann::json::object();
-    for (const char *field: {
+    for (const char *f: {
              "key", "specialKey", "alt", "ctrl", "shift", "super",
              "singleclick", "doubleclick", "middleclick", "rightclick",
              "singlehold", "singlerelease", "dx", "dy", "scroll"
          }) {
-        if (np.body.contains(field)) {
-            echo.body[field] = np.body[field];
-        }
+        echo.body.copy_field(f, np.body);
     }
-    echo.body["isAck"] = true;
+    echo.body.set("isAck", true);
     send_packet(echo);
 }
 
 bool MousepadPlugin::on_packet_received(const NetworkPacket &np) {
     if (np.type != PacketTypes::MousepadRequest) return false;
 
-    if (!s_no_mouse_support_hint_shown && (np.body.contains("dx") || np.body.contains("dy"))) {
+    if (!s_no_mouse_support_hint_shown && (np.body.has("dx") || np.body.has("dy"))) {
         s_no_mouse_support_hint_shown.store(true);
         NotificationPlugin::post_notification("mousepad",
                                     "Mouse support is not available",
@@ -243,14 +240,14 @@ void MousepadPlugin::inject_key(const NetworkPacket &np) const {
         do_inject_hid(hid_code, apply_shift, ctrl, alt, super, needs_altgr);
     };
 
-    if (np.body.contains("specialKey") && np.body["specialKey"].is_number_integer() && np.body["specialKey"].get<int>() != 0) {
-        int special = np.body["specialKey"].get<int>();
+    if (np.body.is_num("specialKey") && np.body.get_int("specialKey") != 0) {
+        int special = np.body.get_int("specialKey");
         if (special > 0 && special < static_cast<int>(sizeof(kSpecialKeyMap))) {
             uint8_t hid_code = kSpecialKeyMap[special];
             if (hid_code != 0) do_key(hid_code, false);
         }
-    } else if (np.body.contains("key") && np.body["key"].is_string() && np.body["key"].get<std::string>().size() > 0) {
-        for (unsigned char c: np.body["key"].get<std::string>()) {
+    } else if (np.body.is_str("key") && !np.body.get_str("key").empty()) {
+        for (unsigned char c: np.body.get_str("key")) {
             if (c >= 0x80) continue; // skip non-ASCII / UTF-8 continuation bytes
 
             auto info = char_to_hid(c);
@@ -263,6 +260,6 @@ void MousepadPlugin::inject_key(const NetworkPacket &np) const {
     }
     setsysExit();
 #else
-    Logger::info("Key event received: %s", np.body.dump(-1).c_str());
+    Logger::info("Key event received: %s", np.body.dump().c_str());
 #endif
 }

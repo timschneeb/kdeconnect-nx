@@ -4,23 +4,18 @@
 #include <chrono>
 #include <memory>
 #include <mutex>
-#include <queue>
 #include <string>
-#include <thread>
 #include <unordered_map>
 #include <vector>
 
-#include "../utils/stack_thread.h"
-
-#include <nlohmann/json.hpp>
-
 #include "kdeconnect_types.h"
-#include "../mdns/mdns_discovery.h"
-#include "../utils/storage.h"
 #include "tls.h"
+
+#include "../mdns/mdns_discovery.h"
 #include "../plugins/plugin.h"
-#include "../../../common/src/utils/logger.h"
 #include "../utils/scoped_fd.h"
+#include "../utils/stack_thread.h"
+#include "../utils/storage.h"
 
 class KdeConnectClient : public DeviceProvider {
 public:
@@ -62,7 +57,7 @@ private:
   void handle_packet(const std::shared_ptr<DeviceSession> &session,
                      const std::string &line);
   void handle_pair_packet(const std::shared_ptr<DeviceSession> &session,
-                          const nlohmann::json &body);
+                          const JsonBody &body);
 
   std::string verification_key(const std::shared_ptr<DeviceSession> &session,
                                long timestamp) const;

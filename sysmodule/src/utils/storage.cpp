@@ -8,8 +8,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <nlohmann/json.hpp>
-
 #ifdef __SWITCH__
 #include <switch.h>
 #endif
@@ -103,15 +101,15 @@ std::optional<PairedDeviceInfo> Storage::load_paired_device(const std::string& d
     }
     const std::string content = read_file(path);
     if (content.empty()) return std::nullopt;
-    const auto data = nlohmann::json::parse(content, nullptr, false);
-    if (data.is_discarded()) return std::nullopt;
+    auto data = JsonBody::parse(content.c_str());
+    if (!data.has("deviceId") && !data.has("certificatePem")) return std::nullopt;
 
     PairedDeviceInfo info;
     info.info.id = data.value("deviceId", device_id);
-    info.info.name = data.value("deviceName", std::string("unknown"));
-    info.info.type = data.value("deviceType", std::string("desktop"));
+    info.info.name = data.value("deviceName", "unknown");
+    info.info.type = data.value("deviceType", "desktop");
     info.info.protocol_version = data.value("protocolVersion", kProtocolVersion);
-    info.certificate_pem = data.value("certificatePem", std::string());
+    info.certificate_pem = data.value("certificatePem", "");
     return info;
 }
 
@@ -142,12 +140,12 @@ bool Storage::file_exists(const std::string& path) {
 }
 
 void Storage::save_paired_device(const DeviceInfo& info, const std::string& certificate_pem) const {
-    nlohmann::json data;
-    data["deviceId"] = info.id;
-    data["deviceName"] = info.name;
-    data["deviceType"] = info.type;
-    data["protocolVersion"] = info.protocol_version;
-    data["certificatePem"] = certificate_pem;
+    JsonBody data;
+    data.set("deviceId",       info.id)
+        .set("deviceName",     info.name)
+        .set("deviceType",     info.type)
+        .set("protocolVersion", info.protocol_version)
+        .set("certificatePem", certificate_pem);
     write_file(paired_path(base_path_, info.id), data.dump(2));
 }
 

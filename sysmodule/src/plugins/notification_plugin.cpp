@@ -201,31 +201,28 @@ void NotificationPlugin::post_notification(const std::string& app_id,
 
     std::string path     = std::string(kNotifyDir) + "/" + app_id + "-" + uid + ".notify";
 
-    nlohmann::json notify_json = {
-        {"title",      title},
-        {"text",       body},
-        {"duration",   duration},
-        {"show_time",  SettingsStore::get(KdecBoolSettingKey::NotificationShowTime) ? "true" : "false"},
-        {"split_type", "word"},
-        {"alignment",  "left"},
-    };
-
-    {
-        int font_size;
-        if (SettingsStore::get(KdecBoolSettingKey::NotificationDynamicFontSize)) {
-            static constexpr int kBase = 24;
-            static constexpr int kMin  = 16;
-            // ~30 chars/line at size 24 in a 406px area; target 3 lines before shrinking
-            static constexpr int kTargetChars = 90;
-            const int len = static_cast<int>(body.length());
-            font_size = (len > kTargetChars)
-                ? std::max(kMin, kBase * kTargetChars / len)
-                : kBase;
-        } else {
-            font_size = static_cast<int>(SettingsStore::get(KdecIntSettingKey::NotificationFontSize));
-        }
-        notify_json["font_size"] = font_size;
+    int font_size;
+    if (SettingsStore::get(KdecBoolSettingKey::NotificationDynamicFontSize)) {
+        static constexpr int kBase = 24;
+        static constexpr int kMin  = 16;
+        // ~30 chars/line at size 24 in a 406px area; target 3 lines before shrinking
+        static constexpr int kTargetChars = 90;
+        const int len = static_cast<int>(body.length());
+        font_size = (len > kTargetChars)
+            ? std::max(kMin, kBase * kTargetChars / len)
+            : kBase;
+    } else {
+        font_size = static_cast<int>(SettingsStore::get(KdecIntSettingKey::NotificationFontSize));
     }
+
+    JsonBody notify_json;
+    notify_json.set("title",      title)
+               .set("text",       body)
+               .set("duration",   duration)
+               .set("show_time",  SettingsStore::get(KdecBoolSettingKey::NotificationShowTime) ? "true" : "false")
+               .set("split_type", "word")
+               .set("alignment",  "left")
+               .set("font_size",  font_size);
 
     if (!Storage::write_file(path, notify_json.dump(2))) {
         Logger::error("Failed to write notify file: %s", path.c_str());
@@ -302,6 +299,6 @@ void NotificationPlugin::write_app_icon(const std::string& icon_hash, const Netw
 void NotificationPlugin::request_active_notifications() const {
     NetworkPacket pkt;
     pkt.type = PacketTypes::NotificationRequest;
-    pkt.body = { {"request", true} };
+    pkt.body.set("request", true);
     send_packet(pkt);
 }

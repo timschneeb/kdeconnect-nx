@@ -1,0 +1,8 @@
+set(YYJSON_DISABLE_UTILS ON CACHE BOOL "" FORCE)
+set(YYJSON_DISABLE_NON_STANDARD ON CACHE BOOL "" FORCE)
+set(YYJSON_DISABLE_INCR_READER ON CACHE BOOL "" FORCE)
+set(YYJSON_DISABLE_FAST_FP_CONV ON CACHE BOOL "" FORCE)
+set(YYJSON_INSTALL OFF CACHE BOOL "" FORCE)
+add_subdirectory(yyjson)
+
+target_compile_options(yyjson PRIVATE -flto -Os -ffunction-sections -fdata-sections)

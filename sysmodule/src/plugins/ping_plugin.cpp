@@ -21,9 +21,8 @@ std::vector<std::string> PingPlugin::outgoing_packet_types() const {
 
 bool PingPlugin::on_packet_received(const NetworkPacket& np) {
     std::string msg = "Ping!";
-    if (np.body.contains("message") && np.body["message"].is_string()) {
-        msg = np.body["message"].get<std::string>();
-    }
+    if (np.body.is_str("message"))
+        msg = np.body.get_str("message");
 
     std::string device_name = device_id_;
     if (const auto session = provider_->device(device_id_)) {
@@ -38,10 +37,8 @@ bool PingPlugin::on_packet_received(const NetworkPacket& np) {
 void PingPlugin::ping(const std::string &message) const {
     NetworkPacket pkt;
     pkt.type = PacketTypes::Ping;
-    pkt.body = nlohmann::json::object();
-    if (!message.empty()) {
-        pkt.body["message"] = message;
-    }
+    if (!message.empty())
+        pkt.body.set("message", message);
 
     send_packet(pkt);
 }

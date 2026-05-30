@@ -15,7 +15,6 @@ std::vector<std::string> FindMyPhonePlugin::outgoing_packet_types() const {
 void FindMyPhonePlugin::find() const {
     NetworkPacket pkt;
     pkt.type = PacketTypes::FindMyPhoneRequest;
-    pkt.body = nlohmann::json::object();
     Logger::info("Sending find request to %s", device_id_.c_str());
     send_packet(pkt);
 }

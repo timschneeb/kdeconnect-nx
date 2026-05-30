@@ -26,7 +26,7 @@ void SystemVolumePlugin::on_connected(bool paired) {
     // Ask the remote device for its sink list
     NetworkPacket req;
     req.type = PacketTypes::SystemVolumeRequest;
-    req.body = { {"requestSinks", true} };
+    req.body.set("requestSinks", true);
     send_packet(req);
 }
 
@@ -59,14 +59,14 @@ bool SystemVolumePlugin::on_packet_received(const NetworkPacket& np) {
             send_sink_list();
             return true;
         }
-        if (!np.body.contains("name")) return false;
+        if (!np.body.has("name")) return false;
 
-        if (np.body.contains("volume") && np.body["volume"].is_number()) {
-            volume_ = np.body["volume"].get<int>();
+        if (np.body.is_num("volume")) {
+            volume_ = np.body.get_int("volume");
             set_system_volume(volume_);
         }
-        if (np.body.contains("muted") && np.body["muted"].is_boolean()) {
-            muted_ = np.body["muted"].get<bool>();
+        if (np.body.is_bool("muted")) {
+            muted_ = np.body.get_bool("muted");
             // mute not exposed via audctl; lower to 0 when muted
             if (muted_) set_system_volume(0);
             else         set_system_volume(volume_);
@@ -76,12 +76,10 @@ bool SystemVolumePlugin::on_packet_received(const NetworkPacket& np) {
 
         NetworkPacket pkt;
         pkt.type = PacketTypes::SystemVolume;
-        pkt.body = {
-            {"name",    kSinkName},
-            {"volume",  volume_},
-            {"muted",   muted_},
-            {"enabled", true}
-        };
+        pkt.body.set("name",    kSinkName)
+                .set("volume",  volume_)
+                .set("muted",   muted_)
+                .set("enabled", true);
         send_packet(pkt);
         return true;
     }
@@ -90,31 +88,29 @@ bool SystemVolumePlugin::on_packet_received(const NetworkPacket& np) {
     if (np.type == PacketTypes::SystemVolume) {
         std::lock_guard<std::mutex> lock(remote_sinks_mutex_);
 
-        if (np.body.contains("sinkList") && np.body["sinkList"].is_array()) {
+        if (np.body.is_array("sinkList")) {
             remote_sinks_.clear();
-            for (const auto& s : np.body["sinkList"]) {
+            np.body.each_obj("sinkList", [&](const JsonBody& s) {
                 SinkState state;
-                state.name        = s.value("name", "");
+                state.name        = s.value("name",        "");
                 state.description = s.value("description", "");
-                state.max_volume  = s.value("maxVolume", 100);
-                int raw_vol       = s.value("volume", 0);
+                state.max_volume  = s.value("maxVolume",   100);
+                int raw_vol       = s.value("volume",      0);
                 state.volume      = state.max_volume > 0 ? (raw_vol * 100) / state.max_volume : 0;
-                state.is_muted          = s.value("muted", false);
-                state.is_default_output = s.value("enabled", false);
+                state.is_muted          = s.value("muted",    false);
+                state.is_default_output = s.value("enabled",  false);
                 remote_sinks_.push_back(std::move(state));
-            }
-        } else if (np.body.contains("name")) {
-            const std::string n = np.body["name"].get<std::string>();
+            });
+        } else if (np.body.has("name")) {
+            const std::string n = np.body.get_str("name");
             for (auto& s : remote_sinks_) {
                 if (s.name != n) continue;
-                if (np.body.contains("volume") && np.body["volume"].is_number()) {
-                    int raw_vol = np.body["volume"].get<int>();
+                if (np.body.is_num("volume")) {
+                    int raw_vol = np.body.get_int("volume");
                     s.volume = s.max_volume > 0 ? (raw_vol * 100) / s.max_volume : 0;
                 }
-                if (np.body.contains("muted") && np.body["muted"].is_boolean())
-                    s.is_muted = np.body["muted"].get<bool>();
-                if (np.body.contains("enabled") && np.body["enabled"].is_boolean())
-                    s.is_default_output = np.body["enabled"].get<bool>();
+                if (np.body.is_bool("muted"))   s.is_muted          = np.body.get_bool("muted");
+                if (np.body.is_bool("enabled")) s.is_default_output = np.body.get_bool("enabled");
                 break;
             }
         }
@@ -140,13 +136,11 @@ void SystemVolumePlugin::set_remote_sink(const std::string& sink_name, int volum
 
     NetworkPacket pkt;
     pkt.type = PacketTypes::SystemVolumeRequest;
-    pkt.body = {
-        {"name",   sink_name},
-        {"volume", (volume * max_volume) / 100},
-        {"muted",  muted},
-    };
+    pkt.body.set("name",   sink_name)
+            .set("volume", (volume * max_volume) / 100)
+            .set("muted",  muted);
     if (is_default_output)
-        pkt.body["enabled"] = true;
+        pkt.body.set("enabled", true);
     send_packet(pkt);
 }
 
@@ -155,15 +149,13 @@ void SystemVolumePlugin::send_sink_list() const {
 
     NetworkPacket pkt;
     pkt.type = PacketTypes::SystemVolume;
-    pkt.body = {
-        {"sinkList", nlohmann::json::array({{
-            {"name",        kSinkName},
-            {"description", kSinkDescription},
-            {"muted",       false},
-            {"volume",      vol},
-            {"maxVolume",   kMaxVolume},
-            {"enabled",     true}
-        }})}
-    };
+    pkt.body.set_array_with_object("sinkList", [&](JsonBody& obj) {
+        obj.set("name",        kSinkName)
+           .set("description", kSinkDescription)
+           .set("muted",       false)
+           .set("volume",      vol)
+           .set("maxVolume",   kMaxVolume)
+           .set("enabled",     true);
+    });
     send_packet(pkt);
 }
