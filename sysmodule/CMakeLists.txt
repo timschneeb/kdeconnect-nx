@@ -30,6 +30,7 @@ set(MINIKDECONNECT_NX_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/src/utils/mem_tracker.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/utils/strtod_stub.c
     ${CMAKE_CURRENT_LIST_DIR}/src/utils/assert_stub.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/utils/printf_stub.c
 )
 
 set(MINIKDECONNECT_INCLUDE_DIRS
@@ -48,6 +49,7 @@ add_subdirectory(libs)
 set(MINIKDECONNECT_LINK_LIBS
     minikdeconnect_common
     yyjson
+    printf
     ${MBEDTLS_LIBRARIES}
     Threads::Threads
 )
@@ -68,7 +70,8 @@ if(CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch")
             -fno-exceptions -Oz -ffunction-sections -fdata-sections)
         target_link_options(MiniKDEConnect_applet PUBLIC
                 -Wl,--gc-sections
-                -Wl,--wrap,strtod -Wl,--wrap,__assert_func)
+                -Wl,--wrap,strtod -Wl,--wrap,__assert_func
+                -Wl,--wrap,snprintf -Wl,--wrap,vsnprintf)
 
         target_include_directories(MiniKDEConnect_applet PRIVATE ${MINIKDECONNECT_INCLUDE_DIRS})
         target_link_libraries(MiniKDEConnect_applet PRIVATE ${MINIKDECONNECT_LINK_LIBS})
@@ -97,6 +100,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch")
         target_link_libraries(MiniKDEConnect_sysmodule PRIVATE ${MINIKDECONNECT_LINK_LIBS} nx)
         target_link_options(MiniKDEConnect_sysmodule PUBLIC
             -Wl,--gc-sections -Wl,--wrap,strtod -Wl,--wrap,__assert_func
+            -Wl,--wrap,snprintf -Wl,--wrap,vsnprintf
             -Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/MiniKDEConnect_sysmodule.map
             $<$<CONFIG:Debug>:-Wl,--wrap,malloc>
             $<$<CONFIG:Debug>:-Wl,--wrap,free>
