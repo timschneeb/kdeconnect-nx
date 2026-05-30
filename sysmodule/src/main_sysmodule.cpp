@@ -7,11 +7,8 @@
 #include "nx_application.h"
 #include "utils/logger.h"
 
-#ifdef DEBUG
-#define MEM_DEBUG
-#endif
-
-#include "src/utils/mem_debug.h"
+#include "plugins/plugin_registry.h"
+#include "utils/mem_debug.h"
 
 #define INNER_HEAP_SIZE 3'000'000 // 4MB
 
@@ -68,6 +65,11 @@ void __appExit(void)
 {
     nifmExit();
     socketExit();
+
+#ifdef DEBUG_ALLOC_TRACE
+    MemTracker::close_trace();
+#endif
+
     fsdevUnmountAll();
     fsExit();
     timeExit();
@@ -75,7 +77,7 @@ void __appExit(void)
 }
 }
 
-#ifdef MEM_DEBUG
+#ifdef DEBUG_HEAP
 static uint8_t tick = 0;
 #endif
 
@@ -93,6 +95,9 @@ int main(int argc, char* argv[])
         } else {
             Logger::error("terminate: called without active exception (joinable thread destroyed?)");
         }
+#ifdef DEBUG_ALLOC_TRACE
+        MemTracker::close_trace();
+#endif
 
         svcSleepThread(500'000'000LL); // give log time to flush
         // Try to kill self instead of taking down the whole system
@@ -115,13 +120,20 @@ int main(int argc, char* argv[])
     PluginRegistry::load_supported_types(nullptr);
 
     auto app = NxApplication();
+
+#ifdef DEBUG_EXIT_TIMEOUT
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::minutes(1);
+    while (std::chrono::steady_clock::now() < deadline) {
+#else
     while (true) {
+#endif
         app.processEvents();
 
-#ifdef MEM_DEBUG
-        if (tick >= 10) {
+#ifdef DEBUG_HEAP
+        if (tick >= 20) {
             const auto mem = get_mem_stats();
-            Logger::info("Heap : %5zu KB used / %5zu KB total  (peak %5zu KB)", mem.heap_used_kb, mem.heap_total_kb, mem.heap_peak_kb);
+            Logger::info("Heap: %5zu KB used (peak %5zu KB) / %5zu KB arena (total RAM used %5zu)",
+                mem.heap_used_kb, mem.heap_total_kb, mem.heap_peak_kb, mem.proc_used_kb);
             tick = 0;
         }
         tick++;

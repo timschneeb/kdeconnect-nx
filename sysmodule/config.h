@@ -1,7 +1,27 @@
 #pragma once
 
-#include <switch.h>
+/**
+ * DEBUG SETTINGS
+ */
+#ifdef DEBUG
+// ------ THREADS ------
+/// Measure thread stack memory usage
+//#define STACK_THREAD_MEASURE
+/// Force minimum thread stack size globally
+//#define DEBUG_MIN_THREAD_STACK_SIZE 32*1024
 
+// ------ HEAP ANALYSIS ------
+/// Trace all allocations with backtraces to a binary file (slow!)
+//#define DEBUG_ALLOC_TRACE
+/// Log basic heap usage statistics in intervals
+#define DEBUG_HEAP
+#endif
+
+/**
+ * SOCKET BUFFER SETTINGS
+ */
+#ifdef __SWITCH__
+#include <switch.h>
 constexpr SocketInitConfig socketInitConfig = {
     .tcp_tx_buf_size = 32 * 1024,
     .tcp_rx_buf_size = 32 * 1024,
@@ -26,3 +46,4 @@ constexpr size_t bsdGetTransferMemSizeForConfig(const SocketInitConfig *config) 
     sum = (sum + 0xFFF) & ~0xFFF; // page round-up
     return config->sb_efficiency * sum;
 }
+#endif

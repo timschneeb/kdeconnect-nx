@@ -4,10 +4,12 @@
 #include "logger.h"
 #include <fcntl.h>
 #include <malloc.h>
-#include <new>
 #include <pthread.h>
 #include <unistd.h>
 
+#include "config.h"
+
+#ifdef DEBUG_ALLOC_TRACE
 static std::atomic<bool> ready = false;
 
 namespace MemTracker {
@@ -49,7 +51,7 @@ namespace MemTracker {
 }
 
 // ------------------------------------------------------------------
-// Trace file — written with write() (no stdio, no heap).
+// Trace file: written with write() (no stdio, no heap).
 // All multi-byte fields are little-endian.
 // ------------------------------------------------------------------
 
@@ -105,7 +107,7 @@ void MemTracker::close_trace() {
 // ------------------------------------------------------------------
 // Backtrace via frame-pointer walk (AArch64 AAPCS64 frame layout).
 // Requires -fno-omit-frame-pointer on all TUs so x29 is maintained.
-// Uses O(1) stack space per frame — safe on small sysmodule threads.
+// Uses O(1) stack space per frame.
 // ------------------------------------------------------------------
 
 static constexpr size_t kMaxFrames = 12;
@@ -124,7 +126,7 @@ static size_t capture_bt(void** buf) {
     return n;
 }
 
-// ARM system counter — single register read, no heap, always available.
+// ARM system counter: single register read, no heap
 static inline uint64_t get_tick() {
     uint64_t t;
     __asm__ volatile("mrs %0, cntpct_el0" : "=r"(t));
@@ -132,7 +134,7 @@ static inline uint64_t get_tick() {
 }
 
 // ------------------------------------------------------------------
-// Record writer — stack-allocated buffer, single write() call.
+// Record writer: stack-allocated buffer, single write() call.
 // Layout: type(1) nframes(1) size(4) ptr(8) ts(8) frames[](8 each)
 // ------------------------------------------------------------------
 
@@ -176,9 +178,10 @@ static void write_record(char type, void* ptr, size_t sz, uint64_t ts,
 // Prevents _Unwind_Backtrace or pthread_mutex_lock from recursing back
 // into our hooks if they themselves need to allocate.
 static __thread bool t_in_tracker = false;
-
+#endif
 
 void track_alloc(void* p) {
+#ifdef DEBUG_ALLOC_TRACE
     if (!p || g_trace_fd < 0 || t_in_tracker || !ready) return;
     t_in_tracker = true;
     const uint64_t ts = get_tick();
@@ -190,9 +193,11 @@ void track_alloc(void* p) {
     const size_t nf = capture_bt(frames);
     write_record('A', p, sz, ts, frames, nf);
     t_in_tracker = false;
+#endif
 }
 
 static void track_free(void* p) {
+#ifdef DEBUG_ALLOC_TRACE
     if (!p || g_trace_fd < 0 || t_in_tracker || !ready) return;
     t_in_tracker = true;
     const uint64_t ts = get_tick();
@@ -204,6 +209,7 @@ static void track_free(void* p) {
     const size_t nf = capture_bt(frames);
     write_record('F', p, sz, ts, frames, nf);
     t_in_tracker = false;
+#endif
 }
 
 extern "C" {

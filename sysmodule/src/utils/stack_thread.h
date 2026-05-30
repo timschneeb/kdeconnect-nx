@@ -1,29 +1,18 @@
 #pragma once
 
 #include <cassert>
-#include <cstdio>
 #include <cstring>
 #include <functional>
 #include <pthread.h>
 #include <switch/arm/tls.h>
 #include <switch/kernel/thread.h>
 
+#include "config.h"
 #include "logger.h"
-
-#ifdef DEBUG
-#define STACK_THREAD_MEASURE
-#endif
 
 // Drop-in replacement for std::thread with an explicit stack size.
 // Move-only; must be joined or detached before destruction.
-//
-// Build with -DSTACK_THREAD_MEASURE to enable stack painting.
-// The trampoline paints the stack, stores the region info in the Payload, and
-// pre-computes peak usage after fn() returns, without touching the owner
-// StackThread pointer, so it is safe even if the owning object is destroyed
-// concurrently (e.g. DeviceSession torn down while io_thread still runs).
-// dump_meminfo() reads directly from the Payload during execution, or uses the
-// pre-computed value after join().
+// Set STACK_THREAD_MEASURE to enable stack painting.
 class StackThread {
     pthread_t tid_{};
     bool valid_ = false;
@@ -81,7 +70,7 @@ class StackThread {
             p->paint_base = base;
             p->paint_size = paint;
         }
-#endif // STACK_THREAD_MEASURE
+#endif
 
         p->fn();
 
@@ -103,6 +92,10 @@ class StackThread {
 
     template<typename F, typename... Args>
     void init(size_t stack_size, const char* name, F&& f, Args&&... args) {
+#ifdef DEBUG_MIN_THREAD_STACK_SIZE
+        stack_size = std::max(stack_size, static_cast<size_t>(DEBUG_MIN_THREAD_STACK_SIZE));
+#endif
+
         auto* p = new Payload{
             std::function<void()>{
                 [f = std::forward<F>(f),
@@ -111,7 +104,7 @@ class StackThread {
                 }},
             name
 #ifdef STACK_THREAD_MEASURE
-            , stack_size  // stack_size_hint
+            , stack_size
 #endif
         };
 
@@ -177,7 +170,7 @@ public:
         init(stack_size, nullptr, std::forward<F>(f), std::forward<Args>(args)...);
     }
 
-    // With name — const char* as second arg disambiguates from the callable overload
+    // With name: const char* as second arg disambiguates from the callable overload
     template<typename F, typename... Args>
     StackThread(size_t stack_size, const char* name, F&& f, Args&&... args) {
         init(stack_size, name, std::forward<F>(f), std::forward<Args>(args)...);
@@ -225,10 +218,7 @@ public:
         pthread_detach(tid_);
         valid_ = false;
 #ifdef STACK_THREAD_MEASURE
-        // Measurement is not meaningful for detached threads. The trampoline
-        // still holds `p` and will not free it, so we must free it here.
-        // Narrow race: if fn() just returned and the trampoline is writing
-        // peak_computed, this is benign — we only lose the measurement result.
+        // The trampoline still holds `p` and will not free it, so we must free it here.F
         delete payload_;
         payload_ = nullptr;
 #endif

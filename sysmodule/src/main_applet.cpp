@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-//#define MEM_DEBUG
+//#define DEBUG_HEAP
 
 #include "nx_application.h"
 #include "src/net/kdeconnect_client.h"
@@ -96,14 +96,14 @@ static void draw_ui(const KdeConnectClient& client, int selected) {
     printf("[ZL] Play/Pause  [ZR] MPRIS list    [L] Prev  [R] Next\n");
     printf("[-] Type text (keyboard test)\n");
 
-#ifdef MEM_DEBUG
+#ifdef DEBUG_HEAP
     {
         const auto mem = get_mem_stats();
         const auto al  = get_alloc_stats();
         printf("\nMemory:\n");
         printf("  Proc : %3llu / %3llu MB\n",
-            static_cast<unsigned long long>(mem.proc_used_mb),
-            static_cast<unsigned long long>(mem.proc_total_mb));
+            static_cast<unsigned long long>(mem.proc_used_kb),
+            static_cast<unsigned long long>(mem.proc_total_mk));
         printf("  Heap : %5zu KB used / %5zu KB total  (peak %5zu KB)\n",
             mem.heap_used_kb, mem.heap_total_kb, mem.heap_peak_kb);
         printf("  new  : %5zu KB live  (peak %5zu KB)  allocs: %zu live / %zu total\n",

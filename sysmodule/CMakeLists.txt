@@ -26,6 +26,7 @@ set(MINIKDECONNECT_NX_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/src/nx_application.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/ipc/ipc_service.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/ipc/ipc_server.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/utils/mem_tracker.cpp
 )
 
 set(MINIKDECONNECT_INCLUDE_DIRS
@@ -80,9 +81,20 @@ if(CMAKE_SYSTEM_NAME MATCHES "NintendoSwitch")
         )
         target_include_directories(MiniKDEConnect_sysmodule PRIVATE ${MINIKDECONNECT_INCLUDE_DIRS})
         target_compile_definitions(MiniKDEConnect_sysmodule PRIVATE MINIKDECONNECT_SYSMODULE)
-        target_compile_options(MiniKDEConnect_sysmodule PRIVATE -flto -Os -ffunction-sections -fdata-sections)
+        target_compile_options(MiniKDEConnect_sysmodule PRIVATE -flto -Os -ffunction-sections -fdata-sections
+            $<$<CONFIG:Debug>:-fno-omit-frame-pointer>)
         target_link_libraries(MiniKDEConnect_sysmodule PRIVATE ${MINIKDECONNECT_LINK_LIBS} nx)
-        target_link_options(MiniKDEConnect_sysmodule PRIVATE -Wl,--gc-sections -Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/MiniKDEConnect_sysmodule.map)
+        target_link_options(MiniKDEConnect_sysmodule PRIVATE
+            -Wl,--gc-sections -Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/MiniKDEConnect_sysmodule.map
+            $<$<CONFIG:Debug>:-Wl,--wrap,malloc>
+            $<$<CONFIG:Debug>:-Wl,--wrap,free>
+            $<$<CONFIG:Debug>:-Wl,--wrap,realloc>
+            $<$<CONFIG:Debug>:-Wl,--wrap,calloc>
+            $<$<CONFIG:Debug>:-Wl,--wrap,memalign>
+            $<$<CONFIG:Debug>:-Wl,--wrap,posix_memalign>
+            $<$<CONFIG:Debug>:-Wl,--wrap,aligned_alloc>
+            $<$<CONFIG:Debug>:-Wl,--wrap,valloc>
+        )
 
         file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${MINIKDECONNECT_TID})
         file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${MINIKDECONNECT_TID}/flags)

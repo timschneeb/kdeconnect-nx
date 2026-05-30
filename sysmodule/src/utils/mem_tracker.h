@@ -1,9 +1,9 @@
 #pragma once
 
-#ifdef DEBUG
+#include "config.h"
+
+#if defined(DEBUG) && defined(DEBUG_ALLOC_TRACE)
 #include <atomic>
-#include <cstddef>
-#include <cstdint>
 
 // Live-allocation histogram + binary trace file, tracked via --wrap hooks.
 // Only active in debug builds; zero overhead in release.
