@@ -28,6 +28,11 @@ std::vector<std::string> SharePlugin::outgoing_packet_types() const {
 bool SharePlugin::on_packet_received(const NetworkPacket& np) {
     if (np.type != PacketTypes::ShareRequest) return false;
 
+    auto get_device_name = [&]() -> std::string {
+        if (const auto s = provider_->device(device_id_)) return s->info.name;
+        return device_id_;
+    };
+
     if (np.body.is_str("url")) {
         const std::string url = np.body.get_str("url");
         Logger::info("URL: %s", url.c_str());
@@ -42,7 +47,7 @@ bool SharePlugin::on_packet_received(const NetworkPacket& np) {
         Logger::info("Text: %s", text.c_str());
         NotificationPlugin::post_notification(
             "kdeconnect_share",
-            std::string("From " + provider_->device(device_id_)->info.name).c_str(),
+            "From " + get_device_name(),
             text,
             std::to_string(notification_id_.fetch_add(1)));
         return true;
@@ -52,10 +57,12 @@ bool SharePlugin::on_packet_received(const NetworkPacket& np) {
         const std::string filename = np.body.get_str("filename");
         Logger::info("File: %s", filename.c_str());
 
+        const std::string device_name = get_device_name();
+
         if (np.payload_size > 1024 * 1024) {
             NotificationPlugin::post_notification(
                 "kdeconnect_share",
-                std::string("From " + provider_->device(device_id_)->info.name).c_str(),
+                "From " + device_name,
                 "Receiving file... (" + std::to_string(np.payload_size/1024) + " KB)",
                 std::to_string(notification_id_.fetch_add(1)));
         }
@@ -77,7 +84,7 @@ bool SharePlugin::on_packet_received(const NetworkPacket& np) {
 
         NotificationPlugin::post_notification(
             "kdeconnect_share",
-            std::string("From " + provider_->device(device_id_)->info.name).c_str(),
+            "From " + device_name,
             notify_body,
             std::to_string(notification_id_.fetch_add(1)));
         return true;

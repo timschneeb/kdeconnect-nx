@@ -1,5 +1,6 @@
 #include "system_volume_plugin.h"
 #include "utils/logger.h"
+#include <algorithm>
 
 #ifdef __SWITCH__
 #include <switch.h>
@@ -62,7 +63,7 @@ bool SystemVolumePlugin::on_packet_received(const NetworkPacket& np) {
         if (!np.body.has("name")) return false;
 
         if (np.body.is_num("volume")) {
-            volume_ = np.body.get_int("volume");
+            volume_ = std::max(np.body.get_int("volume"), 0);
             set_system_volume(volume_);
         }
         if (np.body.is_bool("muted")) {

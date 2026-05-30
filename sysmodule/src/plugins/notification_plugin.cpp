@@ -133,8 +133,8 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
         } else {
             if (m_posted_ids.size() >= kMaxPostedIds) {
                 auto oldest = m_posted_ids.begin();
-                for (auto it = std::next(oldest); it != m_posted_ids.end(); ++it)
-                    if (it->second.when < oldest->second.when) oldest = it;
+                for (auto jt = std::next(oldest); jt != m_posted_ids.end(); ++jt)
+                    if (jt->second.when < oldest->second.when) oldest = jt;
                 m_posted_ids.erase(oldest);
             }
             m_posted_ids[id] = {!icon_hash.empty(), time, now};
@@ -228,7 +228,7 @@ void NotificationPlugin::post_notification(const std::string& app_id,
         Logger::error("Failed to write notify file: %s", path.c_str());
     }
 #endif
-    (void)app_id; (void)title; (void)body; (void)id;
+    (void)app_id; (void)title; (void)body; (void)id; (void)duration;
 }
 
 void NotificationPlugin::write_app_icon(const std::string& icon_hash, const NetworkPacket& np) const {

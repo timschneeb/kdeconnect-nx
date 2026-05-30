@@ -196,13 +196,15 @@ void MousepadPlugin::send_echo(const NetworkPacket &np) const {
 bool MousepadPlugin::on_packet_received(const NetworkPacket &np) {
     if (np.type != PacketTypes::MousepadRequest) return false;
 
-    if (!s_no_mouse_support_hint_shown && (np.body.has("dx") || np.body.has("dy"))) {
-        s_no_mouse_support_hint_shown.store(true);
-        NotificationPlugin::post_notification("mousepad",
-                                    "Mouse support is not available",
-                                            "You just tried to use the remote touchpad/mouse. Only remote keyboard events are supported.",
-                                            "0",
-                                            8000);
+    if (np.body.has("dx") || np.body.has("dy")) {
+        bool expected = false;
+        if (s_no_mouse_support_hint_shown.compare_exchange_strong(expected, true)) {
+            NotificationPlugin::post_notification("mousepad",
+                                        "Mouse support is not available",
+                                                "You just tried to use the remote touchpad/mouse. Only remote keyboard events are supported.",
+                                                "0",
+                                                8000);
+        }
     }
 
     inject_key(np);

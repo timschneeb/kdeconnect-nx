@@ -98,11 +98,14 @@ bool BatteryPlugin::on_packet_received(const NetworkPacket& np) {
 }
 
 void BatteryPlugin::send_status() const {
-    int32_t charge = cached_charge_.load();
-    bool charging = cached_charging_.load();
+    int32_t charge = 0;
+    bool charging = false;
 
-    if (!cache_valid_.load()) {
-        read_hardware(charge, charging);
+    if (cache_valid_.load()) {
+        charge = cached_charge_.load();
+        charging = cached_charging_.load();
+    } else if (!read_hardware(charge, charging)) {
+        return;
     }
 
     NetworkPacket pkt;
