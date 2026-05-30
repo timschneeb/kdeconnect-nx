@@ -178,7 +178,10 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
                     }
                 }
 
-                sess->plugin<BatteryPlugin>()->read_remote_state(info.battery_level, info.is_charging);
+                if (auto* bat = sess->plugin<BatteryPlugin>())
+                    bat->read_remote_state(info.battery_level, info.is_charging);
+                else
+                    info.battery_level = -1;
                 count++;
             }
 
