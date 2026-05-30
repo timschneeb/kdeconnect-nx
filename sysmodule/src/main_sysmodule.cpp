@@ -1,13 +1,13 @@
 #include <switch.h>
 #include <cstring>
 #include <exception>
-#include <stdexcept>
 
+// ReSharper disable once CppUnusedIncludeDirective
 #include "config.h"
-#include "nx_application.h"
-#include "utils/logger.h"
 
+#include "nx_application.h"
 #include "plugins/plugin_registry.h"
+#include "utils/logger.h"
 #include "utils/mem_debug.h"
 
 #define INNER_HEAP_SIZE 3'000'000 // 4MB

@@ -7,6 +7,7 @@
 #include <switch/arm/tls.h>
 #include <switch/kernel/thread.h>
 
+// ReSharper disable once CppUnusedIncludeDirective
 #include "config.h"
 #include "logger.h"
 

@@ -1,5 +1,6 @@
 #pragma once
 
+// ReSharper disable once CppUnusedIncludeDirective
 #include "config.h"
 
 #if defined(DEBUG) && defined(DEBUG_ALLOC_TRACE)

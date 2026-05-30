@@ -7,6 +7,7 @@
 #include <pthread.h>
 #include <unistd.h>
 
+// ReSharper disable once CppUnusedIncludeDirective
 #include "config.h"
 
 #ifdef DEBUG_ALLOC_TRACE
