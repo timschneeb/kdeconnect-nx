@@ -81,6 +81,21 @@ void __appExit(void)
 static uint8_t tick = 0;
 #endif
 
+static void log_backtrace() {
+    struct Frame { Frame* fp; void* lr; };
+    auto* fp = reinterpret_cast<Frame*>(__builtin_frame_address(0));
+    Logger::error("terminate: anchor=0x%llx symbol=log_backtrace",
+        static_cast<unsigned long long>(reinterpret_cast<uintptr_t>(&log_backtrace)));
+    Logger::error("terminate: backtrace:");
+    for (int i = 0; fp && i < 16; ++i) {
+        Logger::error("  #%-2d  0x%llx", i, static_cast<unsigned long long>(
+            reinterpret_cast<uintptr_t>(fp->lr)));
+        Frame* next = fp->fp;
+        if (!next || next <= fp) break;
+        fp = next;
+    }
+}
+
 int main(int argc, char* argv[])
 {
     std::set_terminate([]() {
@@ -95,6 +110,7 @@ int main(int argc, char* argv[])
         } else {
             Logger::error("terminate: called without active exception (joinable thread destroyed?)");
         }
+        log_backtrace();
 #ifdef DEBUG_ALLOC_TRACE
         MemTracker::close_trace();
 #endif
