@@ -28,6 +28,7 @@ public:
 private:
     void reconnectAndReplay();
 
+#ifdef NXLINK_ENABLED
     static constexpr size_t MAX_CACHE_SIZE = 200;
     int sock_ = -1;
     uint16_t port_ = kDefaultPort;
@@ -36,4 +37,5 @@ private:
     std::mutex mutex_;
     std::atomic<bool> reconnect_in_progress_ = false;
     std::atomic<bool> shutting_down_ = false;
+#endif
 };

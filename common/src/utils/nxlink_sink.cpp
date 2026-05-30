@@ -13,12 +13,16 @@
 #include <unistd.h>
 
 void NxLink::setHost(const std::optional<in_addr> &host_address, uint16_t port) {
+
+#ifdef NXLINK_ENABLED
     host_address_ = host_address;
     port_ = port;
+#endif
 }
 
 int NxLink::connectToHost()
 {
+#ifdef NXLINK_ENABLED
     if (!isEnabled()) {
         errno = ENETUNREACH;
         return -1;
@@ -84,6 +88,9 @@ int NxLink::connectToHost()
     }
 
     return sock_;
+#else
+    return -1;
+#endif
 }
 
 bool NxLink::isEnabled() const {
@@ -96,6 +103,7 @@ bool NxLink::isEnabled() const {
 
 void NxLink::reconnectAndReplay()
 {
+#ifdef NXLINK_ENABLED
     // Keep retrying until connected or shutting down
     while (!shutting_down_) {
         if (connectToHost() >= 0) {
@@ -116,6 +124,7 @@ void NxLink::reconnectAndReplay()
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
     reconnect_in_progress_.store(false, std::memory_order_release);
+#endif
 }
 
 NxLink::~NxLink()
@@ -125,6 +134,7 @@ NxLink::~NxLink()
 
 void NxLink::shutdown()
 {
+#ifdef NXLINK_ENABLED
     shutting_down_ = true;
     // Wait for any in-progress reconnect to observe shutting_down_ and exit.
     // connectToHost() has at most a 1s poll timeout, so this completes quickly.
@@ -134,10 +144,12 @@ void NxLink::shutdown()
         close(sock_);
         sock_ = -1;
     }
+#endif
 }
 
 void NxLink::write(const char* message)
 {
+#ifdef NXLINK_ENABLED
     if (!message || !isEnabled() || shutting_down_) {
         return;
     }
@@ -170,4 +182,5 @@ void NxLink::write(const char* message)
             sock_ = -1;
         }
     }
+#endif
 }

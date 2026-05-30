@@ -20,16 +20,10 @@ public:
     static void shutdown();
 
     static void log(std::string_view level, std::string_view msg);
-    static void log(std::string_view level, std::string_view msg, const std::source_location& loc);
-    static void info(std::string_view msg, const std::source_location& loc = std::source_location::current()) {
-        log("I", msg, loc);
-    }
-    static void warn(std::string_view msg, const std::source_location& loc = std::source_location::current()) {
-        log("W", msg, loc);
-    }
-    static void error(std::string_view msg, const std::source_location& loc = std::source_location::current()) {
-        log("E", msg, loc);
-    }
+
+    static void info(std::string_view msg) { log("I", msg); }
+    static void warn(std::string_view msg) { log("W", msg); }
+    static void error(std::string_view msg) { log("E", msg); }
 
     [[gnu::format(printf, 1, 2)]] static void info(const char* fmt, ...);
     [[gnu::format(printf, 1, 2)]] static void warn(const char* fmt, ...);

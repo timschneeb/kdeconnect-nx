@@ -52,7 +52,6 @@ void Logger::shutdown() {
 }
 
 namespace {
-
 [[gnu::format(printf, 1, 0)]]
 std::string vformat(const char* fmt, va_list args) {
     if (!fmt) return {};
@@ -70,19 +69,6 @@ std::string vformat(const char* fmt, va_list args) {
     std::vsnprintf(result.data(), len + 1, fmt, args);
     return result;
 }
-
-constexpr std::string_view extract_class_name(std::string_view function) {
-    if (function.empty()) return {};
-    const auto paren = function.find('(');
-    if (paren != std::string_view::npos)
-        function = function.substr(0, paren);
-    const auto scope = function.rfind("::");
-    if (scope == std::string_view::npos) return {};
-    const auto start = function.rfind(' ', scope);
-    const size_t name_start = (start == std::string_view::npos) ? 0 : start + 1;
-    return function.substr(name_start, scope - name_start);
-}
-
 } // namespace
 
 void Logger::info(const char* fmt, ...) {
@@ -111,20 +97,6 @@ void Logger::log(std::string_view level, const char* fmt, ...) {
     va_start(args, fmt);
     log(level, vformat(fmt, args));
     va_end(args);
-}
-
-void Logger::log(std::string_view level, std::string_view msg, const std::source_location& loc) {
-    const auto cls = extract_class_name(loc.function_name());
-    if (cls.empty()) {
-        log(level, msg);
-        return;
-    }
-    std::string prefixed;
-    prefixed.reserve(cls.size() + 2 + msg.size());
-    prefixed.assign(cls);
-    prefixed += ": ";
-    prefixed += msg;
-    log(level, prefixed);
 }
 
 void Logger::log(std::string_view level, std::string_view msg) {
