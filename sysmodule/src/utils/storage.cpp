@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <dirent.h>
 #include <mutex>
 #include <string>
 #include <sys/stat.h>
@@ -16,10 +17,18 @@
 #include "../net/network_packet.h"
 #include "../plugins/plugin_registry.h"
 
-// The sdmc FsFileSystem session is not thread-safe. All FS operations hold this lock.
+// All FS operations hold this lock.
 static std::mutex s_fs_mutex;
 
 namespace {
+
+std::string path_stem(const std::string& path) {
+    auto slash = path.rfind('/');
+    std::string name = (slash == std::string::npos) ? path : path.substr(slash + 1);
+    auto dot = name.rfind('.');
+    return dot == std::string::npos ? name : name.substr(0, dot);
+}
+
 std::string hostname_or_default() {
 #if __SWITCH__
     setInitialize();
@@ -32,25 +41,42 @@ std::string hostname_or_default() {
     if (gethostname(buffer, sizeof(buffer) - 1) == 0) {
         return std::string(buffer) + "-mini";
     }
-#endif
     return "MiniKDEConnect";
+#endif
 }
 
-std::filesystem::path paired_path(const std::filesystem::path& base, const std::string& device_id) {
-    return base / "paired" / (device_id + ".json");
+std::string paired_path(const std::string& base, const std::string& device_id) {
+    return base + "/paired/" +  device_id + ".json";
 }
+
 } // namespace
+
+void Storage::make_directories(const std::string& path) {
+    std::string tmp = "sdmc:/" + path;
+    for (size_t i = 1; i < tmp.size(); ++i) {
+        if (tmp[i] == '/') {
+            tmp[i] = '\0';
+            mkdir(tmp.c_str(), 0755);
+            tmp[i] = '/';
+        }
+    }
+    mkdir(tmp.c_str(), 0755);
+}
 
 Storage::Storage() {
 #ifdef __SWITCH__
-    base_path_ =  std::filesystem::path("/config/kdeconnect");
+    base_path_ = "/config/kdeconnect";
 #else
     const char* home = getenv("HOME");
-    const std::filesystem::path home_path = home ? std::filesystem::path(home) : std::filesystem::current_path();
-    base_path_ = home_path / ".config" / "minikdeconnect";
+    if (home) {
+        base_path_ = std::string(home) + "/.config/minikdeconnect";
+    } else {
+        char cwd[4096] = {};
+        base_path_ = getcwd(cwd, sizeof(cwd)) ? (std::string(cwd) + ".config/minikdeconnect")
+                                               : ".config/minikdeconnect";
+    }
 #endif
-
-    std::filesystem::create_directories(base_path_ / "paired");
+    make_directories(base_path_ + "/paired");
 }
 
 DeviceInfo Storage::load_or_create_local_device(DeviceProvider* device_provider) const {
@@ -69,10 +95,11 @@ DeviceInfo Storage::load_or_create_local_device(DeviceProvider* device_provider)
 }
 
 std::optional<PairedDeviceInfo> Storage::load_paired_device(const std::string& device_id) const {
-    auto path = paired_path(base_path_, device_id);
+    const auto path = paired_path(base_path_, device_id);
     {
         std::lock_guard lock(s_fs_mutex);
-        if (!std::filesystem::exists(path)) return std::nullopt;
+        struct stat st;
+        if (stat(path.c_str(), &st) != 0) return std::nullopt;
     }
     const std::string content = read_file(path);
     if (content.empty()) return std::nullopt;
@@ -90,25 +117,28 @@ std::optional<PairedDeviceInfo> Storage::load_paired_device(const std::string& d
 
 std::vector<std::string> Storage::list_paired_device_ids() const {
     std::vector<std::string> ids;
-    const auto paired_dir = base_path_ / "paired";
+    const std::string paired_dir = base_path_ + "/paired";
 #ifdef __SWITCH__
     std::lock_guard lock(s_fs_mutex);
 #endif
-    std::error_code ec;
-    for (const auto& entry : std::filesystem::directory_iterator(paired_dir, ec)) {
-        if (ec) break;
-        const auto& p = entry.path();
-        if (p.extension() == ".json")
-            ids.push_back(p.stem().string());
+    DIR* dir = opendir(paired_dir.c_str());
+    if (!dir) return ids;
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != nullptr) {
+        const std::string name(entry->d_name);
+        if (name.ends_with(".json"))
+            ids.push_back(path_stem(name));
     }
+    closedir(dir);
     return ids;
 }
 
 bool Storage::file_exists(const std::string& path) {
+    struct stat st;
 #if defined(__SWITCH__)
     std::lock_guard lock(s_fs_mutex);
 #endif
-    return std::filesystem::exists(path);
+    return stat(path.c_str(), &st) == 0;
 }
 
 void Storage::save_paired_device(const DeviceInfo& info, const std::string& certificate_pem) const {
@@ -124,21 +154,22 @@ void Storage::save_paired_device(const DeviceInfo& info, const std::string& cert
 auto Storage::remove_paired_device(const std::string &device_id) const -> void {
     const auto path = paired_path(base_path_, device_id);
     std::lock_guard lock(s_fs_mutex);
-    if (std::filesystem::exists(path)) {
-        std::filesystem::remove(path);
+    struct stat st;
+    if (stat(path.c_str(), &st) == 0) {
+        ::remove(path.c_str());
     }
 }
 
-std::filesystem::path Storage::base_dir() const {
+std::string Storage::base_dir() const {
     return base_path_;
 }
 
-std::filesystem::path Storage::cert_path() const {
-    return base_path_ / "cert.pem";
+std::string Storage::cert_path() const {
+    return base_path_ + "/cert.pem";
 }
 
-std::filesystem::path Storage::key_path() const {
-    return base_path_ / "key.pem";
+std::string Storage::key_path() const {
+    return base_path_ + "/key.pem";
 }
 
 std::string Storage::read_file(const std::string &path) {
@@ -208,7 +239,10 @@ bool Storage::write_file(const std::string &path, const std::string &data) {
     FsFileSystem* fs = fsdevGetDeviceFileSystem("sdmc");
     if (!fs) return false;
 
-    std::filesystem::create_directories(std::filesystem::path(path).parent_path().string());
+    // Create parent directories before opening the file.
+    const auto slash = path.rfind('/');
+    if (slash != std::string::npos)
+        make_directories(path.substr(0, slash));
 
     // Path and data buffers must be in stack memory for FS IPC (0xD401 otherwise).
     char path_buf[FS_MAX_PATH];

@@ -7,7 +7,6 @@
 #include <kdec/ipc_client.h>
 
 #include <cstdio>
-#include <filesystem>
 #include <vector>
 
 #include "error_widget.h"

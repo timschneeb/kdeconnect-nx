@@ -26,8 +26,6 @@
 #if defined(__SWITCH__)
 #include <switch.h>
 #endif
-#include <filesystem>
-
 #include "../plugins/plugin_registry.h"
 #include "../plugins/notification_plugin.h"
 #include "../utils/settings_store.h"
@@ -642,7 +640,12 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
             return false;
         }
 
-        std::filesystem::create_directories(std::filesystem::path("sdmc:" + file_path).parent_path());
+        {
+            const std::string full = file_path;
+            const auto slash = full.rfind('/');
+            if (slash != std::string::npos)
+                Storage::make_directories(full.substr(0, slash));
+        }
         fsFsCreateFile(fs, file_path.c_str(), 0, 0);
 
         FsFile file;

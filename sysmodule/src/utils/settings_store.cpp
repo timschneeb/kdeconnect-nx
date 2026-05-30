@@ -2,7 +2,6 @@
 
 #include <cstdio>
 #include <cstdlib>
-#include <filesystem>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -15,14 +14,20 @@
 
 namespace {
 
-std::filesystem::path settings_path() {
+std::string settings_path() {
 #ifdef __SWITCH__
     return "/config/kdeconnect/settings.json";
 #else
     const char* home = getenv("HOME");
-    const std::filesystem::path base =
-        home ? std::filesystem::path(home) : std::filesystem::current_path();
-    return base / ".config" / "minikdeconnect" / "settings.json";
+    std::string base;
+    if (home) {
+        base = std::string(home) + "/.config/minikdeconnect";
+    } else {
+        char cwd[4096] = {};
+        base = getcwd(cwd, sizeof(cwd)) ? std::string(cwd) + "/.config/minikdeconnect"
+                                        : ".config/minikdeconnect";
+    }
+    return base + "/settings.json";
 #endif
 }
 
@@ -86,8 +91,8 @@ void load() {
     // Seed with defaults first; file values will overwrite below.
     apply_defaults_locked();
 
-    const auto path = settings_path();
-    const std::string buf = Storage::read_file(path.string());
+    const std::string path = settings_path();
+    const std::string buf = Storage::read_file(path);
     if (buf.empty()) return;
 
     const auto j = nlohmann::json::parse(buf, nullptr, false);
@@ -129,11 +134,13 @@ void save() {
         if (const char* name = int_key_name(static_cast<KdecIntSettingKey>(k)))
             j["int"][name] = v;
 
-    const auto path = settings_path();
-    std::filesystem::create_directories(path.parent_path());
+    const std::string path = settings_path();
+    const auto slash = path.rfind('/');
+    if (slash != std::string::npos)
+        Storage::make_directories(path.substr(0, slash));
     const std::string data = j.dump(2);
-    if (!Storage::write_file(path.string(), data)) {
-        Logger::error("SettingsStore: failed to write %s", path.string().c_str());
+    if (!Storage::write_file(path, data)) {
+        Logger::error("SettingsStore: failed to write %s", path.c_str());
     }
 }
 

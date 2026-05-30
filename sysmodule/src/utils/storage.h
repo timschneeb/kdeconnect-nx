@@ -1,6 +1,5 @@
 #pragma once
 
-#include <filesystem>
 #include <optional>
 #include <string>
 
@@ -22,17 +21,18 @@ public:
     void save_paired_device(const DeviceInfo& info, const std::string& certificate_pem) const;
     void remove_paired_device(const std::string& device_id) const;
 
-    [[nodiscard]] std::filesystem::path base_dir() const;
-    [[nodiscard]] std::filesystem::path cert_path() const;
-    [[nodiscard]] std::filesystem::path key_path() const;
+    [[nodiscard]] std::string base_dir() const;
+    [[nodiscard]] std::string cert_path() const;
+    [[nodiscard]] std::string key_path() const;
 
     [[nodiscard]] std::vector<std::string> list_paired_device_ids() const;
 
     static std::string read_file(const std::string& path);
     static bool write_file(const std::string& path, const std::string& data);
     static bool file_exists(const std::string& path);
+    static void make_directories(const std::string& path);
 
 private:
-    std::filesystem::path base_path_;
+    std::string base_path_;
 };
 
