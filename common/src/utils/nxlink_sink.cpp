@@ -2,12 +2,14 @@
 
 #include <arpa/inet.h>
 #include <cerrno>
+#include <chrono>
 #include <cstring>
 #include <fcntl.h>
 #include <poll.h>
 #include <optional>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <thread>
 #include <unistd.h>
 
 void NxLink::setHost(const std::optional<in_addr> &host_address, uint16_t port) {
@@ -94,33 +96,26 @@ bool NxLink::isEnabled() const {
 
 void NxLink::reconnectAndReplay()
 {
-    if (shutting_down_) {
-        reconnect_in_progress_ = false;
-        return;
-    }
-
-    if (connectToHost() >= 0) {
-        // Successfully reconnected, replay cached messages
-        std::lock_guard lock(mutex_);
-
-        if (shutting_down_) {
-            reconnect_in_progress_ = false;
-            return;
-        }
-
-        while (!message_cache_.empty()) {
-            const auto& cached_msg = message_cache_.front();
-            if (::write(sock_, cached_msg.c_str(), cached_msg.length()) >= 0) {
-                message_cache_.pop();
-            } else {
-                // Write failed, close socket and stop replaying
-                close(sock_);
-                sock_ = -1;
-                break;
+    // Keep retrying until connected or shutting down
+    while (!shutting_down_) {
+        if (connectToHost() >= 0) {
+            std::lock_guard lock(mutex_);
+            if (shutting_down_) break;
+            while (!message_cache_.empty()) {
+                const auto& cached_msg = message_cache_.front();
+                if (::write(sock_, cached_msg.c_str(), cached_msg.length()) >= 0) {
+                    message_cache_.pop();
+                } else {
+                    close(sock_);
+                    sock_ = -1;
+                    break;
+                }
             }
+            break;
         }
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
-    reconnect_in_progress_ = false;
+    reconnect_in_progress_.store(false, std::memory_order_release);
 }
 
 NxLink::~NxLink()
@@ -131,17 +126,10 @@ NxLink::~NxLink()
 void NxLink::shutdown()
 {
     shutting_down_ = true;
-
-    std::thread thread_to_join;
-    {
-        std::lock_guard lock(mutex_);
-        thread_to_join = std::move(reconnect_thread_);
-    }
-
-    if (thread_to_join.joinable()) {
-        thread_to_join.join();
-    }
-
+    // Wait for any in-progress reconnect to observe shutting_down_ and exit.
+    // connectToHost() has at most a 1s poll timeout, so this completes quickly.
+    while (reconnect_in_progress_.load(std::memory_order_acquire))
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     if (sock_ >= 0) {
         close(sock_);
         sock_ = -1;
@@ -154,45 +142,32 @@ void NxLink::write(const char* message)
         return;
     }
 
-    std::thread old_thread;
+    std::lock_guard lock(mutex_);
 
-    {
-        // Reconnect if necessary
-        std::lock_guard lock(mutex_);
-
-        if (sock_ < 0 && isEnabled()) {
-            // Cache the message if we have a host address but no connection
-            if (message_cache_.size() < MAX_CACHE_SIZE) {
-                message_cache_.emplace(message);
-            } else if (message_cache_.size() == MAX_CACHE_SIZE) {
-                message_cache_.emplace("[WARNING] Message cache overflow, dropping messages until reconnect.\n");
-            }
-
-            // Start reconnect thread if not already in progress
-            if (!reconnect_in_progress_) {
-                reconnect_in_progress_ = true;
-
-                // Move old thread to join outside the lock
-                old_thread = std::move(reconnect_thread_);
-
-                // Start new reconnect thread
-                reconnect_thread_ = std::thread(&NxLink::reconnectAndReplay, this);
-            }
-
-            // Lock automatically released here when scope ends
-        } else if (sock_ < 0) {
-            return;
-        } else {
-            if (::write(sock_, message, std::strlen(message)) < 0) {
-                // Connection lost, reset socket
-                close(sock_);
-                sock_ = -1;
-            }
+    if (sock_ < 0 && isEnabled()) {
+        if (message_cache_.size() < MAX_CACHE_SIZE) {
+            message_cache_.emplace(message);
+        } else if (message_cache_.size() == MAX_CACHE_SIZE) {
+            message_cache_.emplace("[WARNING] Message cache overflow, dropping messages until reconnect.\n");
         }
-    }
 
-    // Join outside the lock to avoid deadlock
-    if (old_thread.joinable()) {
-        old_thread.join();
+        if (!reconnect_in_progress_.load()) {
+            reconnect_in_progress_.store(true);
+            pthread_attr_t attr;
+            pthread_attr_init(&attr);
+            pthread_attr_setstacksize(&attr, 16 * 1024);
+            pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+            pthread_t tid;
+            pthread_create(&tid, &attr, [](void* self) -> void* {
+                static_cast<NxLink*>(self)->reconnectAndReplay();
+                return nullptr;
+            }, this);
+            pthread_attr_destroy(&attr);
+        }
+    } else if (sock_ >= 0) {
+        if (::write(sock_, message, std::strlen(message)) < 0) {
+            close(sock_);
+            sock_ = -1;
+        }
     }
 }

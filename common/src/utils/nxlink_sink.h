@@ -4,8 +4,8 @@
 #include <queue>
 #include <string>
 #include <mutex>
-#include <thread>
 #include <atomic>
+#include <pthread.h>
 
 #ifdef __SWITCH__
 #include <switch/runtime/nxlink.h>
@@ -34,7 +34,6 @@ private:
     std::optional<in_addr> host_address_ = std::nullopt;
     std::queue<std::string> message_cache_;
     std::mutex mutex_;
-    bool reconnect_in_progress_ = false;
-    std::thread reconnect_thread_;
+    std::atomic<bool> reconnect_in_progress_ = false;
     std::atomic<bool> shutting_down_ = false;
 };
