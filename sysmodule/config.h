@@ -32,7 +32,7 @@ constexpr SocketInitConfig socketInitConfig = {
 #ifdef NXLINK_ENABLED
     .sb_efficiency = 4,
 #else
-    .sb_efficiency = 3, // TODO check if 2 works for payload transfers
+    .sb_efficiency = 4, // TODO check if 2 works for payload transfers
 #endif
 
     .bsd_service_type = BsdServiceType_Auto
