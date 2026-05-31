@@ -13,7 +13,7 @@
 #include "utils/mem_tracker.h"
 #endif
 
-#define INNER_HEAP_SIZE 3'000'000 // ~3 MB
+#define INNER_HEAP_SIZE (2 * 1024 * 1024) // 2 MB
 
 #define R_ABORT_UNLESS(expr) {if (Result rc = expr; R_FAILED(rc)) fatalThrow(rc);}
 
