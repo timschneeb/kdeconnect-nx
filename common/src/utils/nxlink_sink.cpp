@@ -163,13 +163,13 @@ void NxLink::shutdown()
 void NxLink::write(const char* message)
 {
 #ifdef NXLINK_ENABLED
-    if (!message || !isEnabled() || shutting_down_) {
+    if (!message || shutting_down_) {
         return;
     }
 
     std::lock_guard lock(mutex_);
 
-    if (sock_ < 0) {
+    if (sock_ < 0 || !isEnabled()) {
         if (message_cache_.size() < MAX_CACHE_SIZE) {
             message_cache_.emplace(message);
         } else if (message_cache_.size() == MAX_CACHE_SIZE) {
