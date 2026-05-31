@@ -4,6 +4,9 @@ project(mbedtls_custom C)
 
 include(FetchContent)
 
+# We fetch sources only and build with our own targets; don't add mbedtls's subdirectory.
+cmake_policy(SET CMP0169 OLD)
+
 set(MBEDTLS_VERSION 2.28.10)
 
 FetchContent_Declare(
@@ -11,6 +14,7 @@ FetchContent_Declare(
     URL https://github.com/Mbed-TLS/mbedtls/releases/download/mbedtls-${MBEDTLS_VERSION}/mbedtls-${MBEDTLS_VERSION}.tar.bz2
     URL_HASH SHA256=19e5b81fdac0fe22009b9e2bdcd52d7dcafbf62bc67fc59cf0a76b5b5540d149
     PATCH_COMMAND patch -p1 < ${CMAKE_CURRENT_LIST_DIR}/mbedtls-2.28.10.patch
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 
 FetchContent_GetProperties(mbedtls_src)
