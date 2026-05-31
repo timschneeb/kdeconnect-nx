@@ -8,6 +8,8 @@
 
 #include "nxlink_sink.h"
 
+// #define NO_LOG
+
 class Logger {
 public:
     // Sink is called in addition to the other outputs.
@@ -31,7 +33,11 @@ public:
     [[gnu::format(printf, 2, 3)]] static void log(std::string_view level, const char* fmt, ...);
 
 private:
+#ifndef NO_LOG
     static Sink sink_;
-    static NxLink nxlink_;
     static FILE* log_file_;
+#endif
+#if !defined(NO_LOG) && defined(NXLINK_ENABLED)
+    static NxLink nxlink_;
+#endif
 };

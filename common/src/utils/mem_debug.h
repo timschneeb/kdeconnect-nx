@@ -35,4 +35,10 @@ static MemStats get_mem_stats() {
     return s;
 }
 
+static void log_mem_stats() {
+    const auto mem = get_mem_stats();
+    Logger::info("Heap: %4zu KB used (peak %4zu KB) / %4zu KB arena (total RAM used %4zu KB)",
+        mem.heap_used_kb, mem.heap_peak_kb, mem.heap_total_kb, mem.proc_used_kb);
+}
+
 #endif

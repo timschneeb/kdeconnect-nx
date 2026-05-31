@@ -150,9 +150,7 @@ int main(int argc, char* argv[])
 
 #ifdef DEBUG_HEAP
         if (tick >= 20) {
-            const auto mem = get_mem_stats();
-            Logger::info("Heap: %4zu KB used (peak %4zu KB) / %4zu KB arena (total RAM used %4zu KB)",
-                mem.heap_used_kb, mem.heap_peak_kb, mem.heap_total_kb, mem.proc_used_kb);
+            log_mem_stats();
             tick = 0;
         }
         tick++;
