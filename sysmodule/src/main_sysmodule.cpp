@@ -9,6 +9,9 @@
 #include "plugins/plugin_registry.h"
 #include "utils/logger.h"
 #include "utils/mem_debug.h"
+#ifdef DEBUG_ALLOC_TRACE
+#include "utils/mem_tracker.h"
+#endif
 
 #define INNER_HEAP_SIZE 3'000'000 // ~3 MB
 
