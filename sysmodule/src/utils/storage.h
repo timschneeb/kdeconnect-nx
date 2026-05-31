@@ -15,7 +15,7 @@ class Storage {
 public:
     Storage();
 
-    DeviceInfo load_or_create_local_device(DeviceProvider *device_provider) const;
+    static DeviceInfo load_or_create_local_device(DeviceProvider *device_provider);
 
     [[nodiscard]] std::optional<PairedDeviceInfo> load_paired_device(const std::string& device_id) const;
     void save_paired_device(const DeviceInfo& info, const std::string& certificate_pem) const;

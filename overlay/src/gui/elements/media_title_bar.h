@@ -31,10 +31,11 @@ private:
     void calcScrollWidth(tsl::gfx::Renderer* r, ScrollState& s,
                          const std::string& text, u32 fontSize);
     static void updateScroll(ScrollState& s);
-    void drawScrollText(tsl::gfx::Renderer* r, ScrollState& s,
-                        const std::string& text,
-                        s32 x, s32 y, s32 scissorY, u32 scissorH,
-                        u32 fontSize, const tsl::Color& clr);
+
+    static void drawScrollText(tsl::gfx::Renderer* r, ScrollState& s,
+                               const std::string& text,
+                               s32 x, s32 y, s32 scissorY, u32 scissorH,
+                               u32 fontSize, const tsl::Color& clr);
 
     std::string m_title;
     std::string m_artist;

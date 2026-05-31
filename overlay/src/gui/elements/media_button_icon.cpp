@@ -9,11 +9,11 @@ MediaIconButton::MediaIconButton(const AlphaSymbol* icon, std::function<void()> 
     m_isItem = false;
 }
 
-tsl::elm::Element* MediaIconButton::requestFocus(Element*, tsl::FocusDirection dir) {
+tsl::elm::Element* MediaIconButton::requestFocus(Element*, const tsl::FocusDirection dir) {
     return (dir == tsl::FocusDirection::None) ? this : nullptr;
 }
 
-bool MediaIconButton::onClick(u64 keys) {
+bool MediaIconButton::onClick(const u64 keys) {
     if ((keys & HidNpadButton_A) && !m_disabled && m_action) {
         m_action();
         triggerClickAnimation();

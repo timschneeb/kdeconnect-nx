@@ -36,14 +36,14 @@ tsl::elm::Element* DeviceGui::createUI() {
     switch (dev_.pair_state) {
         case DevicePairState::RequestedByPeer: {
             auto* accept = new tsl::elm::ListItem("Accept pair request");
-            accept->setClickListener([id](u64 keys) -> bool {
+            accept->setClickListener([id](const u64 keys) -> bool {
                 if (keys & HidNpadButton_A) { kdecIpcAcceptPair(id); tsl::swapTo<MainGui>(SwapDepth{2}); return true; }
                 return false;
             });
             list->addItem(accept);
 
             auto* reject = new tsl::elm::ListItem("Reject pair request");
-            reject->setClickListener([id](u64 keys) -> bool {
+            reject->setClickListener([id](const u64 keys) -> bool {
                 if (keys & HidNpadButton_A) { kdecIpcRejectPair(id); tsl::swapTo<MainGui>(SwapDepth{2}); return true; }
                 return false;
             });
@@ -52,7 +52,7 @@ tsl::elm::Element* DeviceGui::createUI() {
         }
         case DevicePairState::None: {
             auto* pair = new tsl::elm::ListItem("Request pair");
-            pair->setClickListener([id](u64 keys) -> bool {
+            pair->setClickListener([id](const u64 keys) -> bool {
                 if (keys & HidNpadButton_A) { kdecIpcRequestPair(id); tsl::swapTo<MainGui>(SwapDepth{2}); return true; }
                 return false;
             });
@@ -71,7 +71,7 @@ tsl::elm::Element* DeviceGui::createUI() {
 
         if (dev_.supports_mpris_remote) {
             auto* media = new tsl::elm::ListItem("Media remote", sym::chevronRight);
-            media->setClickListener([id, name](u64 keys) -> bool {
+            media->setClickListener([id, name](const u64 keys) -> bool {
                 if (keys & HidNpadButton_A) { tsl::changeTo<MediaGui>(id, name); return true; }
                 return false;
             });
@@ -80,7 +80,7 @@ tsl::elm::Element* DeviceGui::createUI() {
 
         if (dev_.supports_volume_sinks) {
             auto* vol = new tsl::elm::ListItem("Volume", sym::chevronRight);
-            vol->setClickListener([id, name](u64 keys) -> bool {
+            vol->setClickListener([id, name](const u64 keys) -> bool {
                 if (keys & HidNpadButton_A) { tsl::changeTo<VolumeGui>(id, name); return true; }
                 return false;
             });
@@ -89,7 +89,7 @@ tsl::elm::Element* DeviceGui::createUI() {
 
         if (dev_.supports_commands) {
             auto* cmds = new tsl::elm::ListItem("Commands", sym::chevronRight);
-            cmds->setClickListener([id, name](u64 keys) -> bool {
+            cmds->setClickListener([id, name](const u64 keys) -> bool {
                 if (keys & HidNpadButton_A) { tsl::changeTo<CommandsGui>(id, name); return true; }
                 return false;
             });
@@ -98,7 +98,7 @@ tsl::elm::Element* DeviceGui::createUI() {
 
         if (dev_.supports_share) {
             auto* screenshot = new tsl::elm::ListItem("Send screenshot");
-            screenshot->setClickListener([this, id](u64 keys) -> bool {
+            screenshot->setClickListener([this, id](const u64 keys) -> bool {
                 if (keys & HidNpadButton_A) {
                     // Remove overlay from screenshot layer stack before capture, then add it back after a short delay
                     // to be safe that the screenshot has completed.
@@ -113,7 +113,7 @@ tsl::elm::Element* DeviceGui::createUI() {
         }
 
         auto* ping = new tsl::elm::ListItem("Ping");
-        ping->setClickListener([id](u64 keys) -> bool {
+        ping->setClickListener([id](const u64 keys) -> bool {
             if (keys & HidNpadButton_A) { kdecIpcPing(id); return true; }
             return false;
         });
@@ -121,7 +121,7 @@ tsl::elm::Element* DeviceGui::createUI() {
 
         if (dev_.supports_find_my_phone) {
             auto* ring = new tsl::elm::ListItem("Ring");
-            ring->setClickListener([id](u64 keys) -> bool {
+            ring->setClickListener([id](const u64 keys) -> bool {
                 if (keys & HidNpadButton_A) { kdecIpcRing(id); return true; }
                 return false;
             });
@@ -132,7 +132,7 @@ tsl::elm::Element* DeviceGui::createUI() {
     if (paired) {
         auto* unpair = new tsl::elm::ListItem("Unpair");
         unpair->setValue(sym::cancel, true);
-        unpair->setClickListener([id](u64 keys) -> bool {
+        unpair->setClickListener([id](const u64 keys) -> bool {
             if (keys & HidNpadButton_A) { kdecIpcUnpair(id); tsl::swapTo<MainGui>(SwapDepth{2}); return true; }
             return false;
         });

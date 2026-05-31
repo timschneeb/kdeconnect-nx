@@ -24,8 +24,9 @@ JsonBody::JsonBody(const JsonBody& o) : owns_(true) {
     root_ = yyjson_mut_obj(doc_);
     yyjson_mut_doc_set_root(doc_, root_);
     if (o.root_) {
-        yyjson_mut_val* copied = yyjson_mut_val_mut_copy(doc_, o.root_);
-        if (copied) { yyjson_mut_doc_set_root(doc_, copied); root_ = copied; }
+        if (yyjson_mut_val* copied = yyjson_mut_val_mut_copy(doc_, o.root_)) {
+            yyjson_mut_doc_set_root(doc_, copied); root_ = copied;
+        }
     }
 }
 
@@ -64,7 +65,7 @@ JsonBody& JsonBody::operator=(JsonBody&& o) noexcept {
     return *this;
 }
 
-JsonBody::JsonBody(yyjson_mut_doc* doc, yyjson_mut_val* root, bool owns) noexcept
+JsonBody::JsonBody(yyjson_mut_doc* doc, yyjson_mut_val* root, const bool owns) noexcept
     : doc_(doc), root_(root), owns_(owns) {}
 
 // --- Parsing -----------------------------------------------------------------
@@ -114,15 +115,15 @@ bool JsonBody::is_obj  (const char* key) const {
 
 // --- value() with defaults ---------------------------------------------------
 
-bool JsonBody::value(const char* key, bool def) const {
+bool JsonBody::value(const char* key, const bool def) const {
     auto* v = field(root_, key);
     return (v && yyjson_mut_is_bool(v)) ? yyjson_mut_get_bool(v) : def;
 }
-int JsonBody::value(const char* key, int def) const {
+int JsonBody::value(const char* key, const int def) const {
     auto* v = field(root_, key);
     return (v && yyjson_mut_is_num(v)) ? yyjson_mut_get_int(v) : def;
 }
-int64_t JsonBody::value(const char* key, int64_t def) const {
+int64_t JsonBody::value(const char* key, const int64_t def) const {
     auto* v = field(root_, key);
     return (v && yyjson_mut_is_num(v)) ? yyjson_mut_get_sint(v) : def;
 }
@@ -172,8 +173,10 @@ JsonBody JsonBody::get_obj(const char* key) const {
     auto* v = field(root_, key);
     if (!v || !yyjson_mut_is_obj(v)) return JsonBody{};
     JsonBody out;
-    yyjson_mut_val* copied = yyjson_mut_val_mut_copy(out.doc_, v);
-    if (copied) { yyjson_mut_doc_set_root(out.doc_, copied); out.root_ = copied; }
+    if (yyjson_mut_val* copied = yyjson_mut_val_mut_copy(out.doc_, v)) {
+        yyjson_mut_doc_set_root(out.doc_, copied);
+        out.root_ = copied;
+    }
     return out;
 }
 
@@ -243,16 +246,16 @@ void JsonBody::each_kv(
 
 // --- Setters -----------------------------------------------------------------
 
-JsonBody& JsonBody::set(const char* key, bool v) {
+JsonBody& JsonBody::set(const char* key, const bool v) {
     upsert(doc_, root_, key, yyjson_mut_bool(doc_, v)); return *this;
 }
-JsonBody& JsonBody::set(const char* key, int v) {
+JsonBody& JsonBody::set(const char* key, const int v) {
     upsert(doc_, root_, key, yyjson_mut_int(doc_, v)); return *this;
 }
-JsonBody& JsonBody::set(const char* key, int64_t v) {
+JsonBody& JsonBody::set(const char* key, const int64_t v) {
     upsert(doc_, root_, key, yyjson_mut_sint(doc_, v)); return *this;
 }
-JsonBody& JsonBody::set(const char* key, double v) {
+JsonBody& JsonBody::set(const char* key, const double v) {
     upsert(doc_, root_, key, yyjson_mut_double(doc_, v)); return *this;
 }
 JsonBody& JsonBody::set(const char* key, const char* v) {
@@ -265,8 +268,8 @@ JsonBody& JsonBody::set(const char* key, const std::string& v) {
 JsonBody& JsonBody::copy_field(const char* key, const JsonBody& src) {
     auto* v = field(src.root_, key);
     if (!v) return *this;
-    yyjson_mut_val* copied = yyjson_mut_val_mut_copy(doc_, v);
-    if (copied) upsert(doc_, root_, key, copied);
+    if (yyjson_mut_val* copied = yyjson_mut_val_mut_copy(doc_, v))
+        upsert(doc_, root_, key, copied);
     return *this;
 }
 
@@ -276,8 +279,8 @@ JsonBody& JsonBody::set(const char* key, JsonBody&& child) {
 
 JsonBody& JsonBody::set(const char* key, const JsonBody& child) {
     if (child.root_) {
-        yyjson_mut_val* copied = yyjson_mut_val_mut_copy(doc_, child.root_);
-        if (copied) upsert(doc_, root_, key, copied);
+        if (yyjson_mut_val* copied = yyjson_mut_val_mut_copy(doc_, child.root_))
+            upsert(doc_, root_, key, copied);
     }
     return *this;
 }
@@ -312,7 +315,7 @@ std::string JsonBody::dump() const {
     return result;
 }
 
-std::string JsonBody::dump(int indent) const {
+std::string JsonBody::dump(const int indent) const {
     size_t len = 0;
     yyjson_write_flag flags = (indent > 0) ? YYJSON_WRITE_PRETTY_TWO_SPACES : 0;
     char* s = yyjson_mut_write(doc_, flags, &len);

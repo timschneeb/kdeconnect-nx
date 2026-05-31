@@ -8,7 +8,7 @@ public:
     // Called each IPC poll. Position is already live-computed by the sysmodule.
     // Skipped while the user is dragging so the IPC poll doesn't fight user input.
     void setPositionMs(int64_t pos_ms, int64_t len_ms);
-    void setSeekable(bool seekable) { m_seekable = seekable; }
+    void setSeekable(const bool seekable) { m_seekable = seekable; }
 
     bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState& touchPos,
                      HidAnalogStickState leftJoy, HidAnalogStickState rightJoy) override;

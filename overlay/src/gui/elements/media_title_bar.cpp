@@ -25,7 +25,7 @@ void MediaTitleBar::resetScroll(ScrollState& s, std::string& dest, const std::st
 }
 
 void MediaTitleBar::calcScrollWidth(tsl::gfx::Renderer* r, ScrollState& s,
-                                     const std::string& text, u32 fontSize) {
+                                     const std::string& text, const u32 fontSize) {
     if (s.maxW) return;
     s.maxW = static_cast<u32>(getWidth());
     const u32 w = r->getTextDimensions(text, false, fontSize).first;
@@ -53,8 +53,8 @@ void MediaTitleBar::updateScroll(ScrollState& s) {
     static constexpr double invDecel = 2.0;
 
     const double minDist   = s.textW;
-    const double accelDist = 0.5 * vel * accel;
-    const double decelDist = 0.5 * vel * decel;
+    constexpr double accelDist = 0.5 * vel * accel;
+    constexpr double decelDist = 0.5 * vel * decel;
     const double constDist = std::max(0.0, minDist - accelDist - decelDist);
     const double constTime = constDist / vel;
     const double totalDur  = delay + accel + constTime + decel + pause;
@@ -88,8 +88,8 @@ void MediaTitleBar::updateScroll(ScrollState& s) {
 
 void MediaTitleBar::drawScrollText(tsl::gfx::Renderer* r, ScrollState& s,
                                     const std::string& text,
-                                    s32 x, s32 y, s32 scissorY, u32 scissorH,
-                                    u32 fontSize, const tsl::Color& clr) {
+                                    const s32 x, const s32 y, const s32 scissorY, const u32 scissorH,
+                                    const u32 fontSize, const tsl::Color& clr) {
     if (s.trunc) {
         if (!s.active) { s.active = true; s.timeIn = ult::nowNs(); }
         r->enableScissoring(x, scissorY, s.maxW, scissorH);

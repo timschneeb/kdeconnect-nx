@@ -46,7 +46,7 @@ bool BatteryPlugin::read_hardware(int32_t& charge, bool& charging) const {
 #endif
 }
 
-void BatteryPlugin::on_connected(bool paired) {
+void BatteryPlugin::on_connected(const bool paired) {
     if (!paired) return;
     active_ = true;
 

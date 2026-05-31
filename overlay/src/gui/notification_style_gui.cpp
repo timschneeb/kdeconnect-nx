@@ -29,11 +29,11 @@ tsl::elm::Element* NotificationStyleGui::createUI() {
     kdecIpcReadIntSetting(KdecIntSettingKey::NotificationStyle, cur_raw);
     const auto current = static_cast<NotificationStyle>(cur_raw);
 
-    for (const auto& entry : kStyles) {
-        const bool selected = (entry.value == current);
-        auto* item = new StyleListItem(entry.label, entry.description, selected);
-        const auto val = entry.value;
-        item->setClickListener([val](u64 keys) -> bool {
+    for (const auto&[value, label, description] : kStyles) {
+        const bool selected = (value == current);
+        auto* item = new StyleListItem(label, description, selected);
+        const auto val = value;
+        item->setClickListener([val](const u64 keys) -> bool {
             if (keys & HidNpadButton_A) {
                 kdecIpcWriteIntSetting(KdecIntSettingKey::NotificationStyle,
                                        static_cast<int32_t>(val));
@@ -49,7 +49,7 @@ tsl::elm::Element* NotificationStyleGui::createUI() {
     return frame;
 }
 
-bool NotificationStyleGui::handleInput(u64 keysDown, u64, const HidTouchState&,
+bool NotificationStyleGui::handleInput(const u64 keysDown, u64, const HidTouchState&,
                                         HidAnalogStickState, HidAnalogStickState) {
     if (keysDown & HidNpadButton_B) {
         tsl::goBack();

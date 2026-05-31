@@ -3,7 +3,7 @@
 
 struct ScopedFd {
     int raw = -1;
-    explicit ScopedFd(int fd) : raw(fd) {}
+    explicit ScopedFd(const int fd) : raw(fd) {}
     ~ScopedFd() { if (raw >= 0) close(raw); }
     ScopedFd(ScopedFd&& o) noexcept : raw(o.raw) { o.raw = -1; }
     ScopedFd(const ScopedFd&) = delete;

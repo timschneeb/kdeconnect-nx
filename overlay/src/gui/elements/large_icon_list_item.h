@@ -9,7 +9,7 @@ class LargeIconListItem : public tsl::elm::ListItem {
 
 public:
     LargeIconListItem(const std::string& line1, const std::string& line2, const std::string& action, const std::string& icon)
-        : tsl::elm::ListItem(line1, action) {
+        : ListItem(line1, action) {
         m_line2 = line2;
         m_icon = icon;
         m_listItemHeight = kHeight;

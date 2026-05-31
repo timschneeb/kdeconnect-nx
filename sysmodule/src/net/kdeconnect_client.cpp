@@ -26,6 +26,8 @@
 #if defined(__SWITCH__)
 #include <switch.h>
 #endif
+#include <ranges>
+
 #include "../plugins/plugin_registry.h"
 #include "../plugins/notification_plugin.h"
 #include "../utils/settings_store.h"
@@ -45,7 +47,7 @@ constexpr int kKeepaliveIntervalSeconds = 3;
 constexpr int kKeepaliveProbeCount = 3;
 constexpr int kConnectTimeoutMs = 3000;
 
-void configure_tcp_keepalive(int fd) {
+void configure_tcp_keepalive(const int fd) {
     int keepalive = 1;
     setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &keepalive, sizeof(keepalive));
     setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &kKeepaliveIdleSeconds, sizeof(kKeepaliveIdleSeconds));
@@ -53,7 +55,7 @@ void configure_tcp_keepalive(int fd) {
     setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &kKeepaliveProbeCount, sizeof(kKeepaliveProbeCount));
 }
 
-bool connect_with_timeout(int fd, const sockaddr_in& addr, int timeout_ms) {
+bool connect_with_timeout(const int fd, const sockaddr_in& addr, const int timeout_ms) {
     int flags = fcntl(fd, F_GETFL, 0);
     if (flags < 0) {
         return false;
@@ -104,14 +106,14 @@ DeviceProvider::DeviceSession::~DeviceSession() {
 }
 
 KdeConnectClient::KdeConnectClient(Storage storage) : storage_(std::move(storage)) {
-    local_device_ = storage_.load_or_create_local_device(this);
+    local_device_ = Storage::load_or_create_local_device(this);
 }
 
 KdeConnectClient::~KdeConnectClient() {
     stop();
 }
 
-bool KdeConnectClient::start(bool enable_mdns) {
+bool KdeConnectClient::start(const bool enable_mdns) {
     needs_restart_.store(false);
 
     if (running_.load()) {
@@ -217,8 +219,8 @@ void KdeConnectClient::stop() {
     // SO_RCVTIMEO on their sockets bounds the wait to ~5 s in the worst case.
     {
         std::lock_guard lock(pending_mutex_);
-        for (auto& task : pending_threads_) {
-            if (task.thread.joinable()) task.thread.join();
+        for (auto&[thread, done] : pending_threads_) {
+            if (thread.joinable()) thread.join();
         }
         pending_threads_.clear();
     }
@@ -226,7 +228,7 @@ void KdeConnectClient::stop() {
     std::vector<std::shared_ptr<DeviceSession>> to_stop;
     {
         std::lock_guard lock(session_mutex_);
-        for (auto &[_, session]: sessions_) {
+        for (auto &session: sessions_ | std::views::values) {
             to_stop.push_back(session);
         }
         sessions_.clear();
@@ -251,7 +253,7 @@ void KdeConnectClient::send_udp_identity_probe(const std::string& device_id, con
         return;
     }
 
-    NetworkPacket identity = NetworkUtil::make_identity_packet(local_device_, device_id.empty() ? std::nullopt : std::optional<std::string>(device_id), std::nullopt, tcp_port_);
+    NetworkPacket identity = NetworkUtil::make_identity_packet(local_device_, device_id.empty() ? std::nullopt : std::optional(device_id), std::nullopt, tcp_port_);
     std::string payload = identity.serialize();
 
     sockaddr_in addr{};
@@ -305,41 +307,41 @@ void KdeConnectClient::network_loop() {
                 Logger::warn("TCP accept failed (%s)", strerror(errno));
                 needs_restart_.store(true);
                 break;
-            } else {
-                configure_tcp_keepalive(fd.raw);
-                // Bound blocking time: if peer stalls during identity read or TLS handshake.
-                timeval recv_timeout{5, 0};
-                setsockopt(fd.raw, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(recv_timeout));
-                // Offload to a thread so network_loop is never blocked by a slow peer.
-                auto done = std::make_shared<std::atomic<bool>>(false);
-
-                const int raw_fd = fd.release();
-                auto t = StackThread(24 * 1024, "kc-accept", [this, raw_fd, done]() mutable {
-                    ScopedFd fd{raw_fd};
-                    try {
-                        [&]() {
-                            auto line = NetworkUtil::read_line_fd(fd.raw, kMaxPacketSize);
-                            auto packet = line ? NetworkPacket::parse(*line) : std::optional<NetworkPacket>{};
-                            bool valid = packet && packet->type == PacketTypes::Identity;
-                            if (valid && packet->body.has("targetDeviceId")) {
-                                const auto tid = packet->body.value("targetDeviceId", "");
-                                if (!tid.empty() && tid != local_device_.id) valid = false;
-                            }
-                            if (valid && packet->body.has("targetProtocolVersion")) {
-                                if (packet->body.value("targetProtocolVersion", kProtocolVersion) != kProtocolVersion)
-                                    valid = false;
-                            }
-                            if (valid)
-                                handle_new_connection(NetworkUtil::info_from_identity(*packet), std::move(fd), true);
-                        }();
-                    } catch (const std::bad_alloc&) {
-                        Logger::error("Out of memory in incoming connection handler");
-                    }
-                    done->store(true);
-                });
-                std::lock_guard lock(pending_mutex_);
-                pending_threads_.push_back({std::move(t), std::move(done)});
             }
+
+            configure_tcp_keepalive(fd.raw);
+            // Bound blocking time: if peer stalls during identity read or TLS handshake.
+            timeval recv_timeout{5, 0};
+            setsockopt(fd.raw, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(recv_timeout));
+            // Offload to a thread so network_loop is never blocked by a slow peer.
+            auto done = std::make_shared<std::atomic<bool>>(false);
+
+            const int raw_fd = fd.release();
+            auto t = StackThread(24 * 1024, "kc-accept", [this, raw_fd, done]() mutable {
+                ScopedFd accept_fd{raw_fd};
+                try {
+                    [&] {
+                        auto line = NetworkUtil::read_line_fd(accept_fd.raw, kMaxPacketSize);
+                        auto packet = line ? NetworkPacket::parse(*line) : std::optional<NetworkPacket>{};
+                        bool valid = packet && packet->type == PacketTypes::Identity;
+                        if (valid && packet->body.has("targetDeviceId")) {
+                            const auto tid = packet->body.value("targetDeviceId", "");
+                            if (!tid.empty() && tid != local_device_.id) valid = false;
+                        }
+                        if (valid && packet->body.has("targetProtocolVersion")) {
+                            if (packet->body.value("targetProtocolVersion", kProtocolVersion) != kProtocolVersion)
+                                valid = false;
+                        }
+                        if (valid)
+                            handle_new_connection(NetworkUtil::info_from_identity(*packet), std::move(accept_fd), true);
+                    }();
+                } catch (const std::bad_alloc&) {
+                    Logger::error("Out of memory in incoming connection handler");
+                }
+                done->store(true);
+            });
+            std::lock_guard lock(pending_mutex_);
+            pending_threads_.push_back({std::move(t), std::move(done)});
         }
 
         if (udp_fd_ >= 0 && FD_ISSET(udp_fd_, &rfds)) {
@@ -398,9 +400,9 @@ void KdeConnectClient::udp_broadcast_loop() {
 
 void KdeConnectClient::handle_discovered_peer(const DeviceInfo& identity, const std::string& host, int port) {
     auto done = std::make_shared<std::atomic<bool>>(false);
-    auto t = StackThread(24 * 1024, "kc-connect", [this, identity, host, port, done]() {
+    auto t = StackThread(24 * 1024, "kc-connect", [this, identity, host, port, done] {
         try {
-            [&]() {
+            [&] {
                 ScopedFd fd{socket(AF_INET, SOCK_STREAM, 0)};
                 if (!fd) return;
                 configure_tcp_keepalive(fd.raw);
@@ -434,7 +436,6 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, ScopedF
         std::lock_guard lock(session_mutex_);
         auto it = sessions_.find(identity.id);
         if (it != sessions_.end() && !it->second->disconnected.load()) {
-            // TODO: allow old but alive connections to be replaced?
             Logger::warn("Already connected to %s (%s) but a new connection was received.",
                      identity.name.c_str(), identity.id.c_str());
             return;
@@ -575,7 +576,7 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, ScopedF
 }
 
 
-void KdeConnectClient::handle_packet(const std::shared_ptr<DeviceSession>& session, const std::string& line) {
+void KdeConnectClient::handle_packet(const std::shared_ptr<DeviceSession>& session, const std::string& line) const {
     auto packet = NetworkPacket::parse(line);
     if (!packet) return;
 
@@ -607,8 +608,8 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
     // Allow aborting mid-transfer if session is torn down
     timeval payload_timeout{0, 500'000};
     setsockopt(fd.raw, SOL_SOCKET, SO_RCVTIMEO, &payload_timeout, sizeof(payload_timeout));
-    // Maximise TCP receive window to keep the phone's send pipeline full
-    const int rcvbuf = 8 * 1024;
+    // Maximize TCP receive window to keep the phone's send pipeline full
+    constexpr int rcvbuf = 8 * 1024;
     setsockopt(fd.raw, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
 
     sockaddr_in addr{};
@@ -652,7 +653,7 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
         fsFsDeleteFile(fs, path_buf);
 
         Result rc;
-        if (rc = fsFsCreateFile(fs, path_buf, static_cast<s64>(packet.payload_size), 0); R_FAILED(rc)) {
+        if (rc = fsFsCreateFile(fs, path_buf, packet.payload_size, 0); R_FAILED(rc)) {
             Logger::error("Failed to create %s: %d-%d", path_buf, R_MODULE(rc), R_DESCRIPTION(rc));
             mbedtls_ssl_close_notify(&tls_session->ssl);
             return false;
@@ -672,7 +673,7 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
 
         auto flush_chunk = [&]() -> bool {
             if (chunk_fill == 0) return true;
-            rc = fsFileWrite(&file, offset, chunk.get(), chunk_fill, FsWriteOption_None);
+            rc = fsFileWrite(&file, static_cast<s64>(offset), chunk.get(), chunk_fill, FsWriteOption_None);
             if (R_FAILED(rc)) {
                 Logger::error("Failed to write to %s: %d-%d", path_buf, R_MODULE(rc), R_DESCRIPTION(rc));
                 return false;
@@ -702,8 +703,7 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
         chunk.reset();
         malloc_trim(0);
 
-        const bool aborted = session->disconnected.load() || remaining > 0 || write_error;
-        if (aborted) {
+        if (session->disconnected.load() || remaining > 0 || write_error) {
             fsFsDeleteFile(fs, path_buf);
             Logger::info("Download aborted. Remaining bytes: %ld", remaining);
             return false;
@@ -743,12 +743,12 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
     }
 }
 
-void KdeConnectClient::handle_pair_packet(const std::shared_ptr<DeviceSession>& session, const JsonBody& body) {
+void KdeConnectClient::handle_pair_packet(const std::shared_ptr<DeviceSession>& session, const JsonBody& body) const {
     bool wants_pair = body.value("pair", false);
     Logger::info("Got pair packet from %s (wants_pair=%d) %s", session->info.name.c_str(), wants_pair, body.dump().c_str());
 
     if (wants_pair) {
-        int64_t timestamp = body.value("timestamp", (int64_t)0);
+        int64_t timestamp = body.value("timestamp", static_cast<int64_t>(0));
         long now = std::chrono::duration_cast<std::chrono::seconds>(
                        std::chrono::system_clock::now().time_since_epoch())
                        .count();
@@ -775,7 +775,7 @@ void KdeConnectClient::handle_pair_packet(const std::shared_ptr<DeviceSession>& 
         }
 
         session->pair_state = PairState::RequestedByPeer;
-        session->pairing_timestamp = static_cast<long>(timestamp);
+        session->pairing_timestamp = timestamp;
         std::string key = verification_key(session, timestamp);
         Logger::info("Pair request from %s (key %s).", session->info.name.c_str(), key.c_str());
         Logger::info("Type: accept %s or reject %s", session->info.id.c_str(), session->info.id.c_str());
@@ -798,7 +798,7 @@ void KdeConnectClient::handle_pair_packet(const std::shared_ptr<DeviceSession>& 
     }
 }
 
-std::string KdeConnectClient::verification_key(const std::shared_ptr<DeviceSession>& session, long timestamp) const {
+std::string KdeConnectClient::verification_key(const std::shared_ptr<DeviceSession>& session, const long timestamp) const {
     std::vector<unsigned char> a = tls_.local_pubkey_bytes();
     std::vector<unsigned char> b = session->peer_pubkey;
     if (a.empty() || b.empty()) {
@@ -849,7 +849,7 @@ void KdeConnectClient::request_pair(const std::string& device_id) {
     long ts = std::chrono::duration_cast<std::chrono::seconds>(
                   std::chrono::system_clock::now().time_since_epoch())
                   .count();
-    pkt.body.set("pair", true).set("timestamp", (int64_t)ts);
+    pkt.body.set("pair", true).set("timestamp", ts);
 
     if (send_packet(device_id, pkt)) {
         session->pair_state = PairState::Requested;
@@ -871,8 +871,8 @@ void KdeConnectClient::accept_pair(const std::string& device_id) {
     NetworkPacket pkt;
     pkt.type = PacketTypes::Pair;
     pkt.body.set("pair", true)
-            .set("timestamp", (int64_t)std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::system_clock::now().time_since_epoch()).count());
+            .set("timestamp", std::chrono::duration_cast<std::chrono::milliseconds>(
+                     std::chrono::system_clock::now().time_since_epoch()).count());
 
     if (send_packet(device_id, pkt)) {
         session->pair_state = PairState::Paired;
@@ -931,9 +931,9 @@ std::vector<PairedDeviceInfo> KdeConnectClient::offline_paired_devices() const {
     const auto active = devices();
     std::vector<PairedDeviceInfo> offline;
     for (const auto& id : storage_.list_paired_device_ids()) {
-        if (active.count(id)) continue;
-        auto info = storage_.load_paired_device(id);
-        if (info) offline.push_back(std::move(*info));
+        if (active.contains(id)) continue;
+        if (auto info = storage_.load_paired_device(id))
+            offline.push_back(std::move(*info));
     }
     return offline;
 }
@@ -978,13 +978,13 @@ bool KdeConnectClient::send_payload(const std::string& device_id, NetworkPacket 
     auto done = std::make_shared<std::atomic<bool>>(false);
     const int raw_srv_fd = srv_fd.release();
     auto t = StackThread(16 * 1024, "kc-payload", [this, raw_srv_fd, payload, done]() mutable {
-        ScopedFd srv_fd{raw_srv_fd};
-        [&]() {
+        ScopedFd payload_srv_fd{raw_srv_fd};
+        [&] {
             // Give the receiver 15 s to connect after receiving the share packet.
             timeval timeout{15, 0};
-            setsockopt(srv_fd.raw, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+            setsockopt(payload_srv_fd.raw, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
 
-            ScopedFd client_fd{accept(srv_fd.raw, nullptr, nullptr)};
+            ScopedFd client_fd{accept(payload_srv_fd.raw, nullptr, nullptr)};
             if (!client_fd) return;
 
             // Receiver connects as TLS client; we are TLS server.

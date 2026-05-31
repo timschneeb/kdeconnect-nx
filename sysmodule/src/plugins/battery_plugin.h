@@ -6,7 +6,7 @@
 
 class BatteryPlugin : public Plugin {
 public:
-    ~BatteryPlugin();
+    ~BatteryPlugin() override;
 
     std::string name() const override;
     std::string description() const override;

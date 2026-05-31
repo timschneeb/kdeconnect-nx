@@ -12,18 +12,18 @@ MediaSeekBar::MediaSeekBar(std::string device_id)
     m_isItem = true;
 }
 
-void MediaSeekBar::setPositionMs(int64_t pos_ms, int64_t len_ms) {
+void MediaSeekBar::setPositionMs(const int64_t pos_ms, const int64_t len_ms) {
     m_len_ms = len_ms;
     if (!m_dragging) {
         m_pos_ms = pos_ms;
-        setProgress(len_ms > 0 ? (u16)(pos_ms * 100 / len_ms) : 0);
+        setProgress(len_ms > 0 ? static_cast<u16>(pos_ms * 100 / len_ms) : 0);
     }
 }
 
-bool MediaSeekBar::handleInput(u64 keysDown, u64 keysHeld,
-                                const HidTouchState& touchPos,
-                                HidAnalogStickState leftJoy,
-                                HidAnalogStickState rightJoy) {
+bool MediaSeekBar::handleInput(const u64 keysDown, const u64 keysHeld,
+                               const HidTouchState& touchPos,
+                               const HidAnalogStickState leftJoy,
+                               const HidAnalogStickState rightJoy) {
     if (keysHeld & (KEY_LEFT | KEY_RIGHT))
         m_dragging = true;
 
@@ -36,8 +36,8 @@ bool MediaSeekBar::handleInput(u64 keysDown, u64 keysHeld,
     return result;
 }
 
-bool MediaSeekBar::onTouch(tsl::elm::TouchEvent event, s32 currX, s32 currY,
-                            s32 prevX, s32 prevY, s32 initialX, s32 initialY) {
+bool MediaSeekBar::onTouch(const tsl::elm::TouchEvent event, const s32 currX, const s32 currY,
+                            const s32 prevX, const s32 prevY, const s32 initialX, const s32 initialY) {
     if (event == tsl::elm::TouchEvent::Touch || event == tsl::elm::TouchEvent::Hold)
         m_dragging = true;
 
@@ -53,11 +53,11 @@ bool MediaSeekBar::onTouch(tsl::elm::TouchEvent event, s32 currX, s32 currY,
 void MediaSeekBar::fireSendPosition() {
     if (m_seekable && m_len_ms > 0)
         kdecIpcSendMediaAction(m_device_id, KdecMediaAction::SetPosition,
-                               (int64_t)getProgress() * m_len_ms / 100);
+                               static_cast<int64_t>(getProgress()) * m_len_ms / 100);
 }
 
-std::string MediaSeekBar::fmtTime(int64_t ms) {
-    const int s = (int)(ms / 1000);
+std::string MediaSeekBar::fmtTime(const int64_t ms) {
+    const int s = static_cast<int>(ms / 1000);
     const int h = s / 3600;
     char buf[16];
     if (h > 0)
@@ -75,17 +75,17 @@ void MediaSeekBar::draw(tsl::gfx::Renderer* renderer) {
 
     // While dragging, derive position from the TrackBar's own progress value
     const int64_t displayPos = m_dragging && m_len_ms > 0
-        ? (int64_t)getProgress() * m_len_ms / 100
+        ? static_cast<int64_t>(getProgress()) * m_len_ms / 100
         : m_pos_ms;
 
     const s32 handle = (m_seekable && m_len_ms > 0)
-        ? (s32)(width * displayPos / m_len_ms)
+        ? static_cast<s32>(width * displayPos / m_len_ms)
         : 0;
 
     // Track bar (background then filled)
-    drawBar(renderer, xPos, yPos - 3, (u16)width,  tsl::trackBarEmptyColor);
+    drawBar(renderer, xPos, yPos - 3, static_cast<u16>(width),  tsl::trackBarEmptyColor);
     if (handle > 0 && m_seekable)
-        drawBar(renderer, xPos, yPos - 3, (u16)handle, tsl::trackBarFullColor);
+        drawBar(renderer, xPos, yPos - 3, static_cast<u16>(handle), tsl::trackBarFullColor);
 
     // Slider circle - greyed out when not seekable, highlight when focused+seekable
     if (m_focused && m_seekable) {
@@ -108,15 +108,15 @@ void MediaSeekBar::draw(tsl::gfx::Renderer* renderer) {
         const std::string posStr = fmtTime(displayPos);
         const std::string lenStr = fmtTime(m_len_ms);
 
-        renderer->drawString(posStr.c_str(), false, xPos, labelY, kTimeSize, kDim);
-        const u32 lenW = renderer->drawString(lenStr.c_str(), false, 0, 0,
+        renderer->drawString(posStr, false, xPos, labelY, kTimeSize, kDim);
+        const u32 lenW = renderer->drawString(lenStr, false, 0, 0,
                                               kTimeSize, kTransparent).first;
-        renderer->drawString(lenStr.c_str(), false, xPos + width - (s32)lenW,
+        renderer->drawString(lenStr, false, xPos + width - static_cast<s32>(lenW),
                              labelY, kTimeSize, kDim);
     } else {
         const u32 liveW = renderer->drawString("--:--", false, 0, 0,
                                                kTimeSize, kTransparent).first;
-        renderer->drawString("--:--", false, xPos + width - (s32)liveW,
+        renderer->drawString("--:--", false, xPos + width - static_cast<s32>(liveW),
                              labelY, kTimeSize, kFaint);
     }
 

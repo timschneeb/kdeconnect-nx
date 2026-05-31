@@ -16,7 +16,7 @@ std::vector<std::string> RunCommandPlugin::outgoing_packet_types() const {
     return { PacketTypes::RunCommand, PacketTypes::RunCommandRequest };
 }
 
-void RunCommandPlugin::on_connected(bool paired) {
+void RunCommandPlugin::on_connected(const bool paired) {
     if (paired) {
         send_local_command_list();
         request_remote_command_list();
@@ -52,7 +52,7 @@ bool RunCommandPlugin::on_packet_received(const NetworkPacket& np) {
 }
 
 void RunCommandPlugin::send_local_command_list() const {
-    static constexpr const char *kCommandList =
+    static constexpr auto kCommandList =
             R"({"canAddCommand":false,"commandList":")"
             R"({\"nx-auto-bright-off\":{\"command\":\"Disable auto brightness\",\"name\":\"Auto Brightness Off\"},)"
             R"(\"nx-auto-bright-on\":{\"command\":\"Enable auto brightness\",\"name\":\"Auto Brightness On\"},)"
@@ -93,7 +93,7 @@ void RunCommandPlugin::run_remote_command(const std::string& key) const {
     send_packet(pkt);
 }
 
-void RunCommandPlugin::run_local_command(const std::string& key) const {
+void RunCommandPlugin::run_local_command(const std::string& key) {
     Logger::info("Executing command: %s", key.c_str());
 
 #ifdef __SWITCH__

@@ -7,24 +7,24 @@
 // semi-transparent overlay is drawn on top to signal the inactive state.
 class FontSizeBar : public tsl::elm::NamedStepTrackBar {
 public:
-    using tsl::elm::NamedStepTrackBar::NamedStepTrackBar;
+    using NamedStepTrackBar::NamedStepTrackBar;
 
-    void setEnabled(bool enabled) { m_enabled = enabled; }
+    void setEnabled(const bool enabled) { m_enabled = enabled; }
     bool isEnabled() const        { return m_enabled; }
 
-    tsl::elm::Element* requestFocus(tsl::elm::Element* oldFocus,
-                                    tsl::FocusDirection direction) override {
+    Element* requestFocus(Element* oldFocus,
+                                    const tsl::FocusDirection direction) override {
         return m_enabled ? NamedStepTrackBar::requestFocus(oldFocus, direction) : nullptr;
     }
 
-    bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState& touchPos,
-                     HidAnalogStickState left, HidAnalogStickState right) override {
+    bool handleInput(const u64 keysDown, const u64 keysHeld, const HidTouchState& touchPos,
+                     const HidAnalogStickState left, const HidAnalogStickState right) override {
         if (!m_enabled) return false;
         return NamedStepTrackBar::handleInput(keysDown, keysHeld, touchPos, left, right);
     }
 
-    bool onTouch(tsl::elm::TouchEvent event, s32 currX, s32 currY,
-                 s32 prevX, s32 prevY, s32 initialX, s32 initialY) override {
+    bool onTouch(const tsl::elm::TouchEvent event, const s32 currX, const s32 currY,
+                 const s32 prevX, const s32 prevY, const s32 initialX, const s32 initialY) override {
         if (!m_enabled) return false;
         return NamedStepTrackBar::onTouch(event, currX, currY, prevX, prevY, initialX, initialY);
     }

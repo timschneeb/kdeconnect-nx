@@ -113,14 +113,14 @@ void Logger::error(const char* fmt, ...) {
     va_end(args);
 }
 
-void Logger::log(std::string_view level, const char* fmt, ...) {
+void Logger::log(const std::string_view level, const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
     log(level, vformat(fmt, args));
     va_end(args);
 }
 
-void Logger::log(std::string_view level, std::string_view msg) {
+void Logger::log(const std::string_view level, const std::string_view msg) {
 #ifndef NO_LOG
     char time_buf[9];
     auto secs = std::chrono::duration_cast<std::chrono::seconds>(

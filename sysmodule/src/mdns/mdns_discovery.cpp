@@ -29,8 +29,7 @@
 #include <vector>
 
 namespace {
-constexpr const char* kServiceType = "_kdeconnect._udp.local.";
-constexpr auto kIdleSleep = std::chrono::milliseconds(100);
+constexpr auto kServiceType = "_kdeconnect._udp.local.";
 constexpr auto kQueryRepeat = std::chrono::seconds(15);
 std::string hostname_or_default() {
     char buffer[256] = {};
@@ -153,10 +152,9 @@ int service_callback(int sock,
     char name_buffer[256] = {};
     mdns_string_t name = mdns_string_extract(data, size, &name_offset, name_buffer, sizeof(name_buffer));
     std::string_view queried_name(name.str, name.length);
-    auto write_records = [&](const mdns_record_t& answer, const mdns_record_t* additional, size_t additional_count) {
+    auto write_records = [&](const mdns_record_t& answer, const mdns_record_t* additional, const size_t additional_count) {
         static std::array<uint32_t, 512> send_buffer{};
-        uint16_t unicast = (rclass & MDNS_UNICAST_RESPONSE);
-        if (unicast) {
+        if (rclass & MDNS_UNICAST_RESPONSE) {
             return mdns_query_answer_unicast(sock, from, addrlen, send_buffer.data(), send_buffer.size() * sizeof(uint32_t), query_id,
                                              static_cast<mdns_record_type_t>(record_type), name.str, name.length,
                                              answer, nullptr, 0, additional, additional_count);
@@ -198,20 +196,20 @@ int service_callback(int sock,
     }
     return 0;
 }
-int discovery_callback(int sock,
+int discovery_callback(const int sock,
                        const sockaddr* from,
-                       size_t addrlen,
-                       mdns_entry_type_t entry_type,
-                       uint16_t query_id,
-                       uint16_t record_type,
-                       uint16_t rclass,
-                       uint32_t ttl,
+                       const size_t addrlen,
+                       const mdns_entry_type_t entry_type,
+                       const uint16_t query_id,
+                       const uint16_t record_type,
+                       const uint16_t rclass,
+                       const uint32_t ttl,
                        const void* data,
-                       size_t size,
+                       const size_t size,
                        size_t name_offset,
-                       size_t name_length,
-                       size_t record_offset,
-                       size_t record_length,
+                       const size_t name_length,
+                       const size_t record_offset,
+                       const size_t record_length,
                        void* user_data) {
     (void)sock;
     (void)addrlen;
@@ -242,8 +240,7 @@ int discovery_callback(int sock,
     }
     if (record_type == MDNS_RECORDTYPE_TXT) {
         mdns_record_txt_t records[16];
-        const size_t parsed = mdns_record_parse_txt(data, size, record_offset, record_length, records,
-                                                    sizeof(records) / sizeof(records[0]));
+        const size_t parsed = mdns_record_parse_txt(data, size, record_offset, record_length, records, std::size(records));
         for (size_t i = 0; i < parsed; ++i) {
             if (std::string_view(records[i].key.str, records[i].key.length) == "id") {
                 state->device_id.assign(records[i].value.str, records[i].value.length);
@@ -255,7 +252,7 @@ int discovery_callback(int sock,
 }
 } // namespace
 struct MdnsDiscovery::Impl {
-    Impl(DeviceInfo  local_device, int tcp_port, PeerFoundCallback on_peer_found)
+    Impl(DeviceInfo  local_device, const int tcp_port, PeerFoundCallback on_peer_found)
         : local_device(std::move(local_device)), tcp_port(tcp_port), on_peer_found(std::move(on_peer_found)) {}
     bool start() {
         if (running.exchange(true)) {
@@ -314,7 +311,7 @@ struct MdnsDiscovery::Impl {
         info.txt_records.emplace("protocol", std::to_string(local_device.protocol_version));
         return info;
     }
-    void announce(bool goodbye) {
+    void announce(const bool goodbye) const {
         if (service_socket < 0) {
             return;
         }

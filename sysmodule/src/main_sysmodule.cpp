@@ -90,13 +90,11 @@ static uint8_t tick = 0;
 
 static void log_backtrace() {
     struct Frame { Frame* fp; void* lr; };
-    auto* fp = reinterpret_cast<Frame*>(__builtin_frame_address(0));
-    Logger::error("terminate: anchor=0x%llx symbol=log_backtrace",
-        static_cast<unsigned long long>(reinterpret_cast<uintptr_t>(&log_backtrace)));
+    auto* fp = static_cast<Frame*>(__builtin_frame_address(0));
+    Logger::error("terminate: anchor=%p symbol=log_backtrace", &log_backtrace);
     Logger::error("terminate: backtrace:");
     for (int i = 0; fp && i < 16; ++i) {
-        Logger::error("  #%-2d  0x%llx", i, static_cast<unsigned long long>(
-            reinterpret_cast<uintptr_t>(fp->lr)));
+        Logger::error("  #%-2d  0x%p", i, fp->lr);
         Frame* next = fp->fp;
         if (!next || next <= fp) break;
         fp = next;
@@ -154,6 +152,7 @@ int main(int argc, char* argv[])
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::minutes(1);
     while (std::chrono::steady_clock::now() < deadline) {
 #else
+    // ReSharper disable once CppDFAEndlessLoop
     while (true) {
 #endif
         app.processEvents();

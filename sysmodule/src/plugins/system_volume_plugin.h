@@ -23,7 +23,7 @@ public:
 
     void send_sink_list() const;
     std::vector<SinkState> get_remote_sink_list() const;
-    void set_remote_sink(const std::string& sink_name, int volume, bool muted, bool is_default_output);
+    void set_remote_sink(const std::string& sink_name, int volume, bool muted, bool is_default_output) const;
 
 private:
     // Local (Switch) state

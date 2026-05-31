@@ -13,8 +13,8 @@ class StyleListItem : public tsl::elm::ListItem {
     std::string m_desc;
 
 public:
-    StyleListItem(const std::string& name, const std::string& desc, bool selected)
-        : tsl::elm::ListItem(name, selected ? sym::accept : "") {
+    StyleListItem(const std::string& name, const std::string& desc, const bool selected)
+        : ListItem(name, selected ? sym::accept : "") {
         m_desc = desc;
         m_listItemHeight = kHeight;
     }
@@ -22,7 +22,7 @@ public:
     void draw(tsl::gfx::Renderer* renderer) override {
         // Touch-press highlight
         const bool touched = m_touched
-            && tsl::elm::Element::getInputMode() == tsl::InputMode::Touch
+            && getInputMode() == tsl::InputMode::Touch
             && ult::touchInBounds;
         if (touched && !m_flags.m_isTouchHolding)
             renderer->drawRectAdaptive(this->getX() + 4, this->getY(),

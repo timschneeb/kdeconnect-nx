@@ -3,14 +3,14 @@
 #include "notification_plugin.h"
 #include "utils/logger.h"
 
-static std::atomic<bool> s_no_mouse_support_hint_shown{false};
+static std::atomic s_no_mouse_support_hint_shown{false};
 
 #ifdef __SWITCH__
 #include <switch.h>
 #include <atomic>
 
 // Reference-counted hiddbg lifetime so multiple sessions don't conflict.
-static std::atomic<int> s_hiddbg_refcount{0};
+static std::atomic s_hiddbg_refcount{0};
 
 struct HidKeyInfo {
     uint8_t hid_code;
@@ -18,7 +18,7 @@ struct HidKeyInfo {
 };
 
 // Maps an ASCII byte to a HID keyboard usage ID (EN_US) and whether Shift is needed.
-static HidKeyInfo char_to_hid(unsigned char c) {
+static HidKeyInfo char_to_hid(const unsigned char c) {
     if (c >= 'a' && c <= 'z') return {static_cast<uint8_t>(0x04u + (c - 'a')), false};
     if (c >= 'A' && c <= 'Z') return {static_cast<uint8_t>(0x04u + (c - 'A')), true};
     if (c >= '1' && c <= '9') return {static_cast<uint8_t>(0x1Eu + (c - '1')), false};
@@ -103,8 +103,8 @@ static constexpr uint8_t kSpecialKeyMap[] = {
 
 // Modifier keys need to be injected as HID key bits (usage IDs 0xE0-0xE3 in keys[3]),
 // not via the modifiers field which only reflects lock-key state.
-static void do_inject_hid(uint8_t hid_code, bool shift, bool ctrl = false, bool alt = false, bool gui = false,
-                          bool altgr = false) {
+static void do_inject_hid(const uint8_t hid_code, const bool shift, const bool ctrl = false, const bool alt = false, const bool gui = false,
+                          const bool altgr = false) {
     HiddbgKeyboardAutoPilotState state{};
     state.keys[hid_code >> 6] |= (1ULL << (hid_code & 63));
     if (ctrl) state.keys[0xE0 >> 6] |= (1ULL << (0xE0 & 63)); // Left Control
@@ -166,7 +166,7 @@ void MousepadPlugin::on_destroy() {
 #endif
 }
 
-void MousepadPlugin::on_connected(bool paired) {
+void MousepadPlugin::on_connected(const bool paired) {
     if (paired) {
         send_keyboard_state();
     }
@@ -212,7 +212,7 @@ bool MousepadPlugin::on_packet_received(const NetworkPacket &np) {
     return true;
 }
 
-void MousepadPlugin::inject_key(const NetworkPacket &np) const {
+void MousepadPlugin::inject_key(const NetworkPacket &np) {
 #ifdef __SWITCH__
     if (s_hiddbg_refcount.load() == 0) {
         Logger::error("inject_key: hiddbg not initialized");
@@ -230,7 +230,7 @@ void MousepadPlugin::inject_key(const NetworkPacket &np) const {
     bool shift = np.body.value("shift", false);
     bool super = np.body.value("super", false);
 
-    auto do_key = [&](uint8_t hid_code, bool needs_shift, bool needs_altgr = false) {
+    auto do_key = [&](const uint8_t hid_code, const bool needs_shift, const bool needs_altgr = false) {
         bool apply_shift = shift || needs_shift;
         std::string info = [&] {
             char buf[40];
@@ -252,8 +252,8 @@ void MousepadPlugin::inject_key(const NetworkPacket &np) const {
         for (unsigned char c: np.body.get_str("key")) {
             if (c >= 0x80) continue; // skip non-ASCII / UTF-8 continuation bytes
 
-            auto info = char_to_hid(c);
-            if (info.hid_code != 0) do_key(info.hid_code, info.needs_shift, false);
+            auto [hid_code, needs_shift] = char_to_hid(c);
+            if (hid_code != 0) do_key(hid_code, needs_shift, false);
         }
     }
 

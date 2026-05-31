@@ -18,7 +18,7 @@ bool send_all_tls(TlsSession& session, const std::vector<uint8_t>& data);
 
 DeviceInfo info_from_identity(const NetworkPacket& pkt);
 
-NetworkPacket make_identity_packet(const DeviceInfo& info, std::optional<std::string> target_id,
+NetworkPacket make_identity_packet(const DeviceInfo& info, const std::optional<std::string> &target_id,
                                    std::optional<int> target_protocol, std::optional<int> tcp_port);
 
 std::string uppercase_first8(const std::string& hex);

@@ -10,7 +10,7 @@ public:
     enum : int { IDX_PREV = 0, IDX_REWIND = 1, IDX_PLAY = 2, IDX_FFORWARD = 3, IDX_NEXT = 4 };
 
     MediaButtonRow();
-    ~MediaButtonRow();
+    ~MediaButtonRow() override;
 
     // Configure a single button (call in createUI after construction).
     void setButton(int idx, const AlphaSymbol* icon, std::function<void()> action,
@@ -19,7 +19,7 @@ public:
     void setButtonIcon(int idx, const AlphaSymbol* icon) const;
 
     // tsl::elm::Element overrides
-    tsl::elm::Element* requestFocus(tsl::elm::Element* oldFocus, tsl::FocusDirection dir) override;
+    Element* requestFocus(Element* oldFocus, tsl::FocusDirection dir) override;
     bool               handleInput(u64 keysDown, u64 keysHeld, const HidTouchState&,
                                    HidAnalogStickState leftStick,
                                    HidAnalogStickState rightStick) override;

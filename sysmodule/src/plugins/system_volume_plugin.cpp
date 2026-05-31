@@ -6,8 +6,8 @@
 #include <switch.h>
 #endif
 
-static constexpr const char* kSinkName = "Output";
-static constexpr const char* kSinkDescription = "Master Audio Output";
+static constexpr auto kSinkName = "Output";
+static constexpr auto kSinkDescription = "Master Audio Output";
 static constexpr int kMaxVolume = 100;
 
 std::string SystemVolumePlugin::name() const { return "System Volume Plugin"; }
@@ -21,7 +21,7 @@ std::vector<std::string> SystemVolumePlugin::outgoing_packet_types() const {
     return { PacketTypes::SystemVolume, PacketTypes::SystemVolumeRequest };
 }
 
-void SystemVolumePlugin::on_connected(bool paired) {
+void SystemVolumePlugin::on_connected(const bool paired) {
     if (!paired) return;
     send_sink_list();
     // Ask the remote device for its sink list
@@ -44,7 +44,7 @@ static int get_system_volume() {
     return vol;
 }
 
-static void set_system_volume(int volume) {
+static void set_system_volume(const int volume) {
 #ifdef __SWITCH__
     if (R_SUCCEEDED(audctlInitialize())) {
         audctlSetSystemOutputMasterVolume(volume / 100.0f);
@@ -126,7 +126,7 @@ std::vector<SystemVolumePlugin::SinkState> SystemVolumePlugin::get_remote_sink_l
     return remote_sinks_;
 }
 
-void SystemVolumePlugin::set_remote_sink(const std::string& sink_name, int volume, bool muted, bool is_default_output) {
+void SystemVolumePlugin::set_remote_sink(const std::string& sink_name, const int volume, const bool muted, const bool is_default_output) const {
     int max_volume = 100;
     {
         std::lock_guard<std::mutex> lock(remote_sinks_mutex_);

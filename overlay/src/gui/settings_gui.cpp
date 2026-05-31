@@ -10,7 +10,7 @@ static constexpr int32_t kDurationSteps[]  = {1000, 2000, 3000, 4000, 5000, 6000
 static constexpr int32_t kSeekSteps[]      = {5000, 10000, 15000, 20000, 30000, 45000, 60000};
 static constexpr int32_t kFontSizeSteps[]  = {14, 16, 18, 20, 22, 24, 26};
 
-static int findStepIndex(const int32_t* steps, size_t count, int32_t value) {
+static int findStepIndex(const int32_t* steps, const size_t count, const int32_t value) {
     for (size_t i = 0; i < count; ++i)
         if (steps[i] == value) return static_cast<int>(i);
     return 0;
@@ -25,7 +25,7 @@ tsl::elm::Element* SettingsGui::createUI() {
     bool show_remote = true;
     kdecIpcReadBoolSetting(KdecBoolSettingKey::NotificationShowRemoteMessages, show_remote);
     auto* toggle_remote = new tsl::elm::ToggleListItem("Show notifications", show_remote);
-    toggle_remote->setStateChangedListener([](bool v) {
+    toggle_remote->setStateChangedListener([](const bool v) {
         kdecIpcWriteBoolSetting(KdecBoolSettingKey::NotificationShowRemoteMessages, v);
     });
     list->addItem(toggle_remote);
@@ -33,7 +33,7 @@ tsl::elm::Element* SettingsGui::createUI() {
     bool show_on_connect = false;
     kdecIpcReadBoolSetting(KdecBoolSettingKey::NotificationShowOnConnect, show_on_connect);
     auto* toggle_connect = new tsl::elm::ToggleListItem("Notify on connect", show_on_connect);
-    toggle_connect->setStateChangedListener([](bool v) {
+    toggle_connect->setStateChangedListener([](const bool v) {
         kdecIpcWriteBoolSetting(KdecBoolSettingKey::NotificationShowOnConnect, v);
     });
     list->addItem(toggle_connect);
@@ -41,7 +41,7 @@ tsl::elm::Element* SettingsGui::createUI() {
     bool show_icon = true;
     kdecIpcReadBoolSetting(KdecBoolSettingKey::NotificationShowIcon, show_icon);
     auto* toggle_icon = new tsl::elm::ToggleListItem("Show app icons", show_icon);
-    toggle_icon->setStateChangedListener([](bool v) {
+    toggle_icon->setStateChangedListener([](const bool v) {
         kdecIpcWriteBoolSetting(KdecBoolSettingKey::NotificationShowIcon, v);
     });
     list->addItem(toggle_icon);
@@ -49,7 +49,7 @@ tsl::elm::Element* SettingsGui::createUI() {
     bool show_time = true;
     kdecIpcReadBoolSetting(KdecBoolSettingKey::NotificationShowTime, show_time);
     auto* toggle_time = new tsl::elm::ToggleListItem("Show time", show_time);
-    toggle_time->setStateChangedListener([](bool v) {
+    toggle_time->setStateChangedListener([](const bool v) {
         kdecIpcWriteBoolSetting(KdecBoolSettingKey::NotificationShowTime, v);
     });
     list->addItem(toggle_time);
@@ -57,7 +57,7 @@ tsl::elm::Element* SettingsGui::createUI() {
     int32_t style_raw = 0;
     kdecIpcReadIntSetting(KdecIntSettingKey::NotificationStyle, style_raw);
     auto* style_item = new tsl::elm::ListItem("Notification style", "Type " + std::to_string(style_raw + 1));
-    style_item->setClickListener([](u64 keys) -> bool {
+    style_item->setClickListener([](const u64 keys) -> bool {
         if (keys & HidNpadButton_A) {
             tsl::changeTo<NotificationStyleGui>();
             return true;
@@ -76,7 +76,7 @@ tsl::elm::Element* SettingsGui::createUI() {
         true, "Font size"
     );
     font_bar->setProgress(static_cast<u16>(findStepIndex(kFontSizeSteps, kFontCount, font_size)));
-    font_bar->setValueChangedListener([](u16 idx) {
+    font_bar->setValueChangedListener([](const u16 idx) {
         if (idx < kFontCount)
             kdecIpcWriteIntSetting(KdecIntSettingKey::NotificationFontSize, kFontSizeSteps[idx]);
     });
@@ -85,7 +85,7 @@ tsl::elm::Element* SettingsGui::createUI() {
     kdecIpcReadBoolSetting(KdecBoolSettingKey::NotificationDynamicFontSize, dynamic_font);
     font_bar->setEnabled(!dynamic_font);
     auto* toggle_dynfont = new tsl::elm::ToggleListItem("Dynamic font size", dynamic_font);
-    toggle_dynfont->setStateChangedListener([font_bar](bool v) {
+    toggle_dynfont->setStateChangedListener([font_bar](const bool v) {
         kdecIpcWriteBoolSetting(KdecBoolSettingKey::NotificationDynamicFontSize, v);
         font_bar->setEnabled(!v);
     });
@@ -101,7 +101,7 @@ tsl::elm::Element* SettingsGui::createUI() {
         true, "Notification duration"
     );
     dur_bar->setProgress(static_cast<u16>(findStepIndex(kDurationSteps, kDurCount, duration)));
-    dur_bar->setValueChangedListener([](u16 idx) {
+    dur_bar->setValueChangedListener([](const u16 idx) {
         if (idx < kDurCount)
             kdecIpcWriteIntSetting(KdecIntSettingKey::NotificationDuration, kDurationSteps[idx]);
     });
@@ -109,7 +109,7 @@ tsl::elm::Element* SettingsGui::createUI() {
 
     auto* test_notif = new tsl::elm::ListItem("Send test notification");
     test_notif->setValue(sym::mail, true);
-    test_notif->setClickListener([](u64 keys) {
+    test_notif->setClickListener([](const u64 keys) {
         if (keys & HidNpadButton_A) {
             kdecIpcSendTestNotification();
             return true;
@@ -129,7 +129,7 @@ tsl::elm::Element* SettingsGui::createUI() {
         true, "Rewind/Fast-forward step size"
     );
     seek_bar->setProgress(static_cast<u16>(findStepIndex(kSeekSteps, kSeekCount, seek_step)));
-    seek_bar->setValueChangedListener([](u16 idx) {
+    seek_bar->setValueChangedListener([](const u16 idx) {
         if (idx < kSeekCount)
             kdecIpcWriteIntSetting(KdecIntSettingKey::MprisSeekStepSize, kSeekSteps[idx]);
     });
@@ -164,7 +164,7 @@ tsl::elm::Element* SettingsGui::createUI() {
     auto* kill_sysmodule = new tsl::elm::ListItem("Kill sysmodule");
     kill_sysmodule->setValue(sym::cross);
     kill_sysmodule->setValueColor(tsl::Color(255, 0, 0, 255));
-    kill_sysmodule->setClickListener([](u64 keys) {
+    kill_sysmodule->setClickListener([](const u64 keys) {
         if (keys & HidNpadButton_A) {
             if (R_SUCCEEDED(pmshellInitialize())) {
                 pmshellTerminateProgram(SYSMODULE_TITLE_ID);
@@ -197,7 +197,7 @@ void SettingsGui::update() {
     m_heap_arena->setValue(heap_buf);
 }
 
-bool SettingsGui::handleInput(u64 keysDown, u64, const HidTouchState&,
+bool SettingsGui::handleInput(const u64 keysDown, u64, const HidTouchState&,
                               HidAnalogStickState, HidAnalogStickState) {
     if (keysDown & HidNpadButton_B) { tsl::goBack(); return true; }
     return false;

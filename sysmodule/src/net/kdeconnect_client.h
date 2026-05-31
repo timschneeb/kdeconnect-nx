@@ -55,9 +55,9 @@ private:
   void io_loop(const std::shared_ptr<DeviceSession> &session);
 
   void handle_packet(const std::shared_ptr<DeviceSession> &session,
-                     const std::string &line);
+                     const std::string &line) const;
   void handle_pair_packet(const std::shared_ptr<DeviceSession> &session,
-                          const JsonBody &body);
+                          const JsonBody &body) const;
 
   std::string verification_key(const std::shared_ptr<DeviceSession> &session,
                                long timestamp) const;

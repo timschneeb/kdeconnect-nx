@@ -8,7 +8,7 @@
 
 class IpcService {
 public:
-    IpcService(NxApplication* app);
+    explicit IpcService(NxApplication* app);
     ~IpcService();
 
     void start();
@@ -17,7 +17,7 @@ public:
 private:
     static void thread_func(void* arg);
     static Result handle_command_static(void* userdata, const IpcServerRequest* r, u8* out_data, size_t* out_size);
-    Result handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out_data, size_t* out_size);
+    Result handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out_data, size_t* out_size) const;
 
     NxApplication* app_;
     std::atomic<bool> running_;

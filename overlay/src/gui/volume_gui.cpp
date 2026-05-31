@@ -16,15 +16,15 @@ public:
 
     void setMuteVolumeChangedListener(std::function<void(u16, bool)> listener) {
         ipc_listener_ = std::move(listener);
-        m_valueChangedListener = [this](u16 vol) {
+        m_valueChangedListener = [this](const u16 vol) {
             if (muted_) muted_ = false;
             real_volume_ = vol;
             ipc_listener_(vol, false);
         };
     }
 
-    bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState& touch,
-                     HidAnalogStickState left, HidAnalogStickState right) override {
+    bool handleInput(const u64 keysDown, const u64 keysHeld, const HidTouchState& touch,
+                     const HidAnalogStickState left, const HidAnalogStickState right) override {
         if (keysDown & KEY_Y) {
             muted_ = !muted_;
             if (muted_) {
@@ -39,7 +39,7 @@ public:
         return TrackBar::handleInput(keysDown, keysHeld, touch, left, right);
     }
 
-    void setMuted(bool muted) {
+    void setMuted(const bool muted) {
         muted_ = muted;
         if (muted) {
             real_volume_ = static_cast<u16>(m_value);
@@ -69,11 +69,11 @@ tsl::elm::Element* VolumeGui::createUI() {
         char info[48];
         snprintf(info, sizeof(info), "[0x%08X] %04d-%04d", rc, R_MODULE(rc), R_DESCRIPTION(rc));
         std::string info_s(info);
-        frame->setContent(new tsl::elm::CustomDrawer([info_s](tsl::gfx::Renderer* renderer, s32 x, s32 y, s32 w, s32 h) {
+        frame->setContent(new tsl::elm::CustomDrawer([info_s](tsl::gfx::Renderer* renderer, const s32 x, const s32 y, s32 w, s32 h) {
             renderer->drawString(sym::errorCircleFilled, false, x + 40,  y + 50, 40, TEXT_COLOR);
             renderer->drawString("IPC Error",    false, x + 105, y + 50, 28, TEXT_COLOR);
             renderer->drawString("Could not fetch sinks\nfrom the sysmodule.", false, x + 40, y + 100, 20, TEXT_COLOR);
-            renderer->drawString(info_s.c_str(), false, x + 40,  y + 148, 16, DESC_COLOR);
+            renderer->drawString(info_s, false, x + 40,  y + 148, 16, DESC_COLOR);
         }));
         return frame;
     }
@@ -88,7 +88,7 @@ tsl::elm::Element* VolumeGui::createUI() {
     }
 
     // Active sink first, rest in original order
-    std::stable_sort(sinks.begin(), sinks.end(), [](const KdecVolumeSinkInfo& a, const KdecVolumeSinkInfo& b) {
+    std::ranges::stable_sort(sinks, [](const KdecVolumeSinkInfo& a, const KdecVolumeSinkInfo& b) {
         return a.is_default_output > b.is_default_output;
     });
 
@@ -111,8 +111,8 @@ tsl::elm::Element* VolumeGui::createUI() {
         slider->setProgress(static_cast<u16>(sink.volume));
         if (sink.is_muted) slider->setMuted(true);
 
-        slider->setMuteVolumeChangedListener([dev_id, name](u16 vol, bool muted) {
-            kdecIpcSetVolumeSink(dev_id, name, static_cast<int32_t>(vol), muted);
+        slider->setMuteVolumeChangedListener([dev_id, name](const u16 vol, const bool muted) {
+            kdecIpcSetVolumeSink(dev_id, name, vol, muted);
         });
 
         list->addItem(slider);
@@ -122,10 +122,10 @@ tsl::elm::Element* VolumeGui::createUI() {
         default_btn->isLocked = sink.is_default_output;
         all_default_btns->push_back(default_btn);
 
-        default_btn->setClickListener([dev_id, name, slider, all_default_btns, i](u64 keys) -> bool {
+        default_btn->setClickListener([dev_id, name, slider, all_default_btns, i](const u64 keys) -> bool {
             if (keys & HidNpadButton_A) {
                 kdecIpcSetVolumeSink(dev_id, name,
-                    static_cast<int32_t>(slider->getRealVolume()),
+                    slider->getRealVolume(),
                     slider->isMuted(),
                     /*is_default_output=*/true);
 

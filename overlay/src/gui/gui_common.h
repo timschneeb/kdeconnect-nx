@@ -15,7 +15,7 @@ static constexpr tsl::Color kTransparent{0, 0, 0, 0};
 #define kDim    tsl::gfx::Renderer::a(tsl::Color{0x9, 0x9, 0x9, 0xF})
 #define kFaint  tsl::gfx::Renderer::a(tsl::Color{0x5, 0x5, 0x5, 0xF})
 
-inline std::string batteryStr(const KdecDeviceInfo& dev, bool long_desc) {
+inline std::string batteryStr(const KdecDeviceInfo& dev, const bool long_desc) {
     if (dev.battery_level < 0) return ""; // No battery
     const char* chargingStr = long_desc ? " (charging)" : "+";
     char buf[16];

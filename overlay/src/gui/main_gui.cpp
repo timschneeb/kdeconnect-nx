@@ -16,7 +16,7 @@
 
 namespace {
 
-constexpr const char* kUltrahandNotifFlag =
+constexpr auto kUltrahandNotifFlag =
     "sdmc:/config/ultrahand/flags/NOTIFICATIONS.flag";
 
 bool ultrahandNotificationsEnabled() {
@@ -62,7 +62,7 @@ tsl::elm::Element *MainGui::createUI() {
     auto *frame = new tsl::elm::OverlayFrame("KDE Connect NX", subtitle);
     tsl::elm::List *list = nullptr;
 
-    auto onClickRestartSysModule = [](u64 keys) -> bool {
+    auto onClickRestartSysModule = [](const u64 keys) -> bool {
         if (keys & HidNpadButton_A) {
             if (R_SUCCEEDED(pmshellInitialize())) {
                 pmshellTerminateProgram(SYSMODULE_TITLE_ID);
@@ -124,7 +124,7 @@ tsl::elm::Element *MainGui::createUI() {
 
             const auto lineHeight = tsl::gfx::FontManager::getFontMetricsForCharacter('A', 16).lineHeight + 5;
             constexpr auto topMargin = 40;
-            auto* help_item = new tsl::elm::CustomDrawer([lineHeight](tsl::gfx::Renderer* renderer, s32 x, s32 y, s32 w, s32 h) {
+            auto* help_item = new tsl::elm::CustomDrawer([lineHeight](tsl::gfx::Renderer* renderer, const s32 x, const s32 y, s32 w, s32 h) {
                 renderer->drawString("The app is scanning continuously for devices", false, x + 5, y + topMargin, 16, DESC_COLOR);
                 renderer->drawString("and will update this list automatically.", false, x + 5, y + lineHeight + topMargin, 16, DESC_COLOR);
                 renderer->drawString("- Make sure you are in the same local network.", false, x + 5, y + lineHeight*3 + topMargin, 16, DESC_COLOR);
@@ -144,7 +144,7 @@ tsl::elm::Element *MainGui::createUI() {
 
             auto addDevItem = [&](const KdecDeviceInfo &dev) {
                 auto *item = new tsl::elm::ListItem(devName(dev), batteryOrStatusStr(dev));
-                item->setClickListener([dev](u64 keys) -> bool {
+                item->setClickListener([dev](const u64 keys) -> bool {
                     if (keys & HidNpadButton_A) {
                         tsl::changeTo<DeviceGui>(dev);
                         return true;
@@ -173,7 +173,7 @@ tsl::elm::Element *MainGui::createUI() {
 
         list->addItem(new tsl::elm::CategoryHeader("Options"));
         auto *settings_item = new tsl::elm::ListItem(std::string(sym::settings) + " Settings", sym::chevronRight);
-        settings_item->setClickListener([](u64 keys) -> bool {
+        settings_item->setClickListener([](const u64 keys) -> bool {
             if (keys & HidNpadButton_A) {
                 tsl::changeTo<SettingsGui>();
                 return true;
@@ -187,9 +187,10 @@ tsl::elm::Element *MainGui::createUI() {
     return frame;
 }
 
-bool MainGui::handleInput(u64 keysDown, u64 keysHeld, const HidTouchState &, HidAnalogStickState, HidAnalogStickState) {
+bool MainGui::handleInput(const u64 keysDown, u64 keysHeld, const HidTouchState &, HidAnalogStickState, HidAnalogStickState) {
     if (keysDown & HidNpadButton_B) {
-        tsl::Overlay::get()->close();
+        if (auto* ovl = tsl::Overlay::get())
+            ovl->close();
         return true;
     }
     return false;

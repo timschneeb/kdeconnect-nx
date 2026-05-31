@@ -27,7 +27,7 @@
 
 namespace {
 #if defined(__SWITCH__)
-int nx_hw_entropy(void* /*unused*/, unsigned char* output, size_t len, size_t* olen) {
+int nx_hw_entropy(void* /*unused*/, unsigned char* output, const size_t len, size_t* olen) {
     randomGet(output, len);
     *olen = len;
     return 0;
@@ -52,7 +52,7 @@ std::string generate_device_id() {
     return out;
 }
 
-int socket_send(void* ctx, const unsigned char* buf, size_t len) {
+int socket_send(void* ctx, const unsigned char* buf, const size_t len) {
     int fd = *static_cast<int*>(ctx);
     ssize_t sent = send(fd, buf, len, 0);
     if (sent < 0) {
@@ -61,7 +61,7 @@ int socket_send(void* ctx, const unsigned char* buf, size_t len) {
     return static_cast<int>(sent);
 }
 
-int socket_recv(void* ctx, unsigned char* buf, size_t len) {
+int socket_recv(void* ctx, unsigned char* buf, const size_t len) {
     int fd = *static_cast<int*>(ctx);
     ssize_t recvd = recv(fd, buf, len, 0);
     if (recvd < 0) {
@@ -74,7 +74,7 @@ int socket_recv(void* ctx, unsigned char* buf, size_t len) {
     return static_cast<int>(recvd);
 }
 
-std::vector<unsigned char> pem_write_buffer(const unsigned char* data, size_t data_len, const char* header, const char* footer) {
+std::vector<unsigned char> pem_write_buffer(const unsigned char* data, const size_t data_len, const char* header, const char* footer) {
     std::array<unsigned char, 4096> out{};
     size_t olen = 0;
     int ret = mbedtls_pem_write_buffer(header, footer, data, data_len, out.data(), out.size(), &olen);
@@ -106,7 +106,7 @@ TlsContext::TlsContext() {
     // Register the kernel's hardware RNG so the DRBG gets a strong seed.
     mbedtls_entropy_add_source(&entropy_, nx_hw_entropy, nullptr, 32, MBEDTLS_ENTROPY_SOURCE_STRONG);
 #endif
-    const char* pers = "minikdeconnect";
+    auto pers = "minikdeconnect";
     if (mbedtls_ctr_drbg_seed(&ctr_drbg_, mbedtls_entropy_func, &entropy_,
                               reinterpret_cast<const unsigned char*>(pers), strlen(pers)) != 0) {
         Logger::error("mbedtls_ctr_drbg_seed failed");
@@ -129,13 +129,13 @@ bool TlsContext::load_or_create(const std::string& cert_path, const std::string&
     return true;
 }
 
-int TlsContext::drbg_random_cb(void* ctx, unsigned char* buf, size_t len) {
+int TlsContext::drbg_random_cb(void* ctx, unsigned char* buf, const size_t len) {
     auto* self = static_cast<TlsContext*>(ctx);
     std::lock_guard lock(self->drbg_mutex_);
     return mbedtls_ctr_drbg_random(&self->ctr_drbg_, buf, len);
 }
 
-std::unique_ptr<TlsSession> TlsContext::create_session(int fd, bool is_client) {
+std::unique_ptr<TlsSession> TlsContext::create_session(const int fd, const bool is_client) {
     auto session = std::make_unique<TlsSession>();
     session->fd = fd;
 
@@ -286,19 +286,19 @@ bool TlsContext::generate_self_signed(const std::string& cert_path, const std::s
     mbedtls_x509write_crt_set_validity(&write_cert, "20260101000000", "21990101000000");
 
     {
-        unsigned char cert_buf[4096];
-        if ((ret = mbedtls_x509write_crt_pem(&write_cert, cert_buf, sizeof(cert_buf), drbg_random_cb, this)) != 0) {
+        cert_pem_.resize(4096);
+        if ((ret = mbedtls_x509write_crt_pem(&write_cert, reinterpret_cast<unsigned char *>(cert_pem_.data()), cert_pem_.size(), drbg_random_cb, this)) != 0) {
             mbedtls_strerror(ret, errbuf, sizeof(errbuf));
             Logger::error("mbedtls_x509write_crt_pem failed: %s", errbuf);
             mbedtls_mpi_free(&serial);
             mbedtls_x509write_crt_free(&write_cert);
             return false;
         }
-        cert_pem_.assign(reinterpret_cast<char*>(cert_buf));
+        cert_pem_.resize(strlen(cert_pem_.c_str())); // trim to actual content
     }
 
     if (!Storage::write_file(cert_path, cert_pem_)) {
-        Logger::error("Failed to write certificate to %s", cert_path);
+        Logger::error("Failed to write certificate to %s", cert_path.c_str());
         mbedtls_mpi_free(&serial);
         mbedtls_x509write_crt_free(&write_cert);
         return false;
@@ -335,7 +335,7 @@ bool TlsContext::generate_self_signed(const std::string& cert_path, const std::s
 std::string sha256_hex_upper(const std::vector<unsigned char>& data) {
     unsigned char hash[32];
     mbedtls_sha256(data.data(), data.size(), hash, 0);
-    static const char* hex = "0123456789ABCDEF";
+    static auto hex = "0123456789ABCDEF";
     std::string out;
     out.reserve(64);
     for (unsigned char b : hash) {

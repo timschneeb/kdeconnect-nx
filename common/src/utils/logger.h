@@ -23,9 +23,9 @@ public:
 
     static void log(std::string_view level, std::string_view msg);
 
-    static void info(std::string_view msg) { log("I", msg); }
-    static void warn(std::string_view msg) { log("W", msg); }
-    static void error(std::string_view msg) { log("E", msg); }
+    static void info(const std::string_view msg) { log("I", msg); }
+    static void warn(const std::string_view msg) { log("W", msg); }
+    static void error(const std::string_view msg) { log("E", msg); }
 
     [[gnu::format(printf, 1, 2)]] static void info(const char* fmt, ...);
     [[gnu::format(printf, 1, 2)]] static void warn(const char* fmt, ...);

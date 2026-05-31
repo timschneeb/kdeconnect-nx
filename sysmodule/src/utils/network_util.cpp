@@ -10,7 +10,7 @@
 
 namespace NetworkUtil {
 
-std::optional<std::string> read_line_fd(int fd, size_t max_bytes) {
+std::optional<std::string> read_line_fd(const int fd, const size_t max_bytes) {
     std::string out;
     out.reserve(1024);
     char ch = 0;
@@ -27,7 +27,7 @@ std::optional<std::string> read_line_fd(int fd, size_t max_bytes) {
     return std::nullopt;
 }
 
-std::optional<std::string> read_line_tls(TlsSession& session, size_t max_bytes) {
+std::optional<std::string> read_line_tls(TlsSession& session, const size_t max_bytes) {
     std::string out;
     out.reserve(1024);
     char ch = 0;
@@ -47,7 +47,7 @@ std::optional<std::string> read_line_tls(TlsSession& session, size_t max_bytes) 
     return std::nullopt;
 }
 
-static bool send_all_tls_raw(TlsSession& session, const unsigned char* data, size_t len) {
+static bool send_all_tls_raw(TlsSession& session, const unsigned char* data, const size_t len) {
     size_t total = 0;
     while (total < len) {
         int written = mbedtls_ssl_write(&session.ssl, data + total, len - total);
@@ -80,8 +80,8 @@ DeviceInfo info_from_identity(const NetworkPacket& pkt) {
     return info;
 }
 
-NetworkPacket make_identity_packet(const DeviceInfo& info, std::optional<std::string> target_id,
-                                   std::optional<int> target_protocol, std::optional<int> tcp_port) {
+NetworkPacket make_identity_packet(const DeviceInfo& info, const std::optional<std::string> &target_id,
+                                   const std::optional<int> target_protocol, const std::optional<int> tcp_port) {
     NetworkPacket pkt;
     pkt.type = PacketTypes::Identity;
     pkt.body.set("deviceId",         info.id)
@@ -103,7 +103,7 @@ std::string uppercase_first8(const std::string& hex) {
     return hex.substr(0, 8);
 }
 
-int create_tcp_server_socket(int min_port, int max_port, int& bound_port) {
+int create_tcp_server_socket(const int min_port, const int max_port, int& bound_port) {
     int fd = socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0) return -1;
     
@@ -127,7 +127,7 @@ int create_tcp_server_socket(int min_port, int max_port, int& bound_port) {
     return -1;
 }
 
-int create_udp_broadcast_socket(int port) {
+int create_udp_broadcast_socket(const int port) {
     int fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd < 0) return -1;
     

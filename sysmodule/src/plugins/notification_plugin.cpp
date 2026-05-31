@@ -3,7 +3,6 @@
 #include "utils/storage.h"
 #include "../utils/settings_store.h"
 #include <atomic>
-#include <cstdint>
 #include <cstdio>
 #include <string>
 
@@ -24,9 +23,8 @@
 #include <sys/stat.h>
 #endif
 
-static constexpr const char* kNotifyDir = "/config/ultrahand/notifications";
-static constexpr const char* kIconPath  = "/config/ultrahand/assets/notifications/kdeconnect.rgba";
-static constexpr const char* kAppId     = "kdeconnect";
+static constexpr auto kNotifyDir = "/config/ultrahand/notifications";
+static constexpr auto kAppId     = "kdeconnect";
 
 static constexpr size_t kMaxPostedIds     = 10;
 static constexpr size_t kMaxAppIconHashes = 100;
@@ -42,10 +40,10 @@ static std::string sanitize_filename(const std::string& s) {
 
 #ifdef __SWITCH__
 static void clear_our_icons() {
-    static constexpr const char* kIconDir = "/config/ultrahand/assets/notifications";
+    static constexpr auto kIconDir = "/config/ultrahand/assets/notifications";
     DIR* d = opendir(kIconDir);
     if (!d) return;
-    struct dirent* entry;
+    dirent* entry;
     while ((entry = readdir(d)) != nullptr) {
         std::string name = entry->d_name;
         if (name.rfind("kdeconnect", 0) == 0 && name.size() > 5 &&
@@ -77,7 +75,7 @@ void NotificationPlugin::on_create() {
 #endif
 }
 
-void NotificationPlugin::on_connected(bool paired) {
+void NotificationPlugin::on_connected(const bool paired) {
     if (paired) request_active_notifications();
 }
 
@@ -106,7 +104,7 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
         if (it != m_app_icon_hash.end())
             icon_hash = it->second;
     } else {
-        if (m_app_icon_hash.size() >= kMaxAppIconHashes && !m_app_icon_hash.count(app))
+        if (m_app_icon_hash.size() >= kMaxAppIconHashes && !m_app_icon_hash.contains(app))
             m_app_icon_hash.erase(m_app_icon_hash.begin());
         m_app_icon_hash[app] = icon_hash;
     }
@@ -193,9 +191,9 @@ void NotificationPlugin::post_notification(const std::string& app_id,
                                            const std::string& title,
                                            const std::string& body,
                                            const std::string& id,
-                                           int duration) {
+                                           const int duration) {
 #ifdef __SWITCH__
-    static std::atomic<int> s_counter{0};
+    static std::atomic s_counter{0};
     std::string uid = sanitize_filename(id);
     if (uid.empty()) uid = std::to_string(s_counter.fetch_add(1));
 
@@ -212,7 +210,7 @@ void NotificationPlugin::post_notification(const std::string& app_id,
             ? std::max(kMin, kBase * kTargetChars / len)
             : kBase;
     } else {
-        font_size = static_cast<int>(SettingsStore::get(KdecIntSettingKey::NotificationFontSize));
+        font_size = SettingsStore::get(KdecIntSettingKey::NotificationFontSize);
     }
 
     JsonBody notify_json;

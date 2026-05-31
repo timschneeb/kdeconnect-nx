@@ -43,7 +43,7 @@ tsl::elm::Element* MediaGui::createUI() {
     return frame;
 }
 
-bool MediaGui::handleInput(u64 keysDown, u64, const HidTouchState&,
+bool MediaGui::handleInput(const u64 keysDown, u64, const HidTouchState&,
                            HidAnalogStickState, HidAnalogStickState) {
     if (keysDown & HidNpadButton_B) { tsl::goBack(); return true; }
     return false;

@@ -22,6 +22,7 @@ private:
     std::unordered_map<std::string, std::string> remote_commands_; // id -> name
 
     void send_local_command_list() const;
-    void run_local_command(const std::string& key) const;
     void request_remote_command_list() const;
+
+    static void run_local_command(const std::string& key);
 };

@@ -19,7 +19,7 @@ std::vector<std::string> MprisPlugin::outgoing_packet_types() const {
     return { PacketTypes::MprisRequest };
 }
 
-void MprisPlugin::on_connected(bool paired) {
+void MprisPlugin::on_connected(const bool paired) {
     if (paired) {
         request_player_list();
     }
@@ -127,21 +127,21 @@ void MprisPlugin::send_action(const std::string& player, const std::string& acti
     send_packet(pkt);
 }
 
-void MprisPlugin::set_volume(const std::string& player, int volume) const {
+void MprisPlugin::set_volume(const std::string& player, const int volume) const {
     NetworkPacket pkt;
     pkt.type = PacketTypes::MprisRequest;
     pkt.body.set("player", player).set("setVolume", volume);
     send_packet(pkt);
 }
 
-void MprisPlugin::seek(const std::string& player, int64_t offset_ms) const {
+void MprisPlugin::seek(const std::string& player, const int64_t offset_ms) const {
     NetworkPacket pkt;
     pkt.type = PacketTypes::MprisRequest;
     pkt.body.set("player", player).set("Seek", offset_ms * 1000);
     send_packet(pkt);
 }
 
-void MprisPlugin::set_position(const std::string& player, int64_t position_ms) {
+void MprisPlugin::set_position(const std::string& player, const int64_t position_ms) {
     NetworkPacket pkt;
     pkt.type = PacketTypes::MprisRequest;
     pkt.body.set("player", player).set("SetPosition", position_ms);

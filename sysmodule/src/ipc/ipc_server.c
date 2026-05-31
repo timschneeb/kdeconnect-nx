@@ -11,7 +11,7 @@
 #include "ipc_server.h"
 #include <string.h>
 
-Result ipcServerInit(IpcServer* server, const char* name, u32 max_sessions)
+Result ipcServerInit(IpcServer* server, const char* name, const u32 max_sessions)
 {
     if(max_sessions < 1 || max_sessions > (MAX_WAIT_OBJECTS - 1))
     {
@@ -40,7 +40,7 @@ Result ipcServerExit(IpcServer* server)
     return smUnregisterService(server->srvName);
 }
 
-static Result _ipcServerAddSession(IpcServer* server, Handle session)
+static Result _ipcServerAddSession(IpcServer* server, const Handle session)
 {
     if(server->count >= server->max)
     {
@@ -52,7 +52,7 @@ static Result _ipcServerAddSession(IpcServer* server, Handle session)
     return 0;
 }
 
-static Result _ipcServerDeleteSession(IpcServer* server, u32 index)
+static Result _ipcServerDeleteSession(IpcServer* server, const u32 index)
 {
     if(!index || index >= server->count)
     {
@@ -99,7 +99,7 @@ static Result _ipcServerParseRequest(IpcServerRequest* r)
     return 0;
 }
 
-static void _ipcServerPrepareResponse(Result rc, void* data, size_t dataSize)
+static void _ipcServerPrepareResponse(const Result rc, const void* data, const size_t dataSize)
 {
     u8* base = armGetTls();
     HipcRequest hipc = hipcMakeRequestInline(base,
@@ -128,7 +128,7 @@ static Result _ipcServerProcessNewSession(IpcServer* server)
     return rc;
 }
 
-static Result _ipcServerProcessSession(IpcServer* server, IpcServerRequestHandler handler, void* userdata, u32 handleIndex)
+static Result _ipcServerProcessSession(IpcServer* server, const IpcServerRequestHandler handler, void* userdata, const u32 handleIndex)
 {
     s32 unusedIndex;
     IpcServerRequest r;
@@ -177,7 +177,7 @@ static Result _ipcServerProcessSession(IpcServer* server, IpcServerRequestHandle
     return rc;
 }
 
-Result ipcServerProcess(IpcServer* server, IpcServerRequestHandler handler, void* userdata)
+Result ipcServerProcess(IpcServer* server, const IpcServerRequestHandler handler, void* userdata)
 {
     s32 handleIndex = -1;
     Result rc = svcWaitSynchronization(&handleIndex, server->handles, server->count, UINT64_MAX);

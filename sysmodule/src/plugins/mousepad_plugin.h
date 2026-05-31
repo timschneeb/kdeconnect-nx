@@ -15,5 +15,6 @@ public:
 private:
     void send_keyboard_state() const;
     void send_echo(const NetworkPacket& np) const;
-    void inject_key(const NetworkPacket& np) const;
+
+    static void inject_key(const NetworkPacket& np);
 };

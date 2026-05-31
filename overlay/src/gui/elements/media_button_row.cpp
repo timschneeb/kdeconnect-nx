@@ -12,26 +12,26 @@ MediaButtonRow::~MediaButtonRow() {
     for (auto* b : m_buttons) delete b;
 }
 
-void MediaButtonRow::setButton(int idx, const AlphaSymbol* icon,
-                               std::function<void()> action, bool disabled) const {
+void MediaButtonRow::setButton(const int idx, const AlphaSymbol* icon,
+                               std::function<void()> action, const bool disabled) const {
     if (idx < 0 || idx >= 5 || !m_buttons[idx]) return;
     m_buttons[idx]->setIcon(icon);
     m_buttons[idx]->setAction(std::move(action));
     m_buttons[idx]->setDisabled(disabled);
 }
 
-void MediaButtonRow::setButtonDisabled(int idx, bool disabled) const {
+void MediaButtonRow::setButtonDisabled(const int idx, const bool disabled) const {
     if (idx >= 0 && idx < 5 && m_buttons[idx])
         m_buttons[idx]->setDisabled(disabled);
 }
 
-void MediaButtonRow::setButtonIcon(int idx, const AlphaSymbol* icon) const {
+void MediaButtonRow::setButtonIcon(const int idx, const AlphaSymbol* icon) const {
     if (idx >= 0 && idx < 5 && m_buttons[idx])
         m_buttons[idx]->setIcon(icon);
 }
 
-tsl::elm::Element* MediaButtonRow::requestFocus(tsl::elm::Element*,
-                                                tsl::FocusDirection dir) {
+tsl::elm::Element* MediaButtonRow::requestFocus(Element*,
+                                                const tsl::FocusDirection dir) {
     if (dir == tsl::FocusDirection::None ||
         dir == tsl::FocusDirection::Up   ||
         dir == tsl::FocusDirection::Down)
@@ -39,8 +39,8 @@ tsl::elm::Element* MediaButtonRow::requestFocus(tsl::elm::Element*,
     return nullptr;
 }
 
-bool MediaButtonRow::handleInput(u64 keysDown, u64, const HidTouchState&,
-                                 HidAnalogStickState leftStick, HidAnalogStickState) {
+bool MediaButtonRow::handleInput(const u64 keysDown, u64, const HidTouchState&,
+                                 const HidAnalogStickState leftStick, HidAnalogStickState) {
     static constexpr s32 kStickThreshold = 16384;
     const int8_t new_dir = (leftStick.x >  kStickThreshold) ?  1
                          : (leftStick.x < -kStickThreshold) ? -1 : 0;

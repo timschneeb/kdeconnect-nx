@@ -47,7 +47,7 @@ void NxApplication::restart_client(const char* reason) {
     if (std::chrono::steady_clock::now() - last_restart_ < restart_cooldown_) {
         return;
     }
-    Logger::info(reason);
+    Logger::info("%s", reason);
     last_restart_ = std::chrono::steady_clock::now();
     client_.reset();     // destroy old client before allocating the new one
     malloc_trim(0);      // return top-of-arena free chunk to the sbrk pool

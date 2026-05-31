@@ -99,7 +99,7 @@ Result IpcService::handle_command_static(void* userdata, const IpcServerRequest*
     return self->handle_command(r->data.cmdId, r, out_data, out_size);
 }
 
-Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out_data, size_t* out_size) {
+Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out_data, size_t* out_size) const {
     auto client = app_->client();
     if (!client) return MAKERESULT(Module_Libnx, LibnxError_NotInitialized);
 
@@ -327,10 +327,8 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
 
             uint32_t found = 0;
             if (recv_size >= sizeof(KdecMediaInfo)) {
-                auto sess = client->device(id_str);
-                if (sess) {
-                    auto* mpris = sess->plugin<MprisPlugin>();
-                    if (mpris) {
+                if (auto sess = client->device(id_str)) {
+                    if (auto* mpris = sess->plugin<MprisPlugin>()) {
                         std::string player = mpris->current_player();
                         if (!player.empty()) {
                             MprisPlugin::PlayerState state = mpris->player_state();
@@ -383,8 +381,7 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
             std::string player = mpris->current_player();
             if (player.empty()) return 0;
 
-            auto action = static_cast<KdecMediaAction>(wire.action);
-            switch (action) {
+            switch (static_cast<KdecMediaAction>(wire.action)) {
                 case KdecMediaAction::Play:        mpris->send_action(player, "Play");      break;
                 case KdecMediaAction::Pause:       mpris->send_action(player, "Pause");     break;
                 case KdecMediaAction::PlayPause:   mpris->send_action(player, "PlayPause"); break;

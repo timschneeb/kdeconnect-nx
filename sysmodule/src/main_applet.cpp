@@ -28,7 +28,7 @@ static constexpr size_t kMaxLogLines = 10;
 static std::deque<std::string> s_log_buf;
 static std::mutex s_log_mutex;
 
-static void log_sink(std::string_view level, std::string_view msg) {
+static void log_sink(const std::string_view level, const std::string_view msg) {
     std::lock_guard lock(s_log_mutex);
     s_log_buf.push_back("[" + std::string(level) + "] " + std::string(msg));
     if (s_log_buf.size() > kMaxLogLines) {
@@ -40,7 +40,7 @@ static void log_sink(std::string_view level, std::string_view msg) {
 // UI helpers
 // ---------------------------------------------------------------------------
 
-static void draw_ui(const KdeConnectClient& client, int selected) {
+static void draw_ui(const KdeConnectClient& client, const int selected) {
     consoleClear();
 
     printf("MiniKDEConnect for Nintendo Switch\n");
@@ -119,7 +119,7 @@ static void draw_ui(const KdeConnectClient& client, int selected) {
         }
     }
 
-    consoleUpdate(NULL);
+    consoleUpdate(nullptr);
 }
 
 // ---------------------------------------------------------------------------
@@ -127,23 +127,23 @@ static void draw_ui(const KdeConnectClient& client, int selected) {
 // ---------------------------------------------------------------------------
 
 int main() {
-    consoleInit(NULL);
+    consoleInit(nullptr);
     Logger::open_log_file("kdeconnect_applet");
     Logger::set_custom_sink(log_sink);
 
     if (Result rc = socketInitializeDefault(); R_FAILED(rc)) {
         printf("socketInitializeDefault failed: 0x%x\n", rc);
-        consoleUpdate(NULL);
+        consoleUpdate(nullptr);
         svcSleepThread(5'000'000'000LL);
-        consoleExit(NULL);
+        consoleExit(nullptr);
         return 1;
     }
 
     if (R_FAILED(nifmInitialize(NifmServiceType_User))) {
         printf("nifmInitialize failed\n");
-        consoleUpdate(NULL);
+        consoleUpdate(nullptr);
         svcSleepThread(5'000'000'000LL);
-        consoleExit(NULL);
+        consoleExit(nullptr);
         return 1;
     }
 
@@ -260,7 +260,7 @@ int main() {
         // Keyboard test: open swkbd
         if (kDown & HidNpadButton_Minus) {
             if (auto sess = get_session(); sess && sess->paired) {
-                if (auto* mp = sess->plugin<MousepadPlugin>()) {
+                if (sess->plugin<MousepadPlugin>()) {
                     SwkbdConfig kbd;
                     if (R_SUCCEEDED(swkbdCreate(&kbd, 0))) {
                         swkbdConfigSetGuideText(&kbd, "Example input");
@@ -282,6 +282,6 @@ int main() {
 
     nifmExit();
     socketExit();
-    consoleExit(NULL);
+    consoleExit(nullptr);
     return 0;
 }

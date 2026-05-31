@@ -9,10 +9,10 @@ class AlphaSymbol {
     const u8 *m_data;
 
   public:
-    constexpr AlphaSymbol(size_t width, size_t height, const u8 *data)
+    constexpr AlphaSymbol(const size_t width, const size_t height, const u8 *data)
         : m_width(width), m_height(height), m_data(data) {}
 
-    void draw(s32 x, s32 y, tsl::gfx::Renderer *renderer, tsl::Color color) const {
+    void draw(const s32 x, const s32 y, tsl::gfx::Renderer *renderer, tsl::Color color) const {
         const u8 *ptr = m_data;
         const s32 xo  = x - m_width  / 2;
         const s32 yo  = y - m_height / 2;

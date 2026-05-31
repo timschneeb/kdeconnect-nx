@@ -10,7 +10,7 @@
  *  - vsnprintf: in Logger
  */
 
-int __wrap_snprintf(char *s, size_t n, const char *fmt, ...) {
+int __wrap_snprintf(char *s, const size_t n, const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     int ret = vsnprintf_(s, n, fmt, args);
@@ -18,6 +18,6 @@ int __wrap_snprintf(char *s, size_t n, const char *fmt, ...) {
     return ret;
 }
 
-int __wrap_vsnprintf(char *s, size_t n, const char *fmt, va_list args) {
+int __wrap_vsnprintf(char *s, const size_t n, const char *fmt, const va_list args) {
     return vsnprintf_(s, n, fmt, args);
 }

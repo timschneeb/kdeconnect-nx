@@ -81,17 +81,17 @@ Storage::Storage() {
     make_directories(base_path_ + "/paired");
 }
 
-DeviceInfo Storage::load_or_create_local_device(DeviceProvider* device_provider) const {
+DeviceInfo Storage::load_or_create_local_device(DeviceProvider* device_provider) {
     DeviceInfo info;
     info.name = hostname_or_default();
     info.type = "tablet";
     info.protocol_version = kProtocolVersion;
 
     info.incoming_capabilities = PluginRegistry::get_all_supported_packet_types(device_provider);
-    info.incoming_capabilities.push_back(PacketTypes::Pair); // Core capability
+    info.incoming_capabilities.emplace_back(PacketTypes::Pair); // Core capability
 
     info.outgoing_capabilities = PluginRegistry::get_all_outgoing_packet_types(device_provider);
-    info.outgoing_capabilities.push_back(PacketTypes::Pair); // Core capability
+    info.outgoing_capabilities.emplace_back(PacketTypes::Pair); // Core capability
 
     return info;
 }
@@ -125,7 +125,7 @@ std::vector<std::string> Storage::list_paired_device_ids() const {
 #endif
     DIR* dir = opendir(paired_dir.c_str());
     if (!dir) return ids;
-    struct dirent* entry;
+    dirent* entry;
     while ((entry = readdir(dir)) != nullptr) {
         const std::string name(entry->d_name);
         if (name.ends_with(".json"))
@@ -158,7 +158,7 @@ auto Storage::remove_paired_device(const std::string &device_id) const -> void {
     std::lock_guard lock(s_fs_mutex);
     struct stat st;
     if (stat(path.c_str(), &st) == 0) {
-        ::remove(path.c_str());
+        remove(path.c_str());
     }
 }
 

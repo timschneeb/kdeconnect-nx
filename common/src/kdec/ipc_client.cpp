@@ -32,7 +32,7 @@ bool kdecIpcRunning() {
 Result kdecIpcInitialize() {
     Result rc = 0;
 
-    g_refCnt++;
+    ++g_refCnt;
 
     if (serviceIsActive(&g_kdecSrv))
         return 0;
@@ -40,7 +40,7 @@ Result kdecIpcInitialize() {
     rc = smGetService(&g_kdecSrv, KDEC_IPC_SERVICE_NAME);
 
     if (R_FAILED(rc)) {
-        g_refCnt--;
+        --g_refCnt;
         serviceClose(&g_kdecSrv);
     }
 
@@ -126,7 +126,7 @@ Result kdecIpcGetMediaInfo(const std::string& device_id, KdecMediaInfo& out) {
     return found ? 0 : MAKERESULT(Module_Libnx, LibnxError_NotFound);
 }
 
-Result kdecIpcSendMediaAction(const std::string& device_id, KdecMediaAction action, int64_t value) {
+Result kdecIpcSendMediaAction(const std::string& device_id, KdecMediaAction action, const int64_t value) {
     KdecWireSendMediaAction wire{};
     strncpy(wire.device_id, device_id.c_str(), KDEC_DEVICE_ID_MAX - 1);
     wire.action = static_cast<uint8_t>(action);
@@ -163,7 +163,7 @@ Result kdecIpcReadBoolSetting(KdecBoolSettingKey key, bool& out) {
     return serviceDispatchInOut(&g_kdecSrv, KdecIpcCmd_ReadBoolSetting, key, out);
 }
 
-Result kdecIpcWriteBoolSetting(KdecBoolSettingKey key, bool value) {
+Result kdecIpcWriteBoolSetting(const KdecBoolSettingKey key, const bool value) {
     KdecWireWriteBoolSetting wire{key, value};
     return serviceDispatchIn(&g_kdecSrv, KdecIpcCmd_WriteBoolSetting, wire);
 }
@@ -172,7 +172,7 @@ Result kdecIpcReadIntSetting(KdecIntSettingKey key, int32_t& out) {
     return serviceDispatchInOut(&g_kdecSrv, KdecIpcCmd_ReadIntSetting, key, out);
 }
 
-Result kdecIpcWriteIntSetting(KdecIntSettingKey key, int32_t value) {
+Result kdecIpcWriteIntSetting(const KdecIntSettingKey key, const int32_t value) {
     KdecWireWriteIntSetting wire{key, value};
     return serviceDispatchIn(&g_kdecSrv, KdecIpcCmd_WriteIntSetting, wire);
 }
@@ -195,7 +195,7 @@ Result kdecIpcGetVolumeSinks(const std::string& device_id, std::vector<KdecVolum
     return 0;
 }
 
-Result kdecIpcSetVolumeSink(const std::string& device_id, const std::string& sink_name, int32_t volume, bool muted, bool is_default_output) {
+Result kdecIpcSetVolumeSink(const std::string& device_id, const std::string& sink_name, const int32_t volume, const bool muted, const bool is_default_output) {
     KdecWireSetVolumeSink wire{};
     strncpy(wire.device_id,  device_id.c_str(),  KDEC_DEVICE_ID_MAX - 1);
     strncpy(wire.sink_name,  sink_name.c_str(),   KDEC_SINK_NAME_MAX - 1);

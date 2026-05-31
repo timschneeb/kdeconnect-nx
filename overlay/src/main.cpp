@@ -59,6 +59,6 @@ public:
     }
 };
 
-int main(int argc, char** argv) {
+int main(const int argc, char** argv) {
     return tsl::loop<OverlayMain>(argc, argv);
 }

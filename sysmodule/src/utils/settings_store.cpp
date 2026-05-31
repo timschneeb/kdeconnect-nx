@@ -42,7 +42,7 @@ std::unordered_map<uint8_t, int32_t> g_int;
 // --- Helpers generated from the X-macro tables in constants.h ---
 // The JSON key for each setting is the stringified enum name (#n).
 
-static const char* bool_key_name(KdecBoolSettingKey k) {
+static const char* bool_key_name(const KdecBoolSettingKey k) {
     switch (k) {
 #define X(n, d) case KdecBoolSettingKey::n: return #n;
         KDEC_BOOL_SETTINGS(X)
@@ -51,7 +51,7 @@ static const char* bool_key_name(KdecBoolSettingKey k) {
     }
 }
 
-static const char* int_key_name(KdecIntSettingKey k) {
+static const char* int_key_name(const KdecIntSettingKey k) {
     switch (k) {
 #define X(n, d) case KdecIntSettingKey::n: return #n;
         KDEC_INT_SETTINGS(X)
@@ -101,11 +101,11 @@ void load() {
 
     auto j = JsonBody::parse(buf.c_str());
 
-    j.each_bool("bool", [&](const char* name, bool val) {
+    j.each_bool("bool", [&](const char* name, const bool val) {
         if (auto k = bool_key_from_name(name))
             g_bool[static_cast<uint8_t>(*k)] = val;
     });
-    j.each_int("int", [&](const char* name, int val) {
+    j.each_int("int", [&](const char* name, const int val) {
         if (auto k = int_key_from_name(name))
             g_int[static_cast<uint8_t>(*k)] = static_cast<int32_t>(val);
     });
@@ -154,7 +154,7 @@ bool get(KdecBoolSettingKey key) {
     }
 }
 
-void set(KdecBoolSettingKey key, bool value) {
+void set(KdecBoolSettingKey key, const bool value) {
     { std::lock_guard lock(g_mutex); g_bool[static_cast<uint8_t>(key)] = value; }
     save();
 }
@@ -171,7 +171,7 @@ int32_t get(KdecIntSettingKey key) {
     }
 }
 
-void set(KdecIntSettingKey key, int32_t value) {
+void set(KdecIntSettingKey key, const int32_t value) {
     { std::lock_guard lock(g_mutex); g_int[static_cast<uint8_t>(key)] = value; }
     save();
 }
