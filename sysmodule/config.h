@@ -6,7 +6,7 @@
 #ifdef DEBUG
 // ------ THREADS ------
 /// Measure thread stack memory usage
-//#define STACK_THREAD_MEASURE
+#define STACK_THREAD_MEASURE
 /// Force minimum thread stack size globally
 //#define DEBUG_MIN_THREAD_STACK_SIZE 32*1024
 
@@ -29,13 +29,9 @@ constexpr SocketInitConfig socketInitConfig = {
     .tcp_rx_buf_max_size = 64 * 1024,
     .udp_tx_buf_size = 8 * 1024,
     .udp_rx_buf_size = 16 * 1024,
-#ifdef NXLINK_ENABLED
     .sb_efficiency = 4,
-#else
-    .sb_efficiency = 4, // TODO check if 2 works for payload transfers
-#endif
-
-    .bsd_service_type = BsdServiceType_Auto
+    .num_bsd_sessions = 6,
+    .bsd_service_type = BsdServiceType_System
 };
 
 constexpr size_t bsdGetTransferMemSizeForConfig(const SocketInitConfig *config) {

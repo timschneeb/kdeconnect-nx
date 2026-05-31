@@ -517,11 +517,7 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, ScopedF
 
     PluginRegistry::instantiate_plugins(this, session->info.id, session->plugins);
 
-    // Start io_thread before map insertion. Without this ordering, a concurrent
-    // handle_new_connection for the same device can race in, find the session in
-    // the map with io_thread not yet started (not joinable), skip the join, and
-    // drop the reference. -> thread will be destructed without join -> std::terminate called.
-    session->io_thread = StackThread(64 * 1024, "kc-io", &KdeConnectClient::io_loop, this, session);
+    session->io_thread = StackThread(48 * 1024, "kc-io", &KdeConnectClient::io_loop, this, session);
 
     std::shared_ptr<DeviceSession> old_session;
     {
@@ -672,25 +668,23 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
 
         // Accumulate multiple TLS records into the chunk buffer before each IPC write,
         // reducing the number of FS IPC calls (each call has significant overhead).
-        u64 tls_read_ms = 0, fs_write_ms = 0;
         u64 offset = 0;
         size_t chunk_fill = 0;
         bool write_error = false;
         while (remaining > 0 && !session->disconnected.load()) {
             const size_t space = kChunkSize - chunk_fill;
             const size_t to_read = std::min(static_cast<size_t>(remaining), space);
-            const u64 t0 = armGetSystemTick();
+
             int ret = mbedtls_ssl_read(&tls_session->ssl, chunk.get() + chunk_fill, to_read);
-            tls_read_ms += (armGetSystemTick() - t0) / 19200;
+
             if (ret == MBEDTLS_ERR_SSL_WANT_READ) continue;
             if (ret <= 0) break;
             chunk_fill += static_cast<size_t>(ret);
             remaining -= ret;
 
             if (chunk_fill == kChunkSize || remaining == 0) {
-                const u64 tw = armGetSystemTick();
                 rc = fsFileWrite(&file, offset, chunk.get(), chunk_fill, FsWriteOption_None);
-                fs_write_ms += (armGetSystemTick() - tw) / 19200;
+
                 if (R_FAILED(rc)) {
                     Logger::error("Failed to write to %s: %d-%d", path_buf, R_MODULE(rc), R_DESCRIPTION(rc));
                     write_error = true;
@@ -701,9 +695,8 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
             }
         }
         if (chunk_fill > 0 && !write_error) {
-            const u64 tw = armGetSystemTick();
             rc = fsFileWrite(&file, offset, chunk.get(), chunk_fill, FsWriteOption_None);
-            fs_write_ms += (armGetSystemTick() - tw) / 19200;
+
             if (R_FAILED(rc)) {
                 Logger::error("Failed to write to %s: %d-%d", path_buf, R_MODULE(rc), R_DESCRIPTION(rc));
                 write_error = true;
@@ -725,8 +718,7 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
             Logger::info("Download aborted. Remaining bytes: %ld", remaining);
             return false;
         }
-        Logger::info("Streamed payload to %s (TLS read %lums, FS write %lums)",
-                     file_path.c_str(), tls_read_ms, fs_write_ms);
+        Logger::info("Streamed payload to %s", file_path.c_str());
         return true;
 #else
         return false; // file streaming not supported on non-Switch
