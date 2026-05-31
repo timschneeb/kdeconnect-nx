@@ -666,44 +666,34 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
             return false;
         }
 
-        // Accumulate multiple TLS records into the chunk buffer before each IPC write,
-        // reducing the number of FS IPC calls (each call has significant overhead).
         u64 offset = 0;
         size_t chunk_fill = 0;
         bool write_error = false;
+
+        auto flush_chunk = [&]() -> bool {
+            if (chunk_fill == 0) return true;
+            rc = fsFileWrite(&file, offset, chunk.get(), chunk_fill, FsWriteOption_None);
+            if (R_FAILED(rc)) {
+                Logger::error("Failed to write to %s: %d-%d", path_buf, R_MODULE(rc), R_DESCRIPTION(rc));
+                return false;
+            }
+            offset += chunk_fill;
+            chunk_fill = 0;
+            return true;
+        };
+
         while (remaining > 0 && !session->disconnected.load()) {
-            const size_t space = kChunkSize - chunk_fill;
-            const size_t to_read = std::min(static_cast<size_t>(remaining), space);
-
-            int ret = mbedtls_ssl_read(&tls_session->ssl, chunk.get() + chunk_fill, to_read);
-
+            const size_t to_read = std::min(static_cast<size_t>(remaining), kChunkSize - chunk_fill);
+            const int ret = mbedtls_ssl_read(&tls_session->ssl, chunk.get() + chunk_fill, to_read);
             if (ret == MBEDTLS_ERR_SSL_WANT_READ) continue;
             if (ret <= 0) break;
             chunk_fill += static_cast<size_t>(ret);
             remaining -= ret;
-
             if (chunk_fill == kChunkSize || remaining == 0) {
-                rc = fsFileWrite(&file, offset, chunk.get(), chunk_fill, FsWriteOption_None);
-
-                if (R_FAILED(rc)) {
-                    Logger::error("Failed to write to %s: %d-%d", path_buf, R_MODULE(rc), R_DESCRIPTION(rc));
-                    write_error = true;
-                    break;
-                }
-                offset += chunk_fill;
-                chunk_fill = 0;
+                if (!flush_chunk()) { write_error = true; break; }
             }
         }
-        if (chunk_fill > 0 && !write_error) {
-            rc = fsFileWrite(&file, offset, chunk.get(), chunk_fill, FsWriteOption_None);
-
-            if (R_FAILED(rc)) {
-                Logger::error("Failed to write to %s: %d-%d", path_buf, R_MODULE(rc), R_DESCRIPTION(rc));
-                write_error = true;
-            } else {
-                offset += chunk_fill;
-            }
-        }
+        if (!write_error && !flush_chunk()) write_error = true;
         fsFileFlush(&file);
         fsFileClose(&file);
 
