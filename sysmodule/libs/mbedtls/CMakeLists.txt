@@ -24,62 +24,12 @@ set(MBEDTLS_DIR ${mbedtls_src_SOURCE_DIR})
 set(MBEDTLS_CONFIG_FILE "${CMAKE_CURRENT_LIST_DIR}/config-switch.h")
 add_definitions("-DMBEDTLS_CONFIG_FILE=\"${MBEDTLS_CONFIG_FILE}\"")
 
-set(MBEDCRYPTO_SOURCES
-    ${MBEDTLS_DIR}/library/aes.c
-    ${MBEDTLS_DIR}/library/asn1parse.c
-    ${MBEDTLS_DIR}/library/asn1write.c
-    ${MBEDTLS_DIR}/library/base64.c
-    ${MBEDTLS_DIR}/library/bignum.c
-    ${MBEDTLS_DIR}/library/cipher.c
-    ${MBEDTLS_DIR}/library/cipher_wrap.c
-    ${MBEDTLS_DIR}/library/constant_time.c
-    ${MBEDTLS_DIR}/library/ctr_drbg.c
-    ${MBEDTLS_DIR}/library/ecdh.c
-    ${MBEDTLS_DIR}/library/ecdsa.c
-    ${MBEDTLS_DIR}/library/ecp.c
-    ${MBEDTLS_DIR}/library/ecp_curves.c
-    ${MBEDTLS_DIR}/library/entropy.c
-    ${MBEDTLS_DIR}/library/entropy_poll.c
-    ${MBEDTLS_DIR}/library/error.c
-    ${MBEDTLS_DIR}/library/gcm.c
-    ${MBEDTLS_DIR}/library/hmac_drbg.c
-    ${MBEDTLS_DIR}/library/md.c
-    ${MBEDTLS_DIR}/library/oid.c
-    ${MBEDTLS_DIR}/library/pem.c
-    ${MBEDTLS_DIR}/library/pk.c
-    ${MBEDTLS_DIR}/library/pk_wrap.c
-    ${MBEDTLS_DIR}/library/pkparse.c
-    ${MBEDTLS_DIR}/library/pkwrite.c
-    ${MBEDTLS_DIR}/library/platform.c
-    ${MBEDTLS_DIR}/library/platform_util.c
-    ${MBEDTLS_DIR}/library/rsa.c
-    ${MBEDTLS_DIR}/library/rsa_internal.c
-    ${MBEDTLS_DIR}/library/sha256.c
-    ${MBEDTLS_DIR}/library/sha512.c
-    ${MBEDTLS_DIR}/library/timing.c
-)
-
-set(MBEDX509_SOURCES
-    ${MBEDTLS_DIR}/library/x509.c
-    ${MBEDTLS_DIR}/library/x509_create.c
-    ${MBEDTLS_DIR}/library/x509_crt.c
-    ${MBEDTLS_DIR}/library/x509_crl.c
-    ${MBEDTLS_DIR}/library/x509_csr.c
-    ${MBEDTLS_DIR}/library/x509write_crt.c
-    ${MBEDTLS_DIR}/library/x509write_csr.c
-)
-
-set(MBEDTLS_SOURCES
-    ${MBEDTLS_DIR}/library/net_sockets.c
-    ${MBEDTLS_DIR}/library/ssl_cache.c
-    ${MBEDTLS_DIR}/library/ssl_ciphersuites.c
-    ${MBEDTLS_DIR}/library/ssl_cli.c
-    ${MBEDTLS_DIR}/library/ssl_cookie.c
-    ${MBEDTLS_DIR}/library/ssl_msg.c
-    ${MBEDTLS_DIR}/library/ssl_srv.c
-    ${MBEDTLS_DIR}/library/ssl_ticket.c
-    ${MBEDTLS_DIR}/library/ssl_tls.c
-)
+file(GLOB MBEDX509_SOURCES "${MBEDTLS_DIR}/library/x509*.c")
+file(GLOB MBEDTLS_SOURCES  "${MBEDTLS_DIR}/library/ssl_*.c"
+                            "${MBEDTLS_DIR}/library/net_sockets.c")
+file(GLOB ALL_LIB_SOURCES  "${MBEDTLS_DIR}/library/*.c")
+list(REMOVE_ITEM ALL_LIB_SOURCES ${MBEDX509_SOURCES} ${MBEDTLS_SOURCES})
+set(MBEDCRYPTO_SOURCES ${ALL_LIB_SOURCES})
 
 add_library(mbedcrypto STATIC ${MBEDCRYPTO_SOURCES})
 add_library(mbedx509 STATIC ${MBEDX509_SOURCES})
