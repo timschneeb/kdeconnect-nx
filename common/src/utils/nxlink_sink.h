@@ -19,6 +19,7 @@ class NxLink {
 public:
     static constexpr uint16_t kDefaultPort = NXLINK_CLIENT_PORT;
 
+    NxLink();
     ~NxLink();
     void setHost(const std::optional<in_addr>& host_address, uint16_t port = kDefaultPort);
     int connectToHost();
@@ -26,16 +27,16 @@ public:
     void write(const char* message);
     void shutdown();
 private:
-    void reconnectAndReplay();
+    void backgroundThread();
 
 #ifdef NXLINK_ENABLED
-    static constexpr size_t MAX_CACHE_SIZE = 200;
+    static constexpr size_t MAX_CACHE_SIZE = 100;
     int sock_ = -1;
     uint16_t port_ = kDefaultPort;
     std::optional<in_addr> host_address_ = std::nullopt;
     std::queue<std::string> message_cache_;
     std::mutex mutex_;
-    std::atomic<bool> reconnect_in_progress_ = false;
     std::atomic<bool> shutting_down_ = false;
+    pthread_t bg_thread_ = {};
 #endif
 };
