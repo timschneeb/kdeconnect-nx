@@ -714,6 +714,9 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
         return false; // file streaming not supported on non-Switch
 #endif
     } else {
+        // TODO: deprecate memory buffer mode
+        //       migrate from stbi to libpng so we can stream directly from downloaded png file to rgba8 file.
+
         // Buffer to memory with a 64KB cap (used for small payloads like app icons).
         if (packet.payload_size > 65536) {
             Logger::warn("Payload size %ld exceeds in-memory cap, truncating.", packet.payload_size);
