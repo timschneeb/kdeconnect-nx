@@ -65,6 +65,7 @@ int socket_recv(void* ctx, unsigned char* buf, size_t len) {
     int fd = *static_cast<int*>(ctx);
     ssize_t recvd = recv(fd, buf, len, 0);
     if (recvd < 0) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) return MBEDTLS_ERR_SSL_WANT_READ;
         return MBEDTLS_ERR_SSL_INTERNAL_ERROR;
     }
     if (recvd == 0) {

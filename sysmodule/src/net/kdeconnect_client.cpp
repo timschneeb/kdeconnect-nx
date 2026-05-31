@@ -521,7 +521,7 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, ScopedF
     // handle_new_connection for the same device can race in, find the session in
     // the map with io_thread not yet started (not joinable), skip the join, and
     // drop the reference. -> thread will be destructed without join -> std::terminate called.
-    session->io_thread = StackThread(32 * 1024, "kc-io", &KdeConnectClient::io_loop, this, session);
+    session->io_thread = StackThread(64 * 1024, "kc-io", &KdeConnectClient::io_loop, this, session);
 
     std::shared_ptr<DeviceSession> old_session;
     {
@@ -611,6 +611,9 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
     // Allow aborting mid-transfer if session is torn down
     timeval payload_timeout{0, 500'000};
     setsockopt(fd.raw, SOL_SOCKET, SO_RCVTIMEO, &payload_timeout, sizeof(payload_timeout));
+    // Maximise TCP receive window to keep the phone's send pipeline full
+    const int rcvbuf = 8 * 1024;
+    setsockopt(fd.raw, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
 
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
@@ -641,34 +644,72 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
             return false;
         }
 
+        char path_buf[FS_MAX_PATH];
+        snprintf(path_buf, sizeof(path_buf), "%s", file_path.c_str());
+
         {
-            const std::string full = file_path;
-            const auto slash = full.rfind('/');
+            const auto slash = file_path.rfind('/');
             if (slash != std::string::npos)
-                Storage::make_directories(full.substr(0, slash));
+                Storage::make_directories(file_path.substr(0, slash));
         }
-        fsFsCreateFile(fs, file_path.c_str(), 0, 0);
 
-        FsFile file;
+        fsFsDeleteFile(fs, path_buf);
+
         Result rc;
-
-        if (rc = fsFsOpenFile(fs, file_path.c_str(), FsOpenMode_Write | FsOpenMode_Append, &file); R_FAILED(rc)) {
-            Logger::error("Failed to open %s for writing: %d-%d", file_path.c_str(), R_MODULE(rc), R_DESCRIPTION(rc));
+        if (rc = fsFsCreateFile(fs, path_buf, static_cast<s64>(packet.payload_size), 0); R_FAILED(rc)) {
+            Logger::error("Failed to create %s: %d-%d", path_buf, R_MODULE(rc), R_DESCRIPTION(rc));
             mbedtls_ssl_close_notify(&tls_session->ssl);
             return false;
         }
 
+        FsFile file;
+
+        if (rc = fsFsOpenFile(fs, path_buf, FsOpenMode_Write, &file); R_FAILED(rc)) {
+            Logger::error("Failed to open %s for writing: %d-%d", path_buf, R_MODULE(rc), R_DESCRIPTION(rc));
+            mbedtls_ssl_close_notify(&tls_session->ssl);
+            return false;
+        }
+
+        // Accumulate multiple TLS records into the chunk buffer before each IPC write,
+        // reducing the number of FS IPC calls (each call has significant overhead).
+        u64 tls_read_ms = 0, fs_write_ms = 0;
         u64 offset = 0;
+        size_t chunk_fill = 0;
+        bool write_error = false;
         while (remaining > 0 && !session->disconnected.load()) {
-            size_t to_read = static_cast<size_t>(std::min(static_cast<int64_t>(kChunkSize), remaining));
-            int ret = mbedtls_ssl_read(&tls_session->ssl, chunk.get(), to_read);
+            const size_t space = kChunkSize - chunk_fill;
+            const size_t to_read = std::min(static_cast<size_t>(remaining), space);
+            const u64 t0 = armGetSystemTick();
+            int ret = mbedtls_ssl_read(&tls_session->ssl, chunk.get() + chunk_fill, to_read);
+            tls_read_ms += (armGetSystemTick() - t0) / 19200;
+            if (ret == MBEDTLS_ERR_SSL_WANT_READ) continue;
             if (ret <= 0) break;
-            if (rc = fsFileWrite(&file, offset, chunk.get(), static_cast<size_t>(ret), FsWriteOption_None); R_FAILED(rc)) {
-                Logger::error("Failed to write to %s (offset 0x%lx, length 0x%x): %d-%d", file_path.c_str(), offset, ret, R_MODULE(rc), R_DESCRIPTION(rc));
-                break;
-            }
-            offset += ret;
+            chunk_fill += static_cast<size_t>(ret);
             remaining -= ret;
+
+            if (chunk_fill == kChunkSize || remaining == 0) {
+                const u64 tw = armGetSystemTick();
+                rc = fsFileWrite(&file, offset, chunk.get(), chunk_fill, FsWriteOption_None);
+                fs_write_ms += (armGetSystemTick() - tw) / 19200;
+                if (R_FAILED(rc)) {
+                    Logger::error("Failed to write to %s: %d-%d", path_buf, R_MODULE(rc), R_DESCRIPTION(rc));
+                    write_error = true;
+                    break;
+                }
+                offset += chunk_fill;
+                chunk_fill = 0;
+            }
+        }
+        if (chunk_fill > 0 && !write_error) {
+            const u64 tw = armGetSystemTick();
+            rc = fsFileWrite(&file, offset, chunk.get(), chunk_fill, FsWriteOption_None);
+            fs_write_ms += (armGetSystemTick() - tw) / 19200;
+            if (R_FAILED(rc)) {
+                Logger::error("Failed to write to %s: %d-%d", path_buf, R_MODULE(rc), R_DESCRIPTION(rc));
+                write_error = true;
+            } else {
+                offset += chunk_fill;
+            }
         }
         fsFileFlush(&file);
         fsFileClose(&file);
@@ -678,13 +719,14 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
         chunk.reset();
         malloc_trim(0);
 
-        const bool aborted = session->disconnected.load() || remaining > 0;
+        const bool aborted = session->disconnected.load() || remaining > 0 || write_error;
         if (aborted) {
-            fsFsDeleteFile(fs, file_path.c_str());
-            Logger::info("Download aborted");
+            fsFsDeleteFile(fs, path_buf);
+            Logger::info("Download aborted. Remaining bytes: %ld", remaining);
             return false;
         }
-        Logger::info("Streamed payload to %s", file_path.c_str());
+        Logger::info("Streamed payload to %s (TLS read %lums, FS write %lums)",
+                     file_path.c_str(), tls_read_ms, fs_write_ms);
         return true;
 #else
         return false; // file streaming not supported on non-Switch
