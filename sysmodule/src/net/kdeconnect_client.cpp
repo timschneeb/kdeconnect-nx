@@ -172,7 +172,7 @@ bool KdeConnectClient::start(bool enable_mdns) {
 
     needs_restart_.store(false);
     running_.store(true);
-    network_thread_ = StackThread(64 * 1024, "kc-network", &KdeConnectClient::network_loop, this);
+    network_thread_ = StackThread(24 * 1024, "kc-network", &KdeConnectClient::network_loop, this);
     broadcast_thread_ = StackThread(4 * 1024, "kc-broadcast", &KdeConnectClient::udp_broadcast_loop, this);
 
     Logger::info("Listening on TCP port %d.", tcp_port_);
@@ -398,7 +398,7 @@ void KdeConnectClient::udp_broadcast_loop() {
 
 void KdeConnectClient::handle_discovered_peer(const DeviceInfo& identity, const std::string& host, int port) {
     auto done = std::make_shared<std::atomic<bool>>(false);
-    auto t = StackThread(32 * 1024, "kc-connect", [this, identity, host, port, done]() {
+    auto t = StackThread(24 * 1024, "kc-connect", [this, identity, host, port, done]() {
         try {
             [&]() {
                 ScopedFd fd{socket(AF_INET, SOCK_STREAM, 0)};
