@@ -178,11 +178,11 @@ std::string Storage::read_file(const std::string &path) {
 #if defined(__SWITCH__)
     std::lock_guard lock(s_fs_mutex);
     FsFileSystem* fs = fsdevGetDeviceFileSystem("sdmc");
-    if (!fs) return {};
+    if (!fs || path.size() >= FS_MAX_PATH) return {};
 
     // Path and data buffers must be in stack memory for FS IPC (0xD401 otherwise).
     char path_buf[FS_MAX_PATH];
-    snprintf(path_buf, sizeof(path_buf), "%s", path.c_str());
+    memcpy(path_buf, path.c_str(), path.size() + 1);
 
     FsFile file;
     Result rc;
@@ -246,30 +246,36 @@ bool Storage::write_file(const std::string &path, const std::string &data) {
     if (slash != std::string::npos)
         make_directories(path.substr(0, slash));
 
-    // Path and data buffers must be in stack memory for FS IPC (0xD401 otherwise).
-    char path_buf[FS_MAX_PATH];
-    snprintf(path_buf, sizeof(path_buf), "%s", path.c_str());
-
-    // Create the file if it doesn't exist; ignore the error if it does.
-    fsFsCreateFile(fs, path_buf, static_cast<s64>(data.size()), 0);
+    if (path.size() >= FS_MAX_PATH) {
+        Logger::error("Path too long: %s", path.c_str());
+        return false;
+    }
 
     FsFile file;
     Result rc;
+    // Scope stack allocation
+    {
+        // Path and data buffers must be in stack memory for FS IPC (0xD401 otherwise).
+        char path_buf[FS_MAX_PATH];
+        strncpy(path_buf, path.c_str(), FS_MAX_PATH);
+        // Create the file if it doesn't exist; ignore the error if it does.
+        fsFsCreateFile(fs, path_buf, static_cast<s64>(data.size()), 0);
 
-    if (rc = fsFsOpenFile(fs, path_buf, FsOpenMode_Write | FsOpenMode_Append, &file); R_FAILED(rc)) {
-        Logger::error("Failed to open file %s: %d-%d", path_buf, R_MODULE(rc), R_DESCRIPTION(rc));
-        return false;
+        if (rc = fsFsOpenFile(fs, path_buf, FsOpenMode_Write | FsOpenMode_Append, &file); R_FAILED(rc)) {
+            Logger::error("Failed to open file %s: %d-%d", path_buf, R_MODULE(rc), R_DESCRIPTION(rc));
+            return false;
+        }
     }
 
     // Resize to match actual data: required when overwriting a smaller file.
     if (rc = fsFileSetSize(&file, static_cast<s64>(data.size())); R_FAILED(rc)) {
-        Logger::error("Failed to set file size of %s: %d-%d", path_buf, R_MODULE(rc), R_DESCRIPTION(rc));
+        Logger::error("Failed to set file size of %s: %d-%d", path.c_str(), R_MODULE(rc), R_DESCRIPTION(rc));
         fsFileClose(&file);
         return false;
     }
 
     // Write through a stack buffer: heap buffers may trigger 0xD401.
-    static constexpr size_t kChunk = 0x1000;
+    static constexpr size_t kChunk = 0x400;
     char chunk_buf[kChunk];
     s64 offset = 0;
     const char* src = data.data();
@@ -279,7 +285,7 @@ bool Storage::write_file(const std::string &path, const std::string &data) {
         memcpy(chunk_buf, src, to_write);
         rc = fsFileWrite(&file, offset, chunk_buf, to_write, FsWriteOption_None);
         if (R_FAILED(rc)) {
-            Logger::error("Failed to write file %s: %d-%d", path_buf, R_MODULE(rc), R_DESCRIPTION(rc));
+            Logger::error("Failed to write file %s: %d-%d", path.c_str(), R_MODULE(rc), R_DESCRIPTION(rc));
             fsFileClose(&file);
             return false;
         }

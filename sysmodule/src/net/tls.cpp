@@ -285,15 +285,17 @@ bool TlsContext::generate_self_signed(const std::string& cert_path, const std::s
     mbedtls_x509write_crt_set_serial(&write_cert, &serial);
     mbedtls_x509write_crt_set_validity(&write_cert, "20260101000000", "21990101000000");
 
-    unsigned char cert_buf[4096];
-    if ((ret = mbedtls_x509write_crt_pem(&write_cert, cert_buf, sizeof(cert_buf), drbg_random_cb, this)) != 0) {
-        mbedtls_strerror(ret, errbuf, sizeof(errbuf));
-        Logger::error("mbedtls_x509write_crt_pem failed: %s", errbuf);
-        mbedtls_mpi_free(&serial);
-        mbedtls_x509write_crt_free(&write_cert);
-        return false;
+    {
+        unsigned char cert_buf[4096];
+        if ((ret = mbedtls_x509write_crt_pem(&write_cert, cert_buf, sizeof(cert_buf), drbg_random_cb, this)) != 0) {
+            mbedtls_strerror(ret, errbuf, sizeof(errbuf));
+            Logger::error("mbedtls_x509write_crt_pem failed: %s", errbuf);
+            mbedtls_mpi_free(&serial);
+            mbedtls_x509write_crt_free(&write_cert);
+            return false;
+        }
+        cert_pem_.assign(reinterpret_cast<char*>(cert_buf));
     }
-    cert_pem_.assign(reinterpret_cast<char*>(cert_buf));
 
     if (!Storage::write_file(cert_path, cert_pem_)) {
         Logger::error("Failed to write certificate to %s", cert_path);
@@ -302,19 +304,21 @@ bool TlsContext::generate_self_signed(const std::string& cert_path, const std::s
         return false;
     }
 
-    unsigned char key_buf[4096];
-    if ((ret = mbedtls_pk_write_key_pem(&key_, key_buf, sizeof(key_buf))) != 0) {
-        mbedtls_strerror(ret, errbuf, sizeof(errbuf));
-        Logger::error("mbedtls_pk_write_key_pem failed: %s", errbuf);
-        mbedtls_mpi_free(&serial);
-        mbedtls_x509write_crt_free(&write_cert);
-        return false;
-    }
-    if (!Storage::write_file(key_path, reinterpret_cast<char*>(key_buf))) {
-        Logger::error("Failed to write key to %s", key_path.c_str());
-        mbedtls_mpi_free(&serial);
-        mbedtls_x509write_crt_free(&write_cert);
-        return false;
+    {
+        unsigned char key_buf[4096];
+        if ((ret = mbedtls_pk_write_key_pem(&key_, key_buf, sizeof(key_buf))) != 0) {
+            mbedtls_strerror(ret, errbuf, sizeof(errbuf));
+            Logger::error("mbedtls_pk_write_key_pem failed: %s", errbuf);
+            mbedtls_mpi_free(&serial);
+            mbedtls_x509write_crt_free(&write_cert);
+            return false;
+        }
+        if (!Storage::write_file(key_path, reinterpret_cast<char*>(key_buf))) {
+            Logger::error("Failed to write key to %s", key_path.c_str());
+            mbedtls_mpi_free(&serial);
+            mbedtls_x509write_crt_free(&write_cert);
+            return false;
+        }
     }
 
     mbedtls_mpi_free(&serial);
