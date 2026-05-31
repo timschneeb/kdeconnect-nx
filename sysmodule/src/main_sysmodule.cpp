@@ -39,6 +39,8 @@ void __libnx_initheap(void)
     fake_heap_end   = inner_heap + sizeof(inner_heap);
 }
 
+static bool timeSet = false;
+
 void __appInit(void)
 {
     R_ABORT_UNLESS(smInitialize());
@@ -52,8 +54,11 @@ void __appInit(void)
             }
         }
 
-        R_ABORT_UNLESS(timeInitialize());
-        __libnx_init_time();
+        if (R_SUCCEEDED(timeInitialize())) {
+            __libnx_init_time();
+            timeExit();
+            timeSet = true;
+        }
 
         R_ABORT_UNLESS(fsInitialize());
         R_ABORT_UNLESS(fsdevMountSdmc());
@@ -75,7 +80,6 @@ void __appExit(void)
 
     fsdevUnmountAll();
     fsExit();
-    timeExit();
     smExit();
 }
 }
@@ -132,6 +136,12 @@ int main(int argc, char* argv[])
     });
 
     Logger::open_log_file("kdeconnect_sysmodule");
+
+    if (!timeSet) {
+        Logger::error("Could not connect to time:u service. You likely have too many sysmodules active that connect to time services.");
+        Logger::error("No time set. Device pairing will not work due to clock skew!");
+    }
+
 #ifdef DEBUG_ALLOC_TRACE
     MemTracker::init();
 #endif

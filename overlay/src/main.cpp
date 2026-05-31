@@ -8,6 +8,8 @@
 class OverlayMain : public tsl::Overlay {
 public:
     void initServices() override {
+        ASSERT_FATAL(smInitialize());
+
 #ifdef NXLINK_ENABLED
         constexpr SocketInitConfig socketInitConfig = {
             .tcp_tx_buf_size     = 16 * 1024,
@@ -20,9 +22,7 @@ public:
             .bsd_service_type    = BsdServiceType_Auto
         };
         socketInitialize(&socketInitConfig);
-        ASSERT_FATAL(timeInitialize());
 #endif
-        ASSERT_FATAL(smInitialize());
 
         Logger::open_log_file("kdeconnect_overlay");
 #if defined(NXLINK_ENABLED)
@@ -44,7 +44,6 @@ public:
         Logger::shutdown();
 #ifdef NXLINK_ENABLED
         socketExit();
-        timeExit();
 #endif
         smExit();
     }
