@@ -16,7 +16,7 @@ public:
 
 private:
     static bool isOnline();
-    void restart_client(const char* reason);
+    void restart_client(const char* reason, bool force);
 
     bool was_online_;
     bool has_initialized_nxlink_;

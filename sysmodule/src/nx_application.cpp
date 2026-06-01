@@ -46,8 +46,8 @@ NxApplication::~NxApplication() {
     Logger::shutdown();
 }
 
-void NxApplication::restart_client(const char* reason) {
-    if (std::chrono::steady_clock::now() - last_restart_ < restart_cooldown_) {
+void NxApplication::restart_client(const char* reason, bool force) {
+    if (!force && std::chrono::steady_clock::now() - last_restart_ < restart_cooldown_) {
         return;
     }
     Logger::info("%s", reason);
@@ -62,7 +62,7 @@ void NxApplication::restart_client(const char* reason) {
 
 void NxApplication::processEvents() {
     if (client_->needs_restart()) {
-        restart_client("Client requested restart, restarting...");
+        restart_client("Client requested restart, restarting...", false);
     }
 
     const bool now_online = isOnline();
@@ -72,7 +72,7 @@ void NxApplication::processEvents() {
         // Allow late-init once the network is ready
         if (!has_initialized_nxlink_)
             Logger::connect_nxlink();
-        restart_client("Network restored, restarting client...");
+        restart_client("Network restored, restarting client...", true);
     }
     was_online_ = now_online;
 
