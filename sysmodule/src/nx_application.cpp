@@ -21,7 +21,9 @@ NxApplication::NxApplication() : was_online_(false), storage_(Storage()),
 #if defined(NXLINK_ENABLED)
     Logger::set_nxlink_host(NXLINK_HOST, NxLink::kDefaultPort);
 #endif
-    
+
+    psc_monitor_.start();
+
     ipc_service_ = std::make_unique<IpcService>(this);
     ipc_service_->start();
 
@@ -38,6 +40,7 @@ NxApplication::NxApplication() : was_online_(false), storage_(Storage()),
 }
 
 NxApplication::~NxApplication() {
+    psc_monitor_.stop();
     ipc_service_->stop();
     client_.reset();
     Logger::shutdown();
