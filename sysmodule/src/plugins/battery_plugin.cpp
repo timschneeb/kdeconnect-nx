@@ -100,9 +100,11 @@ bool BatteryPlugin::on_packet_received(const NetworkPacket& np) {
         cached_remote_charging_ = remote_charging;
 
 #ifdef ALLOW_MULTIPLE_THRESHOLD_EVENTS
-        if (!remote_charging && is_low) {
+        if (!remote_charging && is_low &&
+                SettingsStore::get(KdecBoolSettingKey::NotificationShowOnBatteryLow)) {
 #else
-        if (!remote_charging && is_low && !notified_low_) {
+        if (!remote_charging && is_low && !notified_low_ &&
+                SettingsStore::get(KdecBoolSettingKey::NotificationShowOnBatteryLow)) {
 #endif
             notified_low_ = true;
             auto session = provider_ ? provider_->device(device_id_) : nullptr;

@@ -40,6 +40,14 @@ tsl::elm::Element* SettingsGui::createUI() {
     });
     list->addItem(toggle_connect);
 
+    bool notify_battery_low = true;
+    kdecIpcReadBoolSetting(KdecBoolSettingKey::NotificationShowOnBatteryLow, notify_battery_low);
+    auto* toggle_battery_low = new tsl::elm::ToggleListItem("Notify on low battery", notify_battery_low);
+    toggle_battery_low->setStateChangedListener([](const bool v) {
+        kdecIpcWriteBoolSetting(KdecBoolSettingKey::NotificationShowOnBatteryLow, v);
+    });
+    list->addItem(toggle_battery_low);
+
     bool show_icon = true;
     kdecIpcReadBoolSetting(KdecBoolSettingKey::NotificationShowIcon, show_icon);
     auto* toggle_icon = new tsl::elm::ToggleListItem("Show app icons", show_icon);
