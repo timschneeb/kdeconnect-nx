@@ -125,16 +125,7 @@ void NxLink::backgroundThread()
         if (needs_connect && connectToHost() >= 0) {
             std::lock_guard lock(mutex_);
             if (!shutting_down_) {
-                while (!message_cache_.empty()) {
-                    const auto& msg = message_cache_.front();
-                    if (::write(sock_, msg.c_str(), msg.length()) >= 0) {
-                        message_cache_.pop();
-                    } else {
-                        close(sock_);
-                        sock_ = -1;
-                        break;
-                    }
-                }
+                flushCache();
             }
         }
 
@@ -175,9 +166,25 @@ void NxLink::write(const char* message)
         } else if (message_cache_.size() == MAX_CACHE_SIZE) {
             message_cache_.emplace("[WARNING] Message cache overflow, dropping messages until reconnect.\n");
         }
-    } else if (::write(sock_, message, std::strlen(message)) < 0) {
-        close(sock_);
-        sock_ = -1;
+    } else {
+        flushCache();
+        if (::write(sock_, message, std::strlen(message)) < 0) {
+            close(sock_);
+            sock_ = -1;
+        }
     }
 #endif
+}
+
+void NxLink::flushCache() {
+    while (!message_cache_.empty()) {
+        const auto& msg = message_cache_.front();
+        if (::write(sock_, msg.c_str(), msg.length()) >= 0) {
+            message_cache_.pop();
+        } else {
+            close(sock_);
+            sock_ = -1;
+            break;
+        }
+    }
 }
