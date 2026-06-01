@@ -10,6 +10,7 @@
 #include <malloc.h>
 #include <cstring>
 #include <png.h>
+#include <switch.h>
 #include <dirent.h>
 #include <sys/stat.h>
 #endif
@@ -136,6 +137,13 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
     return true;
 }
 
+void NotificationPlugin::request_active_notifications() const {
+    NetworkPacket pkt;
+    pkt.type = PacketTypes::NotificationRequest;
+    pkt.body.set("request", true);
+    send_packet(pkt);
+}
+
 void NotificationPlugin::post_app_notification(const std::string& id, const std::string& app, const std::string& title, const std::string& text, const std::string& icon_hash) {
     const bool show_icon = SettingsStore::get(KdecBoolSettingKey::NotificationShowIcon);
     const std::string app_id = (show_icon && !icon_hash.empty())
@@ -223,53 +231,99 @@ void NotificationPlugin::post_notification(const std::string& app_id,
 void NotificationPlugin::write_app_icon(const std::string& icon_hash, const NetworkPacket& np) const {
 #ifdef __SWITCH__
     const std::string icon_path = "/config/ultrahand/assets/notifications/kdeconnect_" + icon_hash + ".rgba";
+    const std::string icon_path_png = "/config/ultrahand/assets/notifications/.kdeconnect_" + icon_hash + ".png";
 
     // Icon content is addressed by its hash; if the file already exists it is identical.
     if (Storage::file_exists(icon_path)) return;
 
     auto np_with_payload = np;
-    if (!provider_->download_payload(provider_->device(device_id_), np_with_payload) ||
-            np_with_payload.payload.empty()) {
+    if (!provider_->download_payload(provider_->device(device_id_), np_with_payload, icon_path_png)) {
         Logger::warn("Failed to download icon payload for hash %s", icon_hash.c_str());
         return;
     }
 
-    // Decode row by row to avoid allocating a full w*h*4 intermediate buffer.
-    // The Android client caps icons at 128×128; we guard up to 512 per axis.
-    static constexpr int kMaxIconPixels = 256 * 256;
-    static constexpr int kMaxIconDim    = 512;
-    static constexpr int OUT            = 50;
-
-    // All stack allocations before setjmp so no C++ objects straddle longjmp.
-    uint8_t row_buf[kMaxIconDim * 4];
-    uint8_t px[OUT * OUT * 4];
-
-    struct MemReader { const uint8_t* data; size_t pos; size_t size; };
-    MemReader reader{np_with_payload.payload.data(), 0, np_with_payload.payload.size()};
-
-    png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
-    if (!png_ptr) {
-        Logger::warn("Failed to create PNG read struct for hash %s", icon_hash.c_str());
+    FsFileSystem* fs = fsdevGetDeviceFileSystem("sdmc");
+    if (!fs) {
+        Logger::error("write_app_icon: fsdevGetDeviceFileSystem failed");
+        remove(icon_path_png.c_str());
         return;
     }
+
+    static constexpr int  kMaxIconPixels = 256 * 256;
+    static constexpr int  kMaxIconDim    = 256;
+    static constexpr int  OUT            = 50;
+    static constexpr s64  kRgbaSize      = OUT * OUT * 4;
+
+    // All stack buffers declared before setjmp: no C++ objects straddle longjmp.
+    uint8_t row_buf[kMaxIconDim * 4];
+    uint8_t out_row[OUT * 4];
+    char    path_in[icon_path_png.size()];
+    char    path_out[icon_path.size()];
+
+    memcpy(path_in,  icon_path_png.c_str(), icon_path_png.size() + 1);
+    memcpy(path_out, icon_path.c_str(),     icon_path.size() + 1);
+
+    // Volatile flags so the longjmp cleanup sees whether each file is open.
+    volatile bool file_in_open  = false;
+    volatile bool file_out_open = false;
+    FsFile file_in  = {};
+    FsFile file_out = {};
+    s64    out_offset = 0;
+
+    // Context for the libpng read callback, pointer kept valid for its lifetime.
+    struct PngReadCtx { FsFile* file; s64 offset; };
+    PngReadCtx read_ctx{&file_in, 0};
+
+    png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+    if (!png_ptr) { remove(icon_path_png.c_str()); return; }
+
     png_infop info_ptr = png_create_info_struct(png_ptr);
     if (!info_ptr) {
         png_destroy_read_struct(&png_ptr, nullptr, nullptr);
+        remove(icon_path_png.c_str());
         return;
     }
 
     if (setjmp(png_jmpbuf(png_ptr))) {
         Logger::warn("Failed to decode icon for hash %s", icon_hash.c_str());
+        if (file_in_open)  fsFileClose(&file_in);
+        if (file_out_open) { fsFileClose(&file_out); fsFsDeleteFile(fs, path_out); }
         png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
+        remove(icon_path_png.c_str());
         return;
     }
 
-    png_set_read_fn(png_ptr, &reader,
+    {
+        const Result rc = fsFsOpenFile(fs, path_in, FsOpenMode_Read, &file_in);
+        if (R_FAILED(rc)) {
+            Logger::warn("Failed to open temp PNG for hash %s: %d-%d",
+                         icon_hash.c_str(), R_MODULE(rc), R_DESCRIPTION(rc));
+            png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
+            remove(icon_path_png.c_str());
+            return;
+        }
+    }
+    file_in_open = true;
+
+    // fsFileRead requires a stack destination buffer to avoid 0xD401 IPC errors.
+    png_set_read_fn(png_ptr, &read_ctx,
         [](png_structp png, png_bytep buf, png_size_t n) {
-            auto* r = static_cast<MemReader*>(png_get_io_ptr(png));
-            if (r->pos + n > r->size) { png_error(png, "read past end"); return; }
-            memcpy(buf, r->data + r->pos, n);
-            r->pos += n;
+            constexpr size_t kChunk = 0x400;
+            uint8_t stack_buf[kChunk];
+            auto* ctx = static_cast<PngReadCtx*>(png_get_io_ptr(png));
+            size_t remaining = n;
+            while (remaining > 0) {
+                const size_t to_read = remaining < kChunk ? remaining : kChunk;
+                u64 bytes_read = 0;
+                const Result rc = fsFileRead(ctx->file, ctx->offset,
+                                             stack_buf, to_read,
+                                             FsReadOption_None, &bytes_read);
+                if (R_FAILED(rc) || bytes_read == 0) { png_error(png, "read error"); return; }
+                memcpy(buf, stack_buf, bytes_read);
+                buf           += bytes_read;
+                ctx->offset   += static_cast<s64>(bytes_read);
+                remaining     -= bytes_read;
+            }
         });
 
     png_read_info(png_ptr, info_ptr);
@@ -278,8 +332,10 @@ void NotificationPlugin::write_app_icon(const std::string& icon_hash, const Netw
     const int h = static_cast<int>(png_get_image_height(png_ptr, info_ptr));
 
     if (w > kMaxIconDim || h > kMaxIconDim || w * h > kMaxIconPixels) {
-        Logger::warn("Icon %s too large (%dx%d), skipping decode", icon_hash.c_str(), w, h);
+        Logger::warn("Icon %s too large (%dx%d), skipping", icon_hash.c_str(), w, h);
+        fsFileClose(&file_in); file_in_open = false;
         png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
+        remove(icon_path_png.c_str());
         return;
     }
 
@@ -303,8 +359,36 @@ void NotificationPlugin::write_app_icon(const std::string& icon_hash, const Netw
         png_set_gray_to_rgb(png_ptr);
     png_read_update_info(png_ptr, info_ptr);
 
-    // Nearest-neighbour downsample to OUT×OUT, advancing the row pointer
-    // sequentially and reusing the same row buffer for repeated output rows.
+    // Pre-create the output file at exact size, then open for writing.
+    fsFsDeleteFile(fs, path_out);
+    {
+        const Result rc = fsFsCreateFile(fs, path_out, kRgbaSize, 0);
+        if (R_FAILED(rc)) {
+            Logger::error("Failed to create RGBA file for hash %s: %d-%d",
+                          icon_hash.c_str(), R_MODULE(rc), R_DESCRIPTION(rc));
+            fsFileClose(&file_in); file_in_open = false;
+            png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
+            remove(icon_path_png.c_str());
+            return;
+        }
+    }
+    {
+        const Result rc = fsFsOpenFile(fs, path_out, FsOpenMode_Write, &file_out);
+        if (R_FAILED(rc)) {
+            Logger::error("Failed to open RGBA file for hash %s: %d-%d",
+                          icon_hash.c_str(), R_MODULE(rc), R_DESCRIPTION(rc));
+            fsFsDeleteFile(fs, path_out);
+            fsFileClose(&file_in); file_in_open = false;
+            png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
+            remove(icon_path_png.c_str());
+            return;
+        }
+    }
+    file_out_open = true;
+
+    // Nearest-neighbour downsample to OUTxOUT; write one output row at a time
+    // so the full decoded image never exists in memory simultaneously.
+    // out_row is stack-allocated, safe to pass directly to fsFileWrite.
     int prev_sy = -1;
     for (int oy = 0; oy < OUT; oy++) {
         const int sy = oy * h / OUT;
@@ -314,32 +398,21 @@ void NotificationPlugin::write_app_icon(const std::string& icon_hash, const Netw
         }
         for (int ox = 0; ox < OUT; ox++) {
             const int sx = ox * w / OUT;
-            const int di = (oy * OUT + ox) * 4;
-            px[di]   = row_buf[sx * 4];
-            px[di+1] = row_buf[sx * 4 + 1];
-            px[di+2] = row_buf[sx * 4 + 2];
-            px[di+3] = row_buf[sx * 4 + 3];
+            out_row[ox * 4]     = row_buf[sx * 4];
+            out_row[ox * 4 + 1] = row_buf[sx * 4 + 1];
+            out_row[ox * 4 + 2] = row_buf[sx * 4 + 2];
+            out_row[ox * 4 + 3] = row_buf[sx * 4 + 3];
         }
+        fsFileWrite(&file_out, out_offset, out_row, sizeof(out_row), FsWriteOption_None);
+        out_offset += static_cast<s64>(sizeof(out_row));
     }
 
     png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
-
-    // Release the compressed source payload before trimming so both large
-    // blocks are freed at the arena top together, maximising trim's reach.
-    { std::vector<uint8_t>{}.swap(np_with_payload.payload); }
+    fsFileFlush(&file_out);
+    fsFileClose(&file_in);
+    fsFileClose(&file_out);
+    remove(icon_path_png.c_str());
     malloc_trim(0);
-
-    std::string payload(reinterpret_cast<const char*>(px), sizeof(px));
-    if (!Storage::write_file(icon_path, payload)) {
-        Logger::error("Failed to write icon: %s", icon_path.c_str());
-    }
 #endif
     (void)icon_hash; (void)np;
-}
-
-void NotificationPlugin::request_active_notifications() const {
-    NetworkPacket pkt;
-    pkt.type = PacketTypes::NotificationRequest;
-    pkt.body.set("request", true);
-    send_packet(pkt);
 }

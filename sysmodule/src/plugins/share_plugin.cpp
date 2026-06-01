@@ -147,7 +147,7 @@ bool SharePlugin::send_screenshot() const {
     NetworkPacket pkt;
     pkt.type = PacketTypes::ShareRequest;
     pkt.body.set("filename", std::string(filename));
-    pkt.payload = std::move(buffer);
+    pkt.send_payload = std::move(buffer);
 
     return provider_->send_payload(device_id_, std::move(pkt));
 }

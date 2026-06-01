@@ -518,7 +518,7 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, ScopedF
 
     PluginRegistry::instantiate_plugins(this, session->info.id, session->plugins);
 
-    session->io_thread = StackThread(48 * 1024, "kc-io", &KdeConnectClient::io_loop, this, session);
+    session->io_thread = StackThread(24 * 1024, "kc-io", &KdeConnectClient::io_loop, this, session);
 
     std::shared_ptr<DeviceSession> old_session;
     {
@@ -627,120 +627,91 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
         return false;
     }
 
-    if (!file_path.empty()) {
-        // Stream directly to file
+    // Stream directly to file
 #if defined(__SWITCH__)
-        constexpr size_t kChunkSize = 16384 * 4;
-        auto chunk = std::make_unique<uint8_t[]>(kChunkSize);
-        int64_t remaining = packet.payload_size;
+    constexpr size_t kChunkSize = 16384 * 4;
+    auto chunk = std::make_unique<uint8_t[]>(kChunkSize);
+    int64_t remaining = packet.payload_size;
 
-        FsFileSystem* fs = fsdevGetDeviceFileSystem("sdmc");
-        if (!fs) {
-            Logger::error("downloadPayload: fsdevGetDeviceFileSystem failed");
-            mbedtls_ssl_close_notify(&tls_session->ssl);
-            return false;
-        }
-
-        char path_buf[FS_MAX_PATH];
-        snprintf(path_buf, sizeof(path_buf), "%s", file_path.c_str());
-
-        {
-            const auto slash = file_path.rfind('/');
-            if (slash != std::string::npos)
-                Storage::make_directories(file_path.substr(0, slash));
-        }
-
-        fsFsDeleteFile(fs, path_buf);
-
-        Result rc;
-        if (rc = fsFsCreateFile(fs, path_buf, packet.payload_size, 0); R_FAILED(rc)) {
-            Logger::error("Failed to create %s: %d-%d", path_buf, R_MODULE(rc), R_DESCRIPTION(rc));
-            mbedtls_ssl_close_notify(&tls_session->ssl);
-            return false;
-        }
-
-        FsFile file;
-
-        if (rc = fsFsOpenFile(fs, path_buf, FsOpenMode_Write, &file); R_FAILED(rc)) {
-            Logger::error("Failed to open %s for writing: %d-%d", path_buf, R_MODULE(rc), R_DESCRIPTION(rc));
-            mbedtls_ssl_close_notify(&tls_session->ssl);
-            return false;
-        }
-
-        u64 offset = 0;
-        size_t chunk_fill = 0;
-        bool write_error = false;
-
-        auto flush_chunk = [&]() -> bool {
-            if (chunk_fill == 0) return true;
-            rc = fsFileWrite(&file, static_cast<s64>(offset), chunk.get(), chunk_fill, FsWriteOption_None);
-            if (R_FAILED(rc)) {
-                Logger::error("Failed to write to %s: %d-%d", path_buf, R_MODULE(rc), R_DESCRIPTION(rc));
-                return false;
-            }
-            offset += chunk_fill;
-            chunk_fill = 0;
-            return true;
-        };
-
-        while (remaining > 0 && !session->disconnected.load()) {
-            const size_t to_read = std::min(static_cast<size_t>(remaining), kChunkSize - chunk_fill);
-            const int ret = mbedtls_ssl_read(&tls_session->ssl, chunk.get() + chunk_fill, to_read);
-            if (ret == MBEDTLS_ERR_SSL_WANT_READ) continue;
-            if (ret <= 0) break;
-            chunk_fill += static_cast<size_t>(ret);
-            remaining -= ret;
-            if (chunk_fill == kChunkSize || remaining == 0) {
-                if (!flush_chunk()) { write_error = true; break; }
-            }
-        }
-        if (!write_error && !flush_chunk()) write_error = true;
-        fsFileFlush(&file);
-        fsFileClose(&file);
-
+    FsFileSystem* fs = fsdevGetDeviceFileSystem("sdmc");
+    if (!fs) {
+        Logger::error("downloadPayload: fsdevGetDeviceFileSystem failed");
         mbedtls_ssl_close_notify(&tls_session->ssl);
-        tls_session.reset();
-        chunk.reset();
-        malloc_trim(0);
-
-        if (session->disconnected.load() || remaining > 0 || write_error) {
-            fsFsDeleteFile(fs, path_buf);
-            Logger::info("Download aborted. Remaining bytes: %ld", remaining);
-            return false;
-        }
-        Logger::info("Streamed payload to %s", file_path.c_str());
-        return true;
-#else
-        return false; // file streaming not supported on non-Switch
-#endif
-    } else {
-        // TODO: deprecate memory buffer mode
-        //       migrate from stbi to libpng so we can stream directly from downloaded png file to rgba8 file.
-
-        // Buffer to memory with a 64KB cap (used for small payloads like app icons).
-        if (packet.payload_size > 65536) {
-            Logger::warn("Payload size %ld exceeds in-memory cap, truncating.", packet.payload_size);
-        }
-
-        const int64_t cap = std::min(packet.payload_size, static_cast<int64_t>(65536));
-        packet.payload.resize(static_cast<size_t>(cap));
-
-        size_t received = 0;
-        while (received < static_cast<size_t>(cap) && !session->disconnected.load()) {
-            int ret = mbedtls_ssl_read(&tls_session->ssl,
-                                       packet.payload.data() + received,
-                                       static_cast<size_t>(cap) - received);
-            if (ret <= 0) break;
-            received += static_cast<size_t>(ret);
-        }
-
-        mbedtls_ssl_close_notify(&tls_session->ssl);
-        tls_session.reset();
-        malloc_trim(0);
-        packet.payload.resize(received);
-        Logger::info("Downloaded payload: %zu bytes for %s", received, packet.type.c_str());
-        return true;
+        return false;
     }
+
+    char path_buf[FS_MAX_PATH];
+    snprintf(path_buf, sizeof(path_buf), "%s", file_path.c_str());
+
+    {
+        const auto slash = file_path.rfind('/');
+        if (slash != std::string::npos)
+            Storage::make_directories(file_path.substr(0, slash));
+    }
+
+    fsFsDeleteFile(fs, path_buf);
+
+    Result rc;
+    if (rc = fsFsCreateFile(fs, path_buf, packet.payload_size, 0); R_FAILED(rc)) {
+        Logger::error("Failed to create %s: %d-%d", path_buf, R_MODULE(rc), R_DESCRIPTION(rc));
+        mbedtls_ssl_close_notify(&tls_session->ssl);
+        return false;
+    }
+
+    FsFile file;
+
+    if (rc = fsFsOpenFile(fs, path_buf, FsOpenMode_Write, &file); R_FAILED(rc)) {
+        Logger::error("Failed to open %s for writing: %d-%d", path_buf, R_MODULE(rc), R_DESCRIPTION(rc));
+        mbedtls_ssl_close_notify(&tls_session->ssl);
+        return false;
+    }
+
+    u64 offset = 0;
+    size_t chunk_fill = 0;
+    bool write_error = false;
+
+    auto flush_chunk = [&]() -> bool {
+        if (chunk_fill == 0) return true;
+        rc = fsFileWrite(&file, static_cast<s64>(offset), chunk.get(), chunk_fill, FsWriteOption_None);
+        if (R_FAILED(rc)) {
+            Logger::error("Failed to write to %s: %d-%d", path_buf, R_MODULE(rc), R_DESCRIPTION(rc));
+            return false;
+        }
+        offset += chunk_fill;
+        chunk_fill = 0;
+        return true;
+    };
+
+    while (remaining > 0 && !session->disconnected.load()) {
+        const size_t to_read = std::min(static_cast<size_t>(remaining), kChunkSize - chunk_fill);
+        const int ret = mbedtls_ssl_read(&tls_session->ssl, chunk.get() + chunk_fill, to_read);
+        if (ret == MBEDTLS_ERR_SSL_WANT_READ) continue;
+        if (ret <= 0) break;
+        chunk_fill += static_cast<size_t>(ret);
+        remaining -= ret;
+        if (chunk_fill == kChunkSize || remaining == 0) {
+            if (!flush_chunk()) { write_error = true; break; }
+        }
+    }
+    if (!write_error && !flush_chunk()) write_error = true;
+    fsFileFlush(&file);
+    fsFileClose(&file);
+
+    mbedtls_ssl_close_notify(&tls_session->ssl);
+    tls_session.reset();
+    chunk.reset();
+    malloc_trim(0);
+
+    if (session->disconnected.load() || remaining > 0 || write_error) {
+        fsFsDeleteFile(fs, path_buf);
+        Logger::info("Download aborted. Remaining bytes: %ld", remaining);
+        return false;
+    }
+    Logger::info("Streamed payload to %s", file_path.c_str());
+    return true;
+#else
+    return false; // not implemented on non-Switch
+#endif
 }
 
 void KdeConnectClient::handle_pair_packet(const std::shared_ptr<DeviceSession>& session, const JsonBody& body) const {
@@ -947,7 +918,7 @@ bool KdeConnectClient::send_packet(const std::string& device_id, const NetworkPa
 }
 
 bool KdeConnectClient::send_payload(const std::string& device_id, NetworkPacket pkt) {
-    if (pkt.payload.empty()) return false;
+    if (pkt.send_payload.empty()) return false;
 
     ScopedFd srv_fd{socket(AF_INET, SOCK_STREAM, 0)};
     if (!srv_fd) return false;
@@ -969,12 +940,12 @@ bool KdeConnectClient::send_payload(const std::string& device_id, NetworkPacket 
     }
     if (port == 0 || listen(srv_fd.raw, 1) != 0) return false;
 
-    pkt.payload_size = static_cast<int64_t>(pkt.payload.size());
+    pkt.payload_size = static_cast<int64_t>(pkt.send_payload.size());
     pkt.payload_port = port;
 
     if (!send_packet(device_id, pkt)) return false;
 
-    auto payload = std::make_shared<std::vector<uint8_t>>(std::move(pkt.payload));
+    auto payload = std::make_shared<std::vector<uint8_t>>(std::move(pkt.send_payload));
     auto done = std::make_shared<std::atomic<bool>>(false);
     const int raw_srv_fd = srv_fd.release();
     auto t = StackThread(16 * 1024, "kc-payload", [this, raw_srv_fd, payload, done]() mutable {

@@ -40,7 +40,7 @@ public:
   bool send_payload(const std::string &device_id, NetworkPacket pkt) override;
   bool download_payload(const std::shared_ptr<DeviceSession> &session,
                         NetworkPacket &packet,
-                        const std::string& file_path = "") override;
+                        const std::string& file_path) override;
   const DeviceInfo &local_device() const { return local_device_; }
   int tcp_port() const { return tcp_port_; }
 

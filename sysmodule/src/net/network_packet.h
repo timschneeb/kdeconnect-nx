@@ -36,8 +36,8 @@ struct NetworkPacket {
     int64_t payload_size = -1;
     int     payload_port = -1;
 
-    // Filled in by the transport layer before the packet reaches plugins.
-    std::vector<uint8_t> payload;
+    // Payload to be attached
+    std::vector<uint8_t> send_payload;
 
     [[nodiscard]] bool has_payload() const { return payload_port > 0 && payload_size > 0;}
     [[nodiscard]] std::string serialize() const;
