@@ -6,7 +6,7 @@
 #ifdef DEBUG
 // ------ THREADS ------
 /// Measure thread stack memory usage
-#define STACK_THREAD_MEASURE
+//#define STACK_THREAD_MEASURE
 /// Force minimum thread stack size globally
 //#define DEBUG_MIN_THREAD_STACK_SIZE 32*1024
 
