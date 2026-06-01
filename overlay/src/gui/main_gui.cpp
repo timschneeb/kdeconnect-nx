@@ -224,6 +224,7 @@ void MainGui::update() {
         }
     }
 
+    // TODO: this is unreliable for some reason now
     if (now_running != was_running_ || devicesChanged(devices_, fresh))
         tsl::changeTo<MainGui>(s_lastFocusedItemText, std::move(fresh));
 }
