@@ -176,6 +176,13 @@ void NxLink::write(const char* message)
 #endif
 }
 
+void NxLink::writeToCache(const char *message) {
+    std::lock_guard lock(mutex_);
+    if (message_cache_.size() < MAX_CACHE_SIZE) {
+        message_cache_.emplace(message);
+    }
+}
+
 void NxLink::flushCache() {
     while (!message_cache_.empty()) {
         const auto& msg = message_cache_.front();

@@ -25,6 +25,7 @@ public:
     int connectToHost();
     bool isEnabled() const;
     void write(const char* message);
+    void writeToCache(const char* message);
     void flushCache();
     void shutdown();
 private:

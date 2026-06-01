@@ -122,6 +122,20 @@ void Logger::log(const std::string_view level, const char* fmt, ...) {
 
 void Logger::log(const std::string_view level, const std::string_view msg) {
 #ifndef NO_LOG
+    std::string out = make_log_line(level, msg);
+
+    if (sink_) sink_(level, msg);
+    if (log_file_) {
+        fputs(out.c_str(), log_file_);
+        fflush(log_file_);
+    }
+#ifdef NXLINK_ENABLED
+    nxlink_.write(out.c_str());
+#endif
+#endif
+}
+
+std::string Logger::make_log_line(const std::string_view level, const std::string_view msg) {
     char time_buf[9];
     auto secs = std::chrono::duration_cast<std::chrono::seconds>(
                     std::chrono::system_clock::now().time_since_epoch()).count();
@@ -141,14 +155,5 @@ void Logger::log(const std::string_view level, const std::string_view msg) {
     out += "] ";
     out += msg;
     out += '\n';
-
-    if (sink_) sink_(level, msg);
-    if (log_file_) {
-        fputs(out.c_str(), log_file_);
-        fflush(log_file_);
-    }
-#ifdef NXLINK_ENABLED
-    nxlink_.write(out.c_str());
-#endif
-#endif
+    return std::move(out);
 }
