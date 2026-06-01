@@ -16,6 +16,7 @@
 #endif
 
 static constexpr auto kNotifyDir = "/config/ultrahand/notifications";
+static constexpr auto kNotifyFlag = "/config/ultrahand/flags/NOTIFICATIONS.flag";
 static constexpr auto kAppId     = "kdeconnect";
 
 static constexpr size_t kMaxPostedIds     = 10;
@@ -133,6 +134,7 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
 
     if (silent) return true;
     if (!SettingsStore::get(KdecBoolSettingKey::NotificationShowRemoteMessages)) return true;
+    if (!Storage::file_exists(kNotifyFlag)) return true;
     post_app_notification(id, app, title, text, icon_hash);
     return true;
 }
