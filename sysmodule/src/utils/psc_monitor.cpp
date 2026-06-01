@@ -21,8 +21,6 @@ void PscMonitor::thread_func(void* arg) {
 
         switch (state) {
             case PscPmState_Awake:
-            case PscPmState_ReadyAwaken:
-            case PscPmState_ReadyAwakenCritical:
                 s_is_awake.store(true);
                 break;
             case PscPmState_ReadySleep:
@@ -32,6 +30,9 @@ void PscMonitor::thread_func(void* arg) {
             case PscPmState_ReadyShutdown:
                 s_is_awake.store(false);
                 self->running_ = false;
+                break;
+            case PscPmState_ReadyAwaken:
+            case PscPmState_ReadyAwakenCritical:
                 break;
         }
     }

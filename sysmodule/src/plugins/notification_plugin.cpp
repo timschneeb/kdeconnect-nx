@@ -138,7 +138,7 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
     if (silent) return true;
     if (!SettingsStore::get(KdecBoolSettingKey::NotificationShowRemoteMessages)) return true;
     if (!Storage::file_exists(kNotifyFlag)) return true;
-    if (PscMonitor::is_awake()) return true;
+    if (!PscMonitor::is_awake()) return true;
     post_app_notification(id, app, title, text, icon_hash);
     return true;
 }
