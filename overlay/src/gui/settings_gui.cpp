@@ -1,10 +1,12 @@
 #include "settings_gui.h"
 #include "gui_common.h"
-#include "../utils/symbols.h"
 #include "elements/font_size_bar.h"
 #include "notification_style_gui.h"
+#include "../utils/symbols.h"
 
 #include <kdec/ipc_client.h>
+
+#include "main_gui.h"
 
 static constexpr int32_t kDurationSteps[]  = {1000, 2000, 3000, 4000, 5000, 6000, 8000, 10000, 15000};
 static constexpr int32_t kSeekSteps[]      = {5000, 10000, 15000, 20000, 30000, 45000, 60000};
@@ -170,7 +172,7 @@ tsl::elm::Element* SettingsGui::createUI() {
                 pmshellTerminateProgram(SYSMODULE_TITLE_ID);
                 pmshellExit();
                 svcSleepThread(500'000'000LL);
-                tsl::goBack();
+                tsl::swapTo<MainGui>(SwapDepth{2});
             }
             return true;
         }
