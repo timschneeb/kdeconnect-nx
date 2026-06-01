@@ -60,6 +60,7 @@ set(MINIKDECONNECT_LINK_LIBS
     yyjson
     printf
     MBEDTLS::mbedtls MBEDTLS::mbedx509 MBEDTLS::mbedcrypto
+    png_static
     Threads::Threads
 )
 

@@ -8,17 +8,8 @@
 
 #ifdef __SWITCH__
 #include <malloc.h>
-#define STB_IMAGE_IMPLEMENTATION
-#define STBI_NO_GIF
-#define STBI_NO_PSD
-#define STBI_NO_PIC
-#define STBI_NO_PNM
-#define STBI_NO_TGA
-#define STBI_NO_HDR
-#define STBI_NO_LINEAR
-#define STBI_NO_STDIO
-#define STBI_NO_FAILURE_STRINGS
-#include "stb_image.h"
+#include <cstring>
+#include <png.h>
 #include <dirent.h>
 #include <sys/stat.h>
 #endif
@@ -243,47 +234,99 @@ void NotificationPlugin::write_app_icon(const std::string& icon_hash, const Netw
         return;
     }
 
-    int w, h, channels;
-    if (!stbi_info_from_memory(np_with_payload.payload.data(),
-                               static_cast<int>(np_with_payload.payload.size()),
-                               &w, &h, &channels)) {
-        Logger::warn("Failed to read icon header for hash %s", icon_hash.c_str());
-        return;
-    }
-    // A decoded RGBA buffer of w*h*4 bytes is a large transient heap allocation;
-    // The Android client is capped at 128x128.
+    // Decode row by row to avoid allocating a full w*h*4 intermediate buffer.
+    // The Android client caps icons at 128×128; we guard up to 512 per axis.
     static constexpr int kMaxIconPixels = 256 * 256;
-    if (w * h > kMaxIconPixels) {
-        Logger::warn("Icon %s too large (%dx%d), skipping decode", icon_hash.c_str(), w, h);
+    static constexpr int kMaxIconDim    = 512;
+    static constexpr int OUT            = 50;
+
+    // All stack allocations before setjmp so no C++ objects straddle longjmp.
+    uint8_t row_buf[kMaxIconDim * 4];
+    uint8_t px[OUT * OUT * 4];
+
+    struct MemReader { const uint8_t* data; size_t pos; size_t size; };
+    MemReader reader{np_with_payload.payload.data(), 0, np_with_payload.payload.size()};
+
+    png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+    if (!png_ptr) {
+        Logger::warn("Failed to create PNG read struct for hash %s", icon_hash.c_str());
         return;
     }
-    uint8_t* img = stbi_load_from_memory(np_with_payload.payload.data(),
-                                         static_cast<int>(np_with_payload.payload.size()),
-                                         &w, &h, &channels, 4);
-    if (!img) {
-        Logger::warn("Failed to decode icon for hash %s (%zu B, %dx%d)",
-                     icon_hash.c_str(), np_with_payload.payload.size(), w, h);
+    png_infop info_ptr = png_create_info_struct(png_ptr);
+    if (!info_ptr) {
+        png_destroy_read_struct(&png_ptr, nullptr, nullptr);
         return;
     }
 
-    static constexpr int OUT = 50;
-    uint8_t px[OUT * OUT * 4];
+    if (setjmp(png_jmpbuf(png_ptr))) {
+        Logger::warn("Failed to decode icon for hash %s", icon_hash.c_str());
+        png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
+        return;
+    }
+
+    png_set_read_fn(png_ptr, &reader,
+        [](png_structp png, png_bytep buf, png_size_t n) {
+            auto* r = static_cast<MemReader*>(png_get_io_ptr(png));
+            if (r->pos + n > r->size) { png_error(png, "read past end"); return; }
+            memcpy(buf, r->data + r->pos, n);
+            r->pos += n;
+        });
+
+    png_read_info(png_ptr, info_ptr);
+
+    const int w = static_cast<int>(png_get_image_width(png_ptr, info_ptr));
+    const int h = static_cast<int>(png_get_image_height(png_ptr, info_ptr));
+
+    if (w > kMaxIconDim || h > kMaxIconDim || w * h > kMaxIconPixels) {
+        Logger::warn("Icon %s too large (%dx%d), skipping decode", icon_hash.c_str(), w, h);
+        png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
+        return;
+    }
+
+    // Normalize any PNG variant to 8-bit RGBA.
+    const png_byte bit_depth  = png_get_bit_depth(png_ptr, info_ptr);
+    const png_byte color_type = png_get_color_type(png_ptr, info_ptr);
+    if (bit_depth == 16)
+        png_set_strip_16(png_ptr);
+    if (color_type == PNG_COLOR_TYPE_PALETTE)
+        png_set_palette_to_rgb(png_ptr);
+    if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8)
+        png_set_expand_gray_1_2_4_to_8(png_ptr);
+    if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS))
+        png_set_tRNS_to_alpha(png_ptr);
+    if (color_type == PNG_COLOR_TYPE_RGB ||
+        color_type == PNG_COLOR_TYPE_GRAY ||
+        color_type == PNG_COLOR_TYPE_PALETTE)
+        png_set_filler(png_ptr, 0xFF, PNG_FILLER_AFTER);
+    if (color_type == PNG_COLOR_TYPE_GRAY ||
+        color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
+        png_set_gray_to_rgb(png_ptr);
+    png_read_update_info(png_ptr, info_ptr);
+
+    // Nearest-neighbour downsample to OUT×OUT, advancing the row pointer
+    // sequentially and reusing the same row buffer for repeated output rows.
+    int prev_sy = -1;
     for (int oy = 0; oy < OUT; oy++) {
-        int sy = oy * h / OUT;
+        const int sy = oy * h / OUT;
+        while (prev_sy < sy) {
+            ++prev_sy;
+            png_read_row(png_ptr, row_buf, nullptr);
+        }
         for (int ox = 0; ox < OUT; ox++) {
-            int sx = ox * w / OUT;
-            int si = (sy * w + sx) * 4;
-            int di = (oy * OUT + ox) * 4;
-            px[di]   = img[si];
-            px[di+1] = img[si+1];
-            px[di+2] = img[si+2];
-            px[di+3] = img[si+3];
+            const int sx = ox * w / OUT;
+            const int di = (oy * OUT + ox) * 4;
+            px[di]   = row_buf[sx * 4];
+            px[di+1] = row_buf[sx * 4 + 1];
+            px[di+2] = row_buf[sx * 4 + 2];
+            px[di+3] = row_buf[sx * 4 + 3];
         }
     }
+
+    png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
+
     // Release the compressed source payload before trimming so both large
     // blocks are freed at the arena top together, maximising trim's reach.
     { std::vector<uint8_t>{}.swap(np_with_payload.payload); }
-    stbi_image_free(img);
     malloc_trim(0);
 
     std::string payload(reinterpret_cast<const char*>(px), sizeof(px));

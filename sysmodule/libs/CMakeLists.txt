@@ -1,6 +1,12 @@
 # Custom MbedTLS build for size optimization
 add_subdirectory(mbedtls)
 
+# zlib built from source with ARMv8 CRC32 hardware support
+add_subdirectory(zlib)
+
+# Static libpng for incremental (row-by-row) PNG decoding
+add_subdirectory(libpng)
+
 # Lightweight JSON library
 set(YYJSON_DISABLE_UTILS ON CACHE BOOL "" FORCE)
 set(YYJSON_DISABLE_NON_STANDARD ON CACHE BOOL "" FORCE)
