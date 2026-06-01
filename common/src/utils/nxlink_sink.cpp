@@ -5,9 +5,9 @@
 #include <chrono>
 #include <cstring>
 #include <fcntl.h>
-#include <poll.h>
-#include <optional>
 #include <netinet/in.h>
+#include <optional>
+#include <poll.h>
 #include <sys/socket.h>
 #include <thread>
 #include <unistd.h>
@@ -20,13 +20,13 @@ NxLink::NxLink()
     pthread_attr_setstacksize(&attr, 8 * 1024);
     pthread_create(&bg_thread_, &attr, [](void* self) -> void* {
         static_cast<NxLink*>(self)->backgroundThread();
-        return nullptr;
-    }, this);
+        return nullptr; }, this);
     pthread_attr_destroy(&attr);
 #endif
 }
 
-void NxLink::setHost(const std::optional<in_addr> &host_address, uint16_t port) {
+void NxLink::setHost(const std::optional<in_addr>& host_address, uint16_t port)
+{
 
 #ifdef NXLINK_ENABLED
     host_address_ = host_address;
@@ -42,7 +42,7 @@ int NxLink::connectToHost()
         return -1;
     }
 
-    sockaddr_in srv_addr{};
+    sockaddr_in srv_addr { };
 
     int fd = socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0) {
@@ -65,17 +65,17 @@ int NxLink::connectToHost()
     srv_addr.sin_addr = host_address_.value_or(__nxlink_host);
     srv_addr.sin_port = htons(port_);
 
-    int ret = connect(fd, reinterpret_cast<struct sockaddr *>(&srv_addr), sizeof(srv_addr));
+    int ret = connect(fd, reinterpret_cast<struct sockaddr*>(&srv_addr), sizeof(srv_addr));
     if (ret != 0 && errno != EINPROGRESS) {
         close(fd);
         return -1;
     }
 
     if (ret != 0) { // EINPROGRESS
-        pollfd pfd{};
+        pollfd pfd { };
 
-        pfd.fd      = fd;
-        pfd.events  = POLLOUT;
+        pfd.fd = fd;
+        pfd.events = POLLOUT;
         pfd.revents = 0;
 
         int n = poll(&pfd, 1, 1000); // only wait up to 1s to connect
@@ -104,7 +104,8 @@ int NxLink::connectToHost()
 #endif
 }
 
-bool NxLink::isEnabled() const {
+bool NxLink::isEnabled() const
+{
 #ifdef NXLINK_ENABLED
     return __nxlink_host.s_addr || host_address_.has_value();
 #else
@@ -143,7 +144,8 @@ void NxLink::shutdown()
 {
 #ifdef NXLINK_ENABLED
     shutting_down_ = true;
-    if (bg_thread_) pthread_join(bg_thread_, nullptr);
+    if (bg_thread_)
+        pthread_join(bg_thread_, nullptr);
     if (sock_ >= 0) {
         close(sock_);
         sock_ = -1;
@@ -176,14 +178,19 @@ void NxLink::write(const char* message)
 #endif
 }
 
-void NxLink::writeToCache(const char *message) {
+void NxLink::writeToCache(const char* message)
+{
+#ifdef NXLINK_ENABLED
     std::lock_guard lock(mutex_);
     if (message_cache_.size() < MAX_CACHE_SIZE) {
         message_cache_.emplace(message);
     }
+#endif
 }
 
-void NxLink::flushCache() {
+void NxLink::flushCache()
+{
+#ifdef NXLINK_ENABLED
     while (!message_cache_.empty()) {
         const auto& msg = message_cache_.front();
         if (::write(sock_, msg.c_str(), msg.length()) >= 0) {
@@ -194,4 +201,5 @@ void NxLink::flushCache() {
             break;
         }
     }
+#endif
 }
