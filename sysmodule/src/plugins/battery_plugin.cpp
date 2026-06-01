@@ -1,6 +1,11 @@
 #include "battery_plugin.h"
+#include "notification_plugin.h"
 #include "utils/logger.h"
+#include "utils/settings_store.h"
 #include <chrono>
+#include <string>
+
+#define ALLOW_MULTIPLE_THRESHOLD_EVENTS
 
 #ifdef __SWITCH__
 #include <switch.h>
@@ -49,6 +54,7 @@ bool BatteryPlugin::read_hardware(int32_t& charge, bool& charging) const {
 void BatteryPlugin::on_connected(const bool paired) {
     if (!paired) return;
     active_ = true;
+    notified_low_ = false;
 
     int32_t charge = 0;
     bool charging = false;
@@ -87,11 +93,30 @@ bool BatteryPlugin::on_packet_received(const NetworkPacket& np) {
     if (np.type == PacketTypes::Battery) {
         int remote_charge = np.body.value("currentCharge", -1);
         bool remote_charging = np.body.value("isCharging", false);
-        bool is_low = remote_charge <= 15 && np.body.value("thresholdEvent", 0) == 1;
+        bool is_low = np.body.value("thresholdEvent", 0) == 1;
         Logger::info("Remote: %d%%%s%s", remote_charge, remote_charging ? " (charging)" : "", is_low ? " LOW" : "");
 
         cached_remote_charge_ = remote_charge;
         cached_remote_charging_ = remote_charging;
+
+#ifdef ALLOW_MULTIPLE_THRESHOLD_EVENTS
+        if (!remote_charging && is_low) {
+#else
+        if (!remote_charging && is_low && !notified_low_) {
+#endif
+            notified_low_ = true;
+            auto session = provider_ ? provider_->device(device_id_) : nullptr;
+            const std::string dev_name = session ? session->info.name : device_id_;
+            NotificationPlugin::post_notification(
+                "kdeconnect",
+                dev_name,
+                "Low Battery: " + std::to_string(remote_charge) + "%",
+                "battery_low_" + device_id_,
+                SettingsStore::get(KdecIntSettingKey::NotificationDuration));
+        } else if (remote_charging || remote_charge > 15) {
+            notified_low_ = false;
+        }
+
         return true;
     }
     return false;

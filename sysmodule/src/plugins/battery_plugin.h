@@ -33,6 +33,7 @@ private:
     std::atomic<bool> cached_remote_charging_{false};
 
     bool active_ = false;
+    bool notified_low_ = false;
     std::chrono::steady_clock::time_point last_poll_{};
 
 #ifdef __SWITCH__
