@@ -22,7 +22,7 @@ endif()
 # link time, so GCC never reaches the RTL pass that emits .su files).
 # Enable this option to get .su files; it automatically suppresses -flto everywhere.
 option(STACK_USAGE "Generate .su files for puncover stack analysis (disables LTO)" OFF)
-set(STACK_USAGE OFF)
+
 if(STACK_USAGE)
     add_compile_options(-fstack-usage)
 endif()
