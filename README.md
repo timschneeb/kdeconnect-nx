@@ -17,8 +17,9 @@ Copy the contents of `cmake-build-release-devkita64/stage/` to the root of the S
 
 ## Development environment
 
-Setting up a proper dev environment can greatly speed up development using remote logging and remote deployment.
-If you plan on doing non-trivial changes, I highly recommend following the steps below.
+Setting up a proper dev environment can speed up development using remote logging and remote deployment a lot!
+
+I tried to document my personal workflow below as detailed as possible. If you plan on doing non-trivial changes, I highly recommend following the steps below. 
 
 Prerequisites:
 * Everything from above
@@ -73,6 +74,9 @@ python parse_crash.py 01779993533_4de000000c011ec7.log cmake-build-debug-devkita
 python parse_crash.py crash_report.log sysmodule.elf /opt/devkitpro/devkitA64/bin/aarch64-none-elf-gdb
 ```
 
+If the sysmodule experiences an unhandled C++ exception (like `std::bad_alloc`), it will kill itself to avoid a system crash. 
+It will dump the current backtrace addresses into the log file. You can use [`tools/symbolize_terminate.py`](tools/symbolize_terminate.py) to symbolize these addresses.
+
 ### Remote logging
 
 This project uses a modified version of nxlink that implements custom port support, reconnection support, and support for sysmodules.
@@ -104,6 +108,36 @@ cmake-build-debug-host/tools/nxtool -l -P 28771
 # Run server for the overlay to connect to:
 cmake-build-debug-host/tools/nxlink -l -P 28772
 ```
+### Memory profiling & analysis
+
+Since the sysmodule is severely memory-constrained I needed to add some utilities to troubleshoot memory allocations, fragmentation and usage.
+There are several define macros you can uncomment in [`sysmodule/config.h`](sysmodule/config.h) to enable memory debug tools.
+
+Uncomment `#define DEBUG_HEAP` in config.h to print the heap usage and heap arena size regularly.
+
+#### Measuring thread stack usage
+This sysmodule uses threads a lot, so I have to minimize their thread stack size as much as possible. 
+When adding new feature, you must make sure that the executing thread has a sufficient stack size for the task.
+
+To rule-out that a crash is occurring due to a too low stack size, you can temporarily uncomment & set `#define DEBUG_MIN_THREAD_STACK_SIZE 32*1024` to force a minimum stack size. 
+
+Uncomment `#define STACK_THREAD_MEASURE` in config.h to print the max used stack memory of a thread, when it exits. Or call `StackThread::dump_meminfo()` on a thread instance to print the info immediately when the thread is still active.
+
+#### Tracing all memory allocations
+
+>[!WARNING]
+>This is very SLOW!
+
+Uncomment `#define DEBUG_ALLOC_TRACE` to trace all memory allocations and frees including backtrace addresses for each event. 
+They data will be stored in `/atmosphere/logs/kdec_memtrace.bin`. Kill the sysmodule before copying the file over to a computer.
+
+This saved me a ton of time, since there's no ASAN, valgrind, etc. on the Switch. It can find memory leaks, memory fragmentation and other odd behavior really easily.
+
+Using `tools/memtrace_dashboard.py`, the memory allocations can be viewed in an address space histogram, which the ability of showing symbolized backtraces on hover.
+
+It is useful to use `#define DEBUG_EXIT_TIMEOUT 60` in conjunction, to exit the sysmodule after N seconds and end the trace.
+
+#### 
 
 ## License
 
