@@ -6,10 +6,13 @@
 #include <sys/stat.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#ifdef __SWITCH__
+#include <switch.h>
+#endif
 
 #ifndef NO_LOG
 Logger::Sink Logger::sink_;
-FILE* Logger::log_file_ = nullptr;
+std::string Logger::log_file_path_;
 #endif
 #if !defined(NO_LOG) && defined(NXLINK_ENABLED)
 NxLink Logger::nxlink_;
@@ -50,12 +53,25 @@ void Logger::open_log_file(const char* name) {
     mkdir(dir, 0777);
 
     std::string path = std::string(dir) + name + ".log";
-    std::string old_path = std::string(dir) + name + "-old.log";
-    rename(path.c_str(), old_path.c_str());
 
-    log_file_ = fopen(path.c_str(), "w");
-    if (log_file_)
-        fputs("======================\n", log_file_);
+#ifdef __SWITCH__
+    if (FsFileSystem* fs = fsdevGetDeviceFileSystem("sdmc")) {
+        const std::string fs_path = std::string("/atmosphere/logs/") + name;
+        const std::string fs_old  = fs_path + "-old.log";
+        const std::string fs_cur  = fs_path + ".log";
+        fsFsDeleteFile(fs, fs_old.c_str());
+        fsFsRenameFile(fs, fs_cur.c_str(), fs_old.c_str());
+    }
+#else
+    rename(path.c_str(), (std::string(dir) + name + "-old.log").c_str());
+#endif
+
+    FILE* f = fopen(path.c_str(), "w");
+    if (f) {
+        fputs("======================\n", f);
+        fclose(f);
+        log_file_path_ = std::move(path);
+    }
 #endif
 }
 
@@ -65,10 +81,7 @@ void Logger::shutdown() {
 #endif
 #ifndef NO_LOG
     sink_ = nullptr;
-    if (log_file_) {
-        fclose(log_file_);
-        log_file_ = nullptr;
-    }
+    log_file_path_.clear();
 #endif
 }
 
@@ -129,9 +142,11 @@ void Logger::log(const std::string_view level, const std::string_view msg) {
     std::string out = make_log_line(level, msg);
 
     if (sink_) sink_(level, msg);
-    if (log_file_) {
-        fputs(out.c_str(), log_file_);
-        fflush(log_file_);
+    if (!log_file_path_.empty()) {
+        if (FILE* f = fopen(log_file_path_.c_str(), "a")) {
+            fputs(out.c_str(), f);
+            fclose(f);
+        }
     }
 #ifdef NXLINK_ENABLED
     nxlink_.write(out.c_str());

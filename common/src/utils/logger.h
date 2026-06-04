@@ -42,6 +42,6 @@ public:
 private:
 #ifndef NO_LOG
     static Sink sink_;
-    static FILE* log_file_;
+    static std::string log_file_path_;
 #endif
 };
