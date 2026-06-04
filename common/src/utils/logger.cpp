@@ -49,7 +49,11 @@ void Logger::open_log_file(const char* name) {
     constexpr auto dir = "sdmc:/atmosphere/logs/";
     mkdir(dir, 0777);
 
-    log_file_ = fopen((std::string(dir) + name + ".log").c_str(), "a");
+    std::string path = std::string(dir) + name + ".log";
+    std::string old_path = std::string(dir) + name + "-old.log";
+    rename(path.c_str(), old_path.c_str());
+
+    log_file_ = fopen(path.c_str(), "w");
     if (log_file_)
         fputs("======================\n", log_file_);
 #endif
