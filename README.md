@@ -115,7 +115,7 @@ There are several define macros you can uncomment in [`sysmodule/config.h`](sysm
 
 Uncomment `#define DEBUG_HEAP` in config.h to print the heap usage and heap arena size regularly.
 
-#### Measuring thread stack usage
+### Measuring thread stack usage
 This sysmodule uses threads a lot, so I have to minimize their thread stack size as much as possible. 
 When adding new feature, you must make sure that the executing thread has a sufficient stack size for the task.
 
@@ -123,7 +123,7 @@ To rule-out that a crash is occurring due to a too low stack size, you can tempo
 
 Uncomment `#define STACK_THREAD_MEASURE` in config.h to print the max used stack memory of a thread, when it exits. Or call `StackThread::dump_meminfo()` on a thread instance to print the info immediately when the thread is still active.
 
-#### Tracing all memory allocations
+### Tracing all memory allocations
 
 >[!WARNING]
 >This is very SLOW!
@@ -133,7 +133,7 @@ They data will be stored in `/atmosphere/logs/kdec_memtrace.bin`. Kill the sysmo
 
 This saved me a ton of time, since there's no ASAN, valgrind, etc. on the Switch. It can find memory leaks, memory fragmentation and other odd behavior really easily.
 
-Using `tools/memtrace_dashboard.py`, the memory allocations can be viewed in an address space histogram, which the ability of showing symbolized backtraces on hover.
+Using `tools/memtrace_dashboard.py`, the memory allocations can be viewed in an address space histogram, which has the ability of showing symbolized backtraces on hover.
 
 It is useful to use `#define DEBUG_EXIT_TIMEOUT 60` in conjunction, to exit the sysmodule after N seconds and end the trace.
 
