@@ -2,15 +2,13 @@
 
 #include "notification_plugin.h"
 #include "utils/logger.h"
+#include "hiddbg_util.h"
 
 static std::atomic s_no_mouse_support_hint_shown{false};
 
 #ifdef __SWITCH__
 #include <switch.h>
 #include <atomic>
-
-// Reference-counted hiddbg lifetime so multiple sessions don't conflict.
-static std::atomic s_hiddbg_refcount{0};
 
 struct HidKeyInfo {
     uint8_t hid_code;
@@ -125,21 +123,6 @@ static void do_inject_hid(const uint8_t hid_code, const bool shift, const bool c
     hiddbgUnsetKeyboardAutoPilotState();
 }
 
-static void hiddbg_retain() {
-    if (s_hiddbg_refcount.fetch_add(1) == 0) {
-        Result rc = hiddbgInitialize();
-        if (R_FAILED(rc)) {
-            s_hiddbg_refcount.fetch_sub(1);
-            Logger::error("hiddbgInitialize failed: 0x%x", rc);
-        }
-    }
-}
-
-static void hiddbg_release() {
-    if (s_hiddbg_refcount.fetch_sub(1) == 1) {
-        hiddbgExit();
-    }
-}
 #endif // __SWITCH__
 
 std::string MousepadPlugin::name() const { return "Mousepad Plugin"; }
@@ -214,7 +197,7 @@ bool MousepadPlugin::on_packet_received(const NetworkPacket &np) {
 
 void MousepadPlugin::inject_key(const NetworkPacket &np) {
 #ifdef __SWITCH__
-    if (s_hiddbg_refcount.load() == 0) {
+    if (!hiddbg_is_available()) {
         Logger::error("inject_key: hiddbg not initialized");
         return;
     }
