@@ -94,7 +94,7 @@ static void log_backtrace() {
     Logger::error("terminate: anchor=%p symbol=log_backtrace", &log_backtrace);
     Logger::error("terminate: backtrace:");
     for (int i = 0; fp && i < 16; ++i) {
-        Logger::error("  #%-2d  0x%p", i, fp->lr);
+        Logger::error("  #%-2d  %p", i, fp->lr);
         Frame* next = fp->fp;
         if (!next || next <= fp) break;
         fp = next;
