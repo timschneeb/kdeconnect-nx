@@ -137,7 +137,21 @@ Using `tools/memtrace_dashboard.py`, the memory allocations can be viewed in an 
 
 It is useful to use `#define DEBUG_EXIT_TIMEOUT 60` in conjunction, to exit the sysmodule after N seconds and end the trace.
 
-#### 
+#### Code size & stack usage analysis
+
+I also found a really handy tool that helps you to check if there is unneeded stuff in the compiled binary or can also calculate the worst-case stack usage (with some caveats): https://github.com/hbehrens/puncover
+
+To analyze the stack usage, you need to configure CMake with the `STACK_USAGE` option set to ON. This will implicitly disable LTO, so you will end up with bigger binaries when this is enabled.
+When enabled, GCC will generate `*.su` files that can be used with puncover.
+
+Invoke puncover like this:
+```
+puncover --gcc-tools-base /opt/devkitpro/devkitA64/bin/aarch64-none-elf- --elf cmake-build-debug-devkita64-dev/sysmodule/MiniKDEConnect_sysmodule.elf --build-dir cmake-build-debug-devkita64-dev/
+```
+
+> [!IMPORTANT]
+> puncover's worst-case stack usage does not take function pointers and virtual calls into account! 
+> For example, it cannot handle the `DeviceSession::plugin<T>()` call. You need to manually trace call flows in that case to calculate the total worst-case stack usage.
 
 ## License
 
