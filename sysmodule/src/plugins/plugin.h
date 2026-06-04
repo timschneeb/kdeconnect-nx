@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <queue>
 #include <string>
@@ -26,6 +27,14 @@ public:
     // Send a packet with a binary payload. Sets pkt.payload_size and pkt.payload_port, opens a
     // temporary TLS server socket, sends the packet, then serves the payload to the receiver.
     virtual bool send_payload(const std::string& device_id, NetworkPacket pkt) = 0;
+
+    // Like send_payload but streams data via a caller-supplied reader callback.
+    // reader(buf, n) fills buf with up to n bytes and returns the number read (0 = done/error).
+    // size must be the exact total byte count that will be produced.
+    virtual bool send_payload_reader(const std::string& device_id, NetworkPacket pkt,
+                                     int64_t size,
+                                     std::function<size_t(void*, size_t)> reader) = 0;
+
     virtual bool download_payload(const std::shared_ptr<DeviceSession> &session, NetworkPacket &packet, const std::string& file_path) = 0;
 
     virtual std::shared_ptr<DeviceSession> device(const std::string &device_id) const = 0;

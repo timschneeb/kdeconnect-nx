@@ -38,6 +38,9 @@ public:
 
   bool send_packet(const std::string &device_id, const NetworkPacket& pkt) override;
   bool send_payload(const std::string &device_id, NetworkPacket pkt) override;
+  bool send_payload_reader(const std::string &device_id, NetworkPacket pkt,
+                           int64_t size,
+                           std::function<size_t(void*, size_t)> reader) override;
   bool download_payload(const std::shared_ptr<DeviceSession> &session,
                         NetworkPacket &packet,
                         const std::string& file_path) override;

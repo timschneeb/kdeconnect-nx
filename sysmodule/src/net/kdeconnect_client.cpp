@@ -973,6 +973,68 @@ bool KdeConnectClient::send_payload(const std::string& device_id, NetworkPacket 
     return true;
 }
 
+bool KdeConnectClient::send_payload_reader(const std::string& device_id, NetworkPacket pkt,
+                                            const int64_t size,
+                                            std::function<size_t(void*, size_t)> reader) {
+    ScopedFd srv_fd{socket(AF_INET, SOCK_STREAM, 0)};
+    if (!srv_fd) return false;
+
+    int reuse = 1;
+    setsockopt(srv_fd.raw, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+
+    int port = 0;
+    sockaddr_in srv_addr{};
+    srv_addr.sin_family = AF_INET;
+    srv_addr.sin_addr.s_addr = INADDR_ANY;
+    for (int p = 1739; p <= 1764; ++p) {
+        srv_addr.sin_port = htons(static_cast<uint16_t>(p));
+        if (bind(srv_fd.raw, reinterpret_cast<sockaddr*>(&srv_addr), sizeof(srv_addr)) == 0) {
+            port = p;
+            break;
+        }
+    }
+    if (port == 0 || listen(srv_fd.raw, 1) != 0) return false;
+
+    pkt.payload_size = size;
+    pkt.payload_port = port;
+
+    if (!send_packet(device_id, pkt)) return false;
+
+    auto done = std::make_shared<std::atomic<bool>>(false);
+    const int raw_srv_fd = srv_fd.release();
+    auto t = StackThread(16 * 1024, "kc-payload-reader",
+                          [this, raw_srv_fd, reader = std::move(reader), size, done]() mutable {
+        ScopedFd payload_srv_fd{raw_srv_fd};
+        [&] {
+            timeval timeout{15, 0};
+            setsockopt(payload_srv_fd.raw, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+
+            ScopedFd client_fd{accept(payload_srv_fd.raw, nullptr, nullptr)};
+            if (!client_fd) return;
+
+            auto tls_session = tls_.create_session(client_fd.raw, false);
+            if (!tls_session || !NetworkUtil::perform_tls_handshake(*tls_session)) return;
+
+            unsigned char buf[4096];
+            int64_t remaining = size;
+            while (remaining > 0) {
+                size_t to_read = static_cast<size_t>(
+                    remaining < (int64_t)sizeof(buf) ? remaining : (int64_t)sizeof(buf));
+                size_t n = reader(buf, to_read);
+                if (n == 0) break;
+                if (!NetworkUtil::send_all_tls(*tls_session, buf, n)) break;
+                remaining -= static_cast<int64_t>(n);
+            }
+            mbedtls_ssl_close_notify(&tls_session->ssl);
+        }();
+        done->store(true);
+    });
+    std::lock_guard lock(pending_mutex_);
+    pending_threads_.push_back({std::move(t), std::move(done)});
+
+    return true;
+}
+
 void KdeConnectClient::io_loop(const std::shared_ptr<DeviceSession>& session) {
     // Drain outgoing queue. All TLS access is in this one thread, so reads and
     // writes never race on the mbedtls context. Returns false on send failure.
