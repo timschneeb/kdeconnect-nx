@@ -61,6 +61,14 @@ To build and automatically upload the overlay to the Switch, run:
 cmake --build cmake-build-debug-devkita64-dev --target MiniKDEConnect_overlay_upload
 ```
 
+### Linux CLI build
+
+The project can also target Linux and produce a simple CLI for testing the KDE Connect implementation. Not all features are implemented for the PC build, some stuff is stubbed out.
+```
+cmake --preset "default"
+cmake --build cmake-build-debug-host --target MiniKDEConnect_cli
+```
+
 ### Crash reports
 
 To symbolize Atmosphère crash reports (`/atmosphere/crash_reports/*.log`), use the [`tools/symbolize_crash.py`](tools/symbolize_crash.py) Python script.
@@ -147,13 +155,6 @@ When enabled, GCC will generate `*.su` files that can be used with puncover.
 Invoke puncover like this:
 ```
 puncover --gcc-tools-base /opt/devkitpro/devkitA64/bin/aarch64-none-elf- --elf cmake-build-debug-devkita64-dev/sysmodule/MiniKDEConnect_sysmodule.elf --build-dir cmake-build-debug-devkita64-dev/
-```
-### Linux CLI build
-
-The project can also target Linux and produce a simple CLI for testing the KDE Connect implementation. Not all features are implemented for the PC build, some stuff is stubbed out.
-```
-cmake --preset "default"
-cmake --build cmake-build-debug-host --target MiniKDEConnect_cli
 ```
 
 > [!IMPORTANT]
