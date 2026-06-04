@@ -98,10 +98,12 @@ tsl::elm::Element *MainGui::createUI() {
                                        "IPC version mismatch\n\n"
                                        "Overlay and sysmodule\n"
                                        "are on different versions.\n"
-                                       "Overlay: v" + std::to_string(KDEC_IPC_API_VERSION) + "; Sysmodule: v" + std::to_string(ver),
-                                       "Restart sysmodule",
-                                       onClickRestartSysModule
+                                       "Overlay: v" + std::to_string(KDEC_IPC_API_VERSION) + "; Sysmodule: v" + std::to_string(ver) + "\n\n" +
+                                       "Please re-install sysmodule\n"
+                                       "and overlay together."
             );
+            frame->setContent(list);
+            return frame;
         }
 
         if (!devices_prefetched_) {
