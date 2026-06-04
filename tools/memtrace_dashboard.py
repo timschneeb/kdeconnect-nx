@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Disclaimer: this script was largely AI generated for debugging purposes.
 """
 memtrace_dashboard.py - Interactive HTML dashboard from kdec_memtrace.bin
 

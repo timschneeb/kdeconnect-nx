@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Disclaimer: this script was largely AI generated for debugging purposes.
 """
 parse_memtrace.py - Parse and symbolize kdec_memtrace.bin from MiniKDEConnect.
 
