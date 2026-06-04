@@ -148,6 +148,13 @@ Invoke puncover like this:
 ```
 puncover --gcc-tools-base /opt/devkitpro/devkitA64/bin/aarch64-none-elf- --elf cmake-build-debug-devkita64-dev/sysmodule/MiniKDEConnect_sysmodule.elf --build-dir cmake-build-debug-devkita64-dev/
 ```
+### Linux CLI build
+
+The project can also target Linux and produce a simple CLI for testing the KDE Connect implementation. Not all features are implemented for the PC build, some stuff is stubbed out.
+```
+cmake --preset "default"
+cmake --build cmake-build-debug-host --target MiniKDEConnect_cli
+```
 
 > [!IMPORTANT]
 > puncover's worst-case stack usage does not take function pointers and virtual calls into account! 
