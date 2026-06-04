@@ -129,7 +129,7 @@ Uncomment `#define STACK_THREAD_MEASURE` in config.h to print the max used stack
 >This is very SLOW!
 
 Uncomment `#define DEBUG_ALLOC_TRACE` to trace all memory allocations and frees including backtrace addresses for each event. 
-They data will be stored in `/atmosphere/logs/kdec_memtrace.bin`. Kill the sysmodule before copying the file over to a computer.
+The data will be stored in `/atmosphere/logs/kdec_memtrace.bin`. Kill the sysmodule before copying the file over to a computer.
 
 This saved me a ton of time, since there's no ASAN, valgrind, etc. on the Switch. It can find memory leaks, memory fragmentation and other odd behavior really easily.
 
