@@ -7,8 +7,6 @@
 #include <cstdio>
 #include <string>
 
-#include "psc_monitor.h"
-
 #ifdef __SWITCH__
 #include <malloc.h>
 #include <cstring>
@@ -16,6 +14,8 @@
 #include <switch.h>
 #include <dirent.h>
 #include <sys/stat.h>
+
+#include "psc_monitor.h"
 #endif
 
 static constexpr auto kNotifyDir = "/config/ultrahand/notifications";
@@ -138,7 +138,9 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
     if (silent) return true;
     if (!SettingsStore::get(KdecBoolSettingKey::NotificationShowRemoteMessages)) return true;
     if (!Storage::file_exists(kNotifyFlag)) return true;
+#ifdef __SWITCH__
     if (!PscMonitor::is_awake()) return true;
+#endif
     post_app_notification(id, app, title, text, icon_hash);
     return true;
 }

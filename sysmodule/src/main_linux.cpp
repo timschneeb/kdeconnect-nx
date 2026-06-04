@@ -46,8 +46,13 @@ void prompt_device(
 }
 
 int main() {
+    Logger::set_custom_sink([](const std::string_view level, const std::string_view msg) {
+        std::cout << Logger::make_log_line(level, msg);
+    });
+
     Storage storage;
     KdeConnectClient client(storage);
+
     if (!client.start(true)) {
         Logger::error("Failed to start client.");
         return 1;
