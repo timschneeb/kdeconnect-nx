@@ -149,7 +149,7 @@ int main(int argc, char* argv[])
     auto app = NxApplication();
 
 #ifdef DEBUG_EXIT_TIMEOUT
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::minutes(1);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(DEBUG_EXIT_TIMEOUT);
     while (std::chrono::steady_clock::now() < deadline) {
 #else
     // ReSharper disable once CppDFAEndlessLoop

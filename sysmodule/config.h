@@ -15,6 +15,10 @@
 //#define DEBUG_ALLOC_TRACE
 /// Log basic heap usage statistics in intervals
 #define DEBUG_HEAP
+
+// ------ OTHER ------
+/// Exit sysmodule automatically after N seconds
+//#define DEBUG_EXIT_TIMEOUT 60
 #endif
 
 /**
