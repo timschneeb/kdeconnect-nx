@@ -110,7 +110,7 @@ cmake-build-debug-host/tools/nxlink -l -P 28772
 ```
 ### Memory profiling & analysis
 
-Since the sysmodule is severely memory-constrained I needed to add some utilities to troubleshoot memory allocations, fragmentation and usage.
+Since the sysmodule is severely memory-constrained, while also using a dynamic amount of TLS & network sessions, I needed to add some utilities to troubleshoot memory allocations, fragmentation and usage.
 There are several define macros you can uncomment in [`sysmodule/config.h`](sysmodule/config.h) to enable memory debug tools.
 
 Uncomment `#define DEBUG_HEAP` in config.h to print the heap usage and heap arena size regularly.
