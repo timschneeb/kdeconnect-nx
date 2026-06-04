@@ -15,6 +15,7 @@ std::optional<std::string> read_line_fd(int fd, size_t max_bytes);
 std::optional<std::string> read_line_tls(TlsSession& session, size_t max_bytes);
 bool send_all_tls(TlsSession& session, const std::string& data);
 bool send_all_tls(TlsSession& session, const std::vector<uint8_t>& data);
+bool send_all_tls(TlsSession& session, const unsigned char* data, size_t len);
 
 DeviceInfo info_from_identity(const NetworkPacket& pkt);
 

@@ -1,8 +1,10 @@
 #include "share_plugin.h"
 #include "utils/logger.h"
+#include "hiddbg_util.h"
 
-#include <chrono>
 #include <cstdio>
+#include <cstring>
+#include <ctime>
 
 #include "notification_plugin.h"
 
@@ -133,51 +135,178 @@ bool SharePlugin::open_pending_url() {
     return true;
 }
 
+#ifdef __SWITCH__
+static void press_capture_button() {
+    hiddbg_retain();
+
+    HiddbgCaptureButtonAutoPilotState state{};
+    state.buttons = BIT(0);
+    hiddbgSetCaptureButtonAutoPilotState(&state);
+    svcSleepThread(50'000'000LL); // hold 50 ms
+    hiddbgUnsetCaptureButtonAutoPilotState();
+
+    hiddbg_release();
+}
+
+static FsFileSystem s_album_fs{};
+static bool s_album_fs_open = false;
+
+static bool ensure_album_fs() {
+    if (s_album_fs_open) return true;
+    Result rc = fsOpenImageDirectoryFileSystem(&s_album_fs, FsImageDirectoryId_Sd);
+    if (R_FAILED(rc)) {
+        Logger::error("fsOpenImageDirectoryFileSystem failed: 0x%x", rc);
+        return false;
+    }
+    s_album_fs_open = true;
+    return true;
+}
+
+// Return the lexicographic-max .jpg filename in day_path, or empty string if none.
+// day_path must be an absolute path within the album FsFileSystem, e.g. "/2024/06/04".
+static void scan_newest_jpg(const char* day_path, char* out_name, size_t out_size) {
+    out_name[0] = '\0';
+
+    FsDir dir;
+    Result rc = fsFsOpenDirectory(&s_album_fs, day_path, FsDirOpenMode_ReadFiles, &dir);
+    if (R_FAILED(rc)) {
+        Logger::error("fsFsOpenDirectory failed for %s: 0x%x", day_path, rc);
+        return;
+    }
+
+    FsDirectoryEntry entries[4];
+    while (true) {
+        s64 count = 0;
+        rc = fsDirRead(&dir, &count, 4, entries);
+        if (R_FAILED(rc) || count == 0) break;
+
+        for (s64 i = 0; i < count; ++i) {
+            const char* name = entries[i].name;
+            size_t len = strlen(name);
+            if (len < 21 || memcmp(name + len - 4, ".jpg", 4) != 0) continue;
+            if (strcmp(name, out_name) > 0)
+                strncpy(out_name, name, out_size - 1);
+        }
+    }
+    fsDirClose(&dir);
+}
+
+// Poll the album day directory until a .jpg with a greater filename than
+// prev_newest appears. Returns the new filename on success, empty on timeout.
+static std::string poll_for_new_screenshot(const char* day_path, const char* prev_newest) {
+    for (int attempt = 0; attempt < 20; ++attempt) {
+        svcSleepThread(100'000'000LL); // 100 ms
+
+        char newest_name[FS_MAX_PATH] = {};
+        scan_newest_jpg(day_path, newest_name, sizeof(newest_name));
+
+        if (newest_name[0] != '\0' && strcmp(newest_name, prev_newest) > 0)
+            return newest_name;
+    }
+    return {};
+}
+
+// Poll until the file size stops changing between two consecutive 100 ms checks,
+// indicating the OS has finished writing the JPEG. Returns the stable size or -1 on timeout.
+static s64 wait_for_file_write(const char* fs_path) {
+    s64 prev = -1;
+    for (int i = 0; i < 20; ++i) {
+        svcSleepThread(100'000'000LL); // 100 ms
+        FsFile f;
+        if (R_FAILED(fsFsOpenFile(&s_album_fs, fs_path, FsOpenMode_Read, &f)))
+            continue;
+        s64 sz = 0;
+        Result rc = fsFileGetSize(&f, &sz);
+        fsFileClose(&f);
+        if (R_FAILED(rc) || sz <= 0) continue;
+        if (sz == prev)
+            return sz;
+        prev = sz;
+    }
+    return -1;
+}
+
+// RAII wrapper around FsFile for use as a shared streaming state.
+struct FsReader {
+    FsFile  file{};
+    int64_t offset = 0;
+    ~FsReader() { fsFileClose(&file); }
+};
+
+#endif // __SWITCH__
+
 bool SharePlugin::send_screenshot() const {
     if (!provider_) return false;
 
-    auto buffer = capture_screenshot_to_buffer();
-    if (buffer.empty()) return false;
+#ifdef __SWITCH__
+    std::string fs_path;
+    int64_t file_size = 0;
+    std::shared_ptr<FsReader> reader_state;
 
-    auto ts = std::chrono::duration_cast<std::chrono::seconds>(
-                  std::chrono::system_clock::now().time_since_epoch()).count();
-    char filename[40];
-    snprintf(filename, sizeof(filename), "screenshot_%lld.jpg", static_cast<long long>(ts));
+    {
+        std::lock_guard lock(s_screenshot_mutex_);
+
+        if (!ensure_album_fs()) {
+            Logger::error("send_screenshot: cannot access album filesystem");
+            return false;
+        }
+
+        // Build today's directory path within the album filesystem
+        time_t now = time(nullptr);
+        tm* lt = localtime(&now);
+        char day_path[32];
+        snprintf(day_path, sizeof(day_path), "/%04d/%02d/%02d",
+                 1900 + lt->tm_year, 1 + lt->tm_mon, lt->tm_mday);
+
+        char prev_newest[FS_MAX_PATH] = {};
+        scan_newest_jpg(day_path, prev_newest, sizeof(prev_newest));
+
+        press_capture_button();
+
+        const std::string new_name = poll_for_new_screenshot(day_path, prev_newest);
+        if (new_name.empty()) {
+            Logger::error("send_screenshot: no new screenshot found in album after capture");
+            return false;
+        }
+
+        char buf[FS_MAX_PATH];
+        snprintf(buf, sizeof(buf), "%s/%s", day_path, new_name.c_str());
+        fs_path = buf;
+
+        // Wait for the OS to finish writing the JPEG before we open it for streaming
+        file_size = wait_for_file_write(fs_path.c_str());
+        if (file_size <= 0) {
+            Logger::error("send_screenshot: file never stabilised: %s", fs_path.c_str());
+            return false;
+        }
+
+        // Open the file once writing is complete
+        reader_state = std::make_shared<FsReader>();
+        Result rc = fsFsOpenFile(&s_album_fs, fs_path.c_str(), FsOpenMode_Read, &reader_state->file);
+        if (R_FAILED(rc)) {
+            Logger::error("send_screenshot: fsFsOpenFile failed for %s: 0x%x", fs_path.c_str(), rc);
+            return false;
+        }
+    }
+
+    char filename[64];
+    snprintf(filename, sizeof(filename), "screenshot_%lld.jpg",
+             static_cast<long long>(time(nullptr)));
 
     NetworkPacket pkt;
     pkt.type = PacketTypes::ShareRequest;
     pkt.body.set("filename", std::string(filename));
-    pkt.send_payload = std::move(buffer);
 
-    return provider_->send_payload(device_id_, std::move(pkt));
-}
-
-std::vector<unsigned char> SharePlugin::capture_screenshot_to_buffer() {
-    std::vector<unsigned char> jpegBuffer;
-
-#ifdef __SWITCH__
-    std::lock_guard lock(s_screenshot_mutex_);
-    if (R_FAILED(capsscInitialize())) {
-        Logger::error("Failed to initialize caps:sc");
-        return jpegBuffer;
-    }
-
-    jpegBuffer.resize(CAPSSC_JPEG_BUFFER_SIZE);
-    u64 outSize = 0;
-
-    Result rc = capsscCaptureJpegScreenShot(&outSize, jpegBuffer.data(),
-                                            CAPSSC_JPEG_BUFFER_SIZE,
-                                            ViLayerStack_Screenshot, 100000000);
-    capsscExit();
-
-    if (R_FAILED(rc)) {
-        Logger::error("Failed to capture screenshot: 0x%X", rc);
-        return {};
-    }
-
-    // Release the unused tail of the 512 KB capture buffer before queuing for send.
-    jpegBuffer.resize(outSize);
-    jpegBuffer.shrink_to_fit();
+    auto state = std::move(reader_state);
+    return provider_->send_payload_reader(device_id_, std::move(pkt), file_size,
+        [state](void* buf, const size_t sz) -> size_t {
+            u64 bytes_read = 0;
+            Result rc = fsFileRead(&state->file, state->offset, buf, sz, 0, &bytes_read);
+            if (R_FAILED(rc)) return 0;
+            state->offset += static_cast<int64_t>(bytes_read);
+            return bytes_read;
+        });
+#else
+    return false;
 #endif
-    return jpegBuffer;
 }

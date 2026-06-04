@@ -27,4 +27,12 @@ bool hiddbg_is_available() {
     return s_hiddbg_refcount.load() > 0;
 }
 
+Result hiddbgSetCaptureButtonAutoPilotState(const HiddbgCaptureButtonAutoPilotState *state) {
+    return serviceDispatchIn(hiddbgGetServiceSession(), 131, *state);
+}
+
+Result hiddbgUnsetCaptureButtonAutoPilotState(void) {
+    return serviceDispatch(hiddbgGetServiceSession(), 132);
+}
+
 #endif // __SWITCH__

@@ -67,6 +67,10 @@ bool send_all_tls(TlsSession& session, const std::vector<uint8_t>& data) {
     return send_all_tls_raw(session, data.data(), data.size());
 }
 
+bool send_all_tls(TlsSession& session, const unsigned char* data, const size_t len) {
+    return send_all_tls_raw(session, data, len);
+}
+
 DeviceInfo info_from_identity(const NetworkPacket& pkt) {
     DeviceInfo info;
     info.id = pkt.body.value("deviceId", "");

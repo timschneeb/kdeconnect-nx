@@ -1019,7 +1019,7 @@ bool KdeConnectClient::send_payload_reader(const std::string& device_id, Network
             int64_t remaining = size;
             while (remaining > 0) {
                 size_t to_read = static_cast<size_t>(
-                    remaining < (int64_t)sizeof(buf) ? remaining : (int64_t)sizeof(buf));
+                    remaining < static_cast<int64_t>(sizeof(buf)) ? remaining : static_cast<int64_t>(sizeof(buf)));
                 size_t n = reader(buf, to_read);
                 if (n == 0) break;
                 if (!NetworkUtil::send_all_tls(*tls_session, buf, n)) break;

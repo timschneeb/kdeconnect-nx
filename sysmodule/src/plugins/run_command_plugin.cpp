@@ -1,4 +1,5 @@
 #include "run_command_plugin.h"
+#include "share_plugin.h"
 #include "utils/logger.h"
 
 #ifdef __SWITCH__
@@ -63,7 +64,7 @@ void RunCommandPlugin::send_local_command_list() const {
             R"(\"nx-reboot\":{\"command\":\"Restart console\",\"name\":\"Reboot\"},)"
             R"(\"nx-screen-off\":{\"command\":\"Turn screen backlight off\",\"name\":\"Screen Off\"},)"
             R"(\"nx-screen-on\":{\"command\":\"Turn screen backlight on\",\"name\":\"Screen On\"},)"
-            R"(\"nx-screenshot\":{\"command\":\"Take screenshot\",\"name\":\"Screenshot\"},)"
+            R"(\"nx-screenshot\":{\"command\":\"Take screenshot and send it to this device\",\"name\":\"Receive screenshot\"},)"
             R"(\"nx-shutdown\":{\"command\":\"Turn off console\",\"name\":\"Shutdown\"},)"
             R"(\"nx-sleep\":{\"command\":\"Enter sleep mode (will disconnect)\",\"name\":\"Sleep\"}})"
             R"("})";
@@ -159,10 +160,9 @@ void RunCommandPlugin::run_local_command(const std::string& key) {
 
     // --- Capture ---
     } else if (key == "nx-screenshot") {
-        //appletSaveCurrentScreenshot(AlbumReportOption_Enable);
-        if (R_SUCCEEDED(hidsysInitialize())) {
-            hidsysActivateCaptureButton();
-            hidsysExit();
+        if (auto session = provider_->device(device_id_)) {
+            if (auto* share = session->plugin<SharePlugin>())
+                share->send_screenshot();
         }
     }
 #endif

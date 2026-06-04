@@ -24,5 +24,5 @@ private:
     void send_local_command_list() const;
     void request_remote_command_list() const;
 
-    static void run_local_command(const std::string& key);
+    void run_local_command(const std::string& key);
 };

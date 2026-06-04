@@ -11,6 +11,7 @@ set(MINIKDECONNECT_SYSMODULE_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/src/utils/storage.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/utils/settings_store.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/utils/network_util.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/utils/hiddbg_util.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/plugins/ping_plugin.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/plugins/battery_plugin.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/plugins/notification_plugin.cpp
