@@ -17,6 +17,7 @@ public:
     void update() override;
 
 private:
+    bool initial_tick_ = true;
     uint32_t tick_ = 0;
     char subtitle_buf_[64] = {};
     std::string focused_text_;

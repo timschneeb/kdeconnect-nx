@@ -64,6 +64,13 @@ tsl::elm::Element *MainGui::createUI() {
 
     auto onClickRestartSysModule = [](const u64 keys) -> bool {
         if (keys & HidNpadButton_A) {
+            // Debounce restart requests
+            static u64 last_click_tick = 0;
+            const u64 now = armGetSystemTick();
+            if (last_click_tick != 0 && now - last_click_tick < armNsToTicks(3'000'000'000ULL)) // 3s
+                return true;
+            last_click_tick = now;
+
             if (R_SUCCEEDED(pmshellInitialize())) {
                 pmshellTerminateProgram(SYSMODULE_TITLE_ID);
                 svcSleepThread(100'000'000LL);
@@ -99,7 +106,14 @@ tsl::elm::Element *MainGui::createUI() {
 
         if (!devices_prefetched_) {
             Result rc = kdecIpcGetDevices(devices_);
-            if (R_FAILED(rc)) {
+            if (rc == MAKERESULT(Module_Kernel, KernelError_ConnectionClosed)) {
+                Logger::info("IPC session closed by kernel");
+                kdecIpcExit();
+                list = ErrorWidget::create(sym::infoCircleFilled, "Waiting for sysmodule...");
+                frame->setContent(list);
+                return frame;
+            }
+            else if (R_FAILED(rc)) {
                 char buf[48];
                 snprintf(buf, sizeof(buf), "IPC error: %d-%d", R_MODULE(rc), R_DESCRIPTION(rc));
                 list = ErrorWidget::create(sym::errorCircleFilled, buf);
@@ -197,8 +211,11 @@ bool MainGui::handleInput(const u64 keysDown, u64 keysHeld, const HidTouchState 
 }
 
 void MainGui::update() {
-    if (++tick_ < 120) return;
+    // Check more frequently if not yet connected to backend
+    const auto refresh_rate = kdecIpcIsConnected() ? 120u : 30u;
+    if (++tick_ < refresh_rate && !initial_tick_) return;
     tick_ = 0;
+    initial_tick_ = false;
 
     const bool now_running = kdecIpcRunning();
     Result rc;
@@ -216,15 +233,18 @@ void MainGui::update() {
     }
 
     std::vector<KdecDeviceInfo> fresh;
-    if (now_running) {
+    if (now_running && kdecIpcIsConnected()) {
         rc = kdecIpcGetDevices(fresh);
         if (R_FAILED(rc)) {
             Logger::error("Failed to call to kdecIpcGetDevices: %d-%d", R_MODULE(rc), R_DESCRIPTION(rc));
+            if (rc == MAKERESULT(Module_Kernel, KernelError_ConnectionClosed)) {
+                Logger::info("IPC session closed by kernel");
+                kdecIpcExit();
+            }
             return;
         }
     }
 
-    // TODO: this is unreliable for some reason now
     if (now_running != was_running_ || devicesChanged(devices_, fresh))
         tsl::changeTo<MainGui>(s_lastFocusedItemText, std::move(fresh));
 }
