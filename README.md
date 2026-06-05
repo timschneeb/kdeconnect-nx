@@ -64,7 +64,8 @@ In both directions:
 
 >[!TIP]
 >* Your devices must be connected to the same WiFi network
->* Some networks (espacially public or shared ones) have client isolation enabled; KDE Connect will not be able to communicate with other devices on these networks. 
+>* Some networks (espacially public or shared ones) have client isolation enabled; KDE Connect will not be able to communicate with other devices on these networks.
+>* The system time on your Switch must be correct to pair devices. If you have updated the system time, you need to restart the sysmodule to apply the change to it.
 
 >[!IMPORTANT]
 >Please note that some features are not implemented on all platforms. 
