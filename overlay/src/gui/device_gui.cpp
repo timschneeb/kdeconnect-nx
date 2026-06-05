@@ -79,7 +79,7 @@ tsl::elm::Element* DeviceGui::createUI() {
         }
 
         if (dev_.supports_volume_sinks) {
-            auto* vol = new tsl::elm::ListItem("Volume", sym::chevronRight);
+            auto* vol = new tsl::elm::ListItem("Audio devices", sym::chevronRight);
             vol->setClickListener([id, name](const u64 keys) -> bool {
                 if (keys & HidNpadButton_A) { tsl::changeTo<VolumeGui>(id, name); return true; }
                 return false;

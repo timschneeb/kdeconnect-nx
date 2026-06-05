@@ -60,7 +60,7 @@ VolumeGui::VolumeGui(std::string device_id, std::string device_name)
     : device_id_(std::move(device_id)), device_name_(std::move(device_name)) {}
 
 tsl::elm::Element* VolumeGui::createUI() {
-    auto* frame = new tsl::elm::OverlayFrame("Volume", device_name_);
+    auto* frame = new tsl::elm::OverlayFrame("Audio devices", device_name_);
 
     std::vector<KdecVolumeSinkInfo> sinks;
     Result rc = kdecIpcGetVolumeSinks(device_id_, sinks);
