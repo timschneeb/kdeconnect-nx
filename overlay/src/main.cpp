@@ -3,13 +3,6 @@
 #include <kdec/ipc_client.h>
 #include <src/utils/logger.h>
 
-// ReSharper disable once CppUnusedIncludeDirective
-#include "config.h"
-
-#ifdef DEBUG_ALLOC_TRACE
-#include "utils/mem_tracker.h"
-#endif
-
 #include "gui/main_gui.h"
 
 class OverlayMain : public tsl::Overlay {
@@ -67,14 +60,5 @@ public:
 };
 
 int main(const int argc, char** argv) {
-#ifdef DEBUG_ALLOC_TRACE
-    MemTracker::init();
-#endif
-
-    auto ret = tsl::loop<OverlayMain>(argc, argv);
-
-#ifdef DEBUG_ALLOC_TRACE
-    MemTracker::close_trace();
-#endif
-    return ret;
+    return tsl::loop<OverlayMain>(argc, argv);
 }

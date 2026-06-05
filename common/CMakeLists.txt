@@ -1,6 +1,5 @@
 set(MINIKDECONNECT_COMMON_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/src/utils/logger.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/src/utils/mem_tracker.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/utils/nxlink_sink.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/constants.h
 )

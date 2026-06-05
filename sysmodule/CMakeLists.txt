@@ -10,6 +10,7 @@ set(MINIKDECONNECT_SYSMODULE_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/src/net/tls.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/utils/storage.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/utils/settings_store.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/utils/mem_tracker.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/utils/network_util.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/utils/hiddbg_util.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/utils/album_art.cpp
