@@ -353,6 +353,7 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
                             // Negative pos/length sentinels are filtered in on_packet_received so no
                             // position guard is needed here: a partial seek update won't flip this false.
                             info.can_seek        = state.can_seek && state.length > 0;
+                            strncpy(info.album_art_hash, state.album_art_hash.c_str(), sizeof(info.album_art_hash) - 1);
                             found = 1;
                         }
                     }

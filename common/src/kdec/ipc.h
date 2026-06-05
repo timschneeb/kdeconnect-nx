@@ -102,6 +102,7 @@ struct KdecMediaInfo {
     bool    can_go_next;
     bool    can_go_previous;
     bool    can_seek;
+    char    album_art_hash[17]; // 16-char lowercase hex FNV hash of albumArtUrl; empty if none
 } __attribute__((aligned(16)));
 
 struct KdecCommandEntry {

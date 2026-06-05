@@ -15,6 +15,8 @@ public:
         std::string title;
         std::string artist;
         std::string album;
+        std::string album_art_url;  // raw albumArtUrl from remote
+        std::string album_art_hash; // url_hash(album_art_url); empty if none
         int volume = 0;
         int64_t position = 0;         // last position received from the desktop (ms)
         int64_t last_position_time_ms = 0; // steady_clock ms when position was last set
@@ -26,6 +28,7 @@ public:
     std::vector<std::string> supported_packet_types() const override;
     std::vector<std::string> outgoing_packet_types() const override;
 
+    void on_create() override;
     void on_connected(bool paired) override;
     bool on_packet_received(const NetworkPacket& np) override;
 

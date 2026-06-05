@@ -10,18 +10,25 @@ add_executable(MiniKDEConnect_overlay
     src/gui/settings_gui.cpp
     src/gui/notification_style_gui.cpp
     src/gui/volume_gui.cpp
-        src/utils/symbols.h
-        src/gui/error_widget.cpp
-        src/gui/error_widget.h
-        src/gui/elements/media_button_row.cpp
-        src/gui/elements/media_button_row.h
-        src/gui/elements/media_button_icon.cpp
-        src/gui/elements/media_button_icon.h
-        src/gui/elements/media_seek_bar.cpp
-        src/gui/elements/media_seek_bar.h
-        src/gui/elements/media_title_bar.cpp
-        src/gui/elements/media_title_bar.h
+    src/utils/symbols.h
+    src/gui/error_widget.cpp
+    src/gui/error_widget.h
+    src/gui/elements/media_button_row.cpp
+    src/gui/elements/media_button_row.h
+    src/gui/elements/media_button_icon.cpp
+    src/gui/elements/media_button_icon.h
+    src/gui/elements/media_seek_bar.cpp
+    src/gui/elements/media_seek_bar.h
+    src/gui/elements/media_title_bar.cpp
+    src/gui/elements/media_title_bar.h
 )
+
+# Album art decoding: stb_image (JPEG/PNG) + libwebp (WebP)
+target_include_directories(MiniKDEConnect_overlay PRIVATE libs/stb)
+find_path(DKP_PORTLIBS_INCLUDE webp/decode.h REQUIRED)
+target_include_directories(MiniKDEConnect_overlay PRIVATE ${DKP_PORTLIBS_INCLUDE})
+find_library(WEBP_LIB webp REQUIRED)
+target_link_libraries(MiniKDEConnect_overlay PRIVATE ${WEBP_LIB})
 
 # Optimization and build flags
 target_compile_options(MiniKDEConnect_overlay PRIVATE

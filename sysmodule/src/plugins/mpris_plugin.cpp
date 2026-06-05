@@ -1,7 +1,10 @@
 #include "mpris_plugin.h"
 #include "utils/logger.h"
+#include "utils/album_art.h"
+#include "utils/storage.h"
 #include <algorithm>
 #include <chrono>
+#include <mutex>
 
 int64_t MprisPlugin::now_ms() {
     using namespace std::chrono;
@@ -17,6 +20,11 @@ std::vector<std::string> MprisPlugin::supported_packet_types() const {
 
 std::vector<std::string> MprisPlugin::outgoing_packet_types() const {
     return { PacketTypes::MprisRequest, PacketTypes::Mpris };
+}
+
+void MprisPlugin::on_create() {
+    static std::once_flag s_cleared;
+    std::call_once(s_cleared, AlbumArt::clear_dir);
 }
 
 void MprisPlugin::on_connected(const bool paired) {
@@ -56,7 +64,9 @@ bool MprisPlugin::on_packet_received(const NetworkPacket& np) {
     }
 
     if (np.body.is_str("player")) {
-        std::string player = np.body.get_str("player");
+        const std::string player = np.body.get_str("player");
+        std::string art_url, art_hash;
+
         {
             std::lock_guard lock(mutex_);
             // Ignore status updates from players other than the selected one.
@@ -92,12 +102,45 @@ bool MprisPlugin::on_packet_received(const NetworkPacket& np) {
                 const int64_t l = np.body.get_i64("length");
                 if (l >= 0) state_.length = l;
             }
+
+            if (np.body.is_str("albumArtUrl")) {
+                const std::string new_url = np.body.get_str("albumArtUrl");
+                const std::string new_hash = new_url.empty() ? "" : AlbumArt::url_hash(new_url);
+                state_.album_art_url  = new_url;
+                state_.album_art_hash = new_hash;
+                art_url  = new_url;
+                art_hash = new_hash;
+            } else {
+                // Retain existing for transferringAlbumArt packets that omit the URL
+                art_url  = state_.album_art_url;
+                art_hash = state_.album_art_hash;
+            }
         }
 
-        std::string who = state_.artist.empty() ? state_.title : state_.artist + " - " + state_.title;
+        const std::string who = state_.artist.empty() ? state_.title : state_.artist + " - " + state_.title;
         Logger::info("'%s' %s %s", player.c_str(),
                  state_.is_playing ? "[playing]" : "[paused]",
                  who.c_str());
+
+        // Album art: handled outside the mutex (involves I/O).
+        if (!art_hash.empty()) {
+            const bool file_exists = Storage::file_exists(AlbumArt::img_path(art_hash));
+            if (!file_exists) {
+                if (np.body.value("transferringAlbumArt", false) && np.has_payload()) {
+                    auto np_copy = np;
+                    AlbumArt::download_raw(
+                        provider_, provider_->device(device_id_), np_copy, art_hash);
+                } else if (!art_url.empty()) {
+                    // Request the art from the remote.
+                    Logger::info("AlbumArt: requesting url=%s", art_url.c_str());
+                    NetworkPacket req;
+                    req.type = PacketTypes::MprisRequest;
+                    req.body.set("player", player).set("albumArtUrl", art_url);
+                    send_packet(req);
+                }
+            }
+        }
+
         return true;
     }
 
