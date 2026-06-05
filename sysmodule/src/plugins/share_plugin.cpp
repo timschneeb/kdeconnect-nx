@@ -302,7 +302,10 @@ bool SharePlugin::send_screenshot() const {
         [state](void* buf, const size_t sz) -> size_t {
             u64 bytes_read = 0;
             Result rc = fsFileRead(&state->file, state->offset, buf, sz, 0, &bytes_read);
-            if (R_FAILED(rc)) return 0;
+            if (R_FAILED(rc)) {
+                Logger::error("send_screenshot: fsFileRead failed: 0x%x", rc);
+                return 0;
+            }
             state->offset += static_cast<int64_t>(bytes_read);
             return bytes_read;
         });
