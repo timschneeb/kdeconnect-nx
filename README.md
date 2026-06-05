@@ -9,24 +9,32 @@ Not all KDE Connect plugins are implemented. Some plugins are only implemented i
 
 From your phone, tablet, PC to your Switch:
 
-- **Notifications: receive Android/PC notifications on-screen as popups**
-- Remote keyboard: inject USB keyboard strokes on the Switch from another device
+- **Receive notifications (from Android/PC)**
+- **Remote keyboard**
+  - Inject USB keyboard strokes on the Switch from another device
   - (Limitation: An US English USB keyboard is simulated, so only characters present on a US keyboard can be injected.)
-- Remote commands: remote control the Switch with some hardcoded commands (power control, send screenshot to PC/phone, etc.)
-- Volume control: remote control the master volume level of your Switch
-- File transfer: send files to your Switch's SD card
+- **Remote commands**
+  - Control the Switch with some hardcoded commands (power control, send screenshot to PC/phone, etc.)
+- **Volume control**
+  - Remote control the master volume level of your Switch
+- **File transfer**
+  - Send files to your Switch's SD card
 
 From your Switch to your other devices:
 
-- Media remote: control playback of media on your phone/PC
-- Remote commands (PC only): trigger predefined commands on a connected PC (custom shell commands; requires setup on the PC)
-- Volume control (PC only): remotely choose between audio devices and set the volume level for each one
-- Send screenshot: take a screenshot and send it to a device
-- Ring: find your lost phone
+- **Media playback remote controls**
+- **Remote commands (PC only)**
+  - Trigger predefined commands on a connected PC (custom shell commands; requires setup on the PC)
+- **Audio output control (PC only)**
+  - Remotely choose between audio devices and set the volume level for each one
+- **Send screenshot**
+  - Take a screenshot and send it to a device
+- **Ring device**
 
 In both directions:
 
-- Battery status: view battery levels and charge statuses
+- **Battery status**
+- **Ping devices** (for testing)
 
 ## Screenshots
 
