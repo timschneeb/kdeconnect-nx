@@ -52,7 +52,7 @@ In both directions:
 
 * Install the [Ultrahand-Overlay](https://github.com/ppkantorski/Ultrahand-Overlay), if you haven't already
   * Ultrahand is a fork of Tesla. Tesla does not support notifications and is not compatible with this application! 
-* Download the [latest release](https://github.com/timschneeb/kdeconnect-nx/releases)
+* Download the [latest release](https://github.com/timschneeb/kdeconnect-nx/releases) of this project
 * Extract the ZIP on the SD card of your Switch
 * Reboot
 
