@@ -26,6 +26,10 @@ MediaTitleBar::MediaTitleBar(const Layout layout) : m_layout(layout) {
     m_isItem = false;
 }
 
+MediaTitleBar::~MediaTitleBar() {
+    freeImage();
+}
+
 void MediaTitleBar::setInfo(const std::string& title, const std::string& artist) {
     resetScroll(m_titleScroll,  m_title,  title);
     resetScroll(m_artistScroll, m_artist, artist);
@@ -33,13 +37,12 @@ void MediaTitleBar::setInfo(const std::string& title, const std::string& artist)
 
 void MediaTitleBar::setAlbumArt(const std::string& hash) {
     // Already displaying art for this hash
-    if (!m_art_pixels.empty() && hash == m_art_hash) return;
+    if (m_art_pixels && hash == m_art_hash) return;
 
     // Hash changed: reset display state and scroll layout.
     if (hash != m_art_hash) {
         m_art_hash = hash;
-        m_art_pixels.clear();
-        m_art_pixels.resize(0);
+        freeImage();
         m_art_w = m_art_h = 0;
         m_titleScroll  = {};
         m_artistScroll = {};
@@ -57,11 +60,10 @@ void MediaTitleBar::setAlbumArt(const std::string& hash) {
     fseek(f, 0, SEEK_END);
     const long sz = ftell(f);
     fseek(f, 0, SEEK_SET);
-    if (sz <= 0 || sz > 1 * 1024 * 1024) { fclose(f); return; }
+    if (sz <= 0 || sz > 256 * 1024) { fclose(f); return; }
 
     int src_w = 0, src_h = 0;
     uint8_t* decoded = nullptr;
-    bool is_webp = false;
 
     {
         std::vector<uint8_t> buf(static_cast<size_t>(sz));
@@ -71,7 +73,6 @@ void MediaTitleBar::setAlbumArt(const std::string& hash) {
         if (buf.size() >= 12 &&
             memcmp(buf.data(), "RIFF", 4) == 0 &&
             memcmp(buf.data() + 8, "WEBP", 4) == 0) {
-            is_webp = true;
             decoded = WebPDecodeRGBA(buf.data(), buf.size(), &src_w, &src_h);
         } else {
             int ch = 0;
@@ -81,7 +82,7 @@ void MediaTitleBar::setAlbumArt(const std::string& hash) {
     }
 
     if (!decoded || src_w <= 0 || src_h <= 0) {
-        if (decoded) { if (is_webp) WebPFree(decoded); else stbi_image_free(decoded); }
+        free(decoded);
         return;
     }
 
@@ -90,7 +91,8 @@ void MediaTitleBar::setAlbumArt(const std::string& hash) {
     if (m_layout == Layout::Top) {
         // Use native resolution if it fits; otherwise scale down to the
         // available width while preserving the original ratio.
-        const int avail_w = tsl::cfg::LayerWidth;
+        const int avail_w = tsl::cfg::FramebufferWidth - 90;
+        Logger::error("avail_w = %d", avail_w);
         if (src_w <= avail_w) {
             dst_w = src_w;
             dst_h = src_h;
@@ -103,24 +105,32 @@ void MediaTitleBar::setAlbumArt(const std::string& hash) {
         dst_w = dst_h = kArtDim;
     }
 
-    // Nearest-neighbor scale to (dst_w * dst_h).
-    m_art_pixels.resize(static_cast<size_t>(dst_w) * dst_h * 4);
-    for (int oy = 0; oy < dst_h; ++oy) {
-        const int sy = oy * src_h / dst_h;
-        for (int ox = 0; ox < dst_w; ++ox) {
-            const int sx  = ox * src_w / dst_w;
-            const int src = (sy * src_w + sx) * 4;
-            const int dst = (oy * dst_w + ox) * 4;
-            m_art_pixels[dst]     = decoded[src];
-            m_art_pixels[dst + 1] = decoded[src + 1];
-            m_art_pixels[dst + 2] = decoded[src + 2];
-            m_art_pixels[dst + 3] = decoded[src + 3];
+    // Downscale in-place: write offset <= read offset in row-major order for
+    // any pure downscale, so no second buffer is needed during the loop.
+    if (dst_w != src_w || dst_h != src_h) {
+        for (int oy = 0; oy < dst_h; ++oy) {
+            const int sy = oy * src_h / dst_h;
+            for (int ox = 0; ox < dst_w; ++ox) {
+                const int sx = ox * src_w / dst_w;
+                const int ri = (sy * src_w + sx) * 4;
+                const int wi = (oy * dst_w + ox) * 4;
+                decoded[wi+0] = decoded[ri+0];
+                decoded[wi+1] = decoded[ri+1];
+                decoded[wi+2] = decoded[ri+2];
+                decoded[wi+3] = decoded[ri+3];
+            }
         }
     }
+
+    const size_t scaled_bytes = static_cast<size_t>(dst_w) * dst_h * 4;
+    if (uint8_t* p = static_cast<uint8_t*>(realloc(decoded, scaled_bytes)))
+        decoded = p;
+
+    m_art_pixels = decoded;
     m_art_w = dst_w;
     m_art_h = dst_h;
 
-    if (is_webp) WebPFree(decoded); else stbi_image_free(decoded);
+    Logger::error("Scaled to %dx%d", dst_w, dst_h);
 
     // Art presence changed, force scroll width to be recalculated.
     m_titleScroll  = {};
@@ -142,7 +152,7 @@ void MediaTitleBar::calcScrollWidth(tsl::gfx::Renderer* r, ScrollState& s,
                                      const std::string& text, const u32 fontSize) {
     if (s.maxW) return;
     if (m_layout == Layout::Side) {
-        const s32 art_off = m_art_pixels.empty() ? 0 : kArtDim + kArtGap;
+        const s32 art_off = !m_art_pixels ? 0 : kArtDim + kArtGap;
         s.maxW = static_cast<u32>(std::max(0, getWidth() - art_off));
     } else {
         // Top layout: text spans the full width below the art.
@@ -222,10 +232,16 @@ void MediaTitleBar::drawScrollText(tsl::gfx::Renderer* r, ScrollState& s,
     }
 }
 
+void MediaTitleBar::freeImage() {
+    if (m_art_pixels)
+        free(m_art_pixels);
+    m_art_pixels = nullptr;
+}
+
 void MediaTitleBar::draw(tsl::gfx::Renderer* renderer) {
     const s32 px = getX();
     const s32 py = getY();
-    const bool has_art = !m_art_pixels.empty();
+    const bool has_art = m_art_pixels;
 
     if (m_layout == Layout::Top) {
         if (has_art) {

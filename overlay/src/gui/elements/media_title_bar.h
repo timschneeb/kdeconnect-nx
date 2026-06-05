@@ -11,6 +11,8 @@ public:
     };
 
     explicit MediaTitleBar(Layout layout = Layout::Side);
+    ~MediaTitleBar() override;
+
 
     void setInfo(const std::string& title, const std::string& artist);
     // Load and decode the raw image for this hash. Pass empty string to clear.
@@ -19,7 +21,7 @@ public:
 
     // Actual height needed right now
     s32 height() const {
-        if (m_layout == Layout::Side || m_art_pixels.empty()) return kHeightSide;
+        if (m_layout == Layout::Side || !m_art_pixels) return kHeightSide;
         return m_art_h + 84; // 4 top + art + 8 gap + title + 14 gap + artist + 18 bottom
     }
 
@@ -60,6 +62,8 @@ private:
                                s32 x, s32 y, s32 scissorY, u32 scissorH,
                                u32 fontSize, const tsl::Color& clr);
 
+    void freeImage();
+
     Layout m_layout;
 
     std::string m_title;
@@ -68,7 +72,7 @@ private:
     ScrollState m_artistScroll;
 
     std::string          m_art_hash;
-    std::vector<uint8_t> m_art_pixels;  // m_art_w * m_art_h * 4 RGBA8 bytes, or empty
-    int                  m_art_w = 0;   // actual decoded / prescaled dimensions
+    uint8_t*             m_art_pixels = nullptr;  // m_art_w * m_art_h * 4 RGBA8 bytes, or empty
+    int                  m_art_w = 0;
     int                  m_art_h = 0;
 };
