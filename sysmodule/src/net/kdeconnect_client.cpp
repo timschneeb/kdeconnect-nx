@@ -873,9 +873,14 @@ void KdeConnectClient::unpair(const std::string& device_id) {
     Logger::info("Requesting unpair for %s", device_id.c_str());
 
     auto session = device(device_id);
-    if (!session) {
-        // Device is offline: remove from storage directly
+    if (!session || session->disconnected.load()) {
+        // Device is offline: remove from storage directly. If it reconnects
+        // later, send the unpair packet then (see on-connect logic).
         storage_.remove_paired_device(device_id);
+        if (session) {
+            session->pair_state = PairState::NotPaired;
+            session->paired = false;
+        }
         Logger::info("Unpaired offline device %s", device_id.c_str());
         return;
     }
