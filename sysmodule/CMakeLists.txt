@@ -30,7 +30,6 @@ set(MINIKDECONNECT_NX_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/src/ipc/ipc_service.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/ipc/ipc_server.c
     ${CMAKE_CURRENT_LIST_DIR}/src/utils/psc_monitor.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/src/utils/mem_tracker.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/utils/strtod_stub.c
     ${CMAKE_CURRENT_LIST_DIR}/src/utils/assert_stub.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/utils/printf_stub.c

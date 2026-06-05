@@ -33,13 +33,22 @@ target_link_libraries(MiniKDEConnect_overlay PRIVATE ${WEBP_LIB})
 # Optimization and build flags
 target_compile_options(MiniKDEConnect_overlay PRIVATE
     -Wall -Os -flto
+    $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
     -std=c++26 -fno-exceptions -fno-rtti -Wno-dangling-else -ffast-math
-    -fno-unwind-tables -fno-asynchronous-unwind-tables
+    #-fno-unwind-tables -fno-asynchronous-unwind-tables
 )
 
 target_link_options(MiniKDEConnect_overlay PRIVATE
     -Wl,--gc-sections -Wl,--as-needed -flto
-    -Wl,-wrap,__cxa_throw -Wl,-wrap,_Unwind_Resume -Wl,-wrap,__gxx_personality_v0
+    #-Wl,-wrap,__cxa_throw -Wl,-wrap,_Unwind_Resume -Wl,-wrap,__gxx_personality_v0
+    $<$<CONFIG:Debug>:-Wl,--wrap,malloc>
+    $<$<CONFIG:Debug>:-Wl,--wrap,free>
+    $<$<CONFIG:Debug>:-Wl,--wrap,realloc>
+    $<$<CONFIG:Debug>:-Wl,--wrap,calloc>
+    $<$<CONFIG:Debug>:-Wl,--wrap,memalign>
+    $<$<CONFIG:Debug>:-Wl,--wrap,posix_memalign>
+    $<$<CONFIG:Debug>:-Wl,--wrap,aligned_alloc>
+    $<$<CONFIG:Debug>:-Wl,--wrap,valloc>
 )
 
 target_include_directories(MiniKDEConnect_overlay PRIVATE ${CMAKE_SOURCE_DIR}/common)

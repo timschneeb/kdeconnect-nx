@@ -1,6 +1,6 @@
 #ifdef DEBUG
 
-#include "mem_tracker.h"
+#include "utils/mem_tracker.h"
 #include "logger.h"
 #include <fcntl.h>
 #include <malloc.h>
@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 // ReSharper disable once CppUnusedIncludeDirective
-#include "config.h"
+#include "../config.h"
 
 #ifdef DEBUG_ALLOC_TRACE
 static std::atomic<bool> ready = false;
