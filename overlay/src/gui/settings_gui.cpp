@@ -145,6 +145,14 @@ tsl::elm::Element* SettingsGui::createUI() {
     });
     list->addItem(seek_bar, tsl::style::TrackBarDefaultHeight);
 
+    bool art_top = false;
+    kdecIpcReadBoolSetting(KdecBoolSettingKey::MprisAlbumArtTopLayout, art_top);
+    auto* toggle_art_top = new tsl::elm::ToggleListItem("Album art above track info", art_top);
+    toggle_art_top->setStateChangedListener([](const bool v) {
+        kdecIpcWriteBoolSetting(KdecBoolSettingKey::MprisAlbumArtTopLayout, v);
+    });
+    list->addItem(toggle_art_top);
+
     list->addItem(new tsl::elm::CategoryHeader("Commands"));
 
     bool power_enabled = true;

@@ -16,8 +16,11 @@ tsl::elm::Element* MediaGui::createUI() {
     auto* frame = new tsl::elm::OverlayFrame("Media Remote", m_device_name);
     auto* list  = new tsl::elm::List();
 
-    m_title_bar = new MediaTitleBar();
-    list->addItem(m_title_bar, MediaTitleBar::Height);
+    bool top_layout = false;
+    kdecIpcReadBoolSetting(KdecBoolSettingKey::MprisAlbumArtTopLayout, top_layout);
+    m_title_bar = new MediaTitleBar(top_layout ? MediaTitleBar::Layout::Top
+                                               : MediaTitleBar::Layout::Side);
+    list->addItem(m_title_bar, m_title_bar->height());
 
     m_seek_bar = new MediaSeekBar(m_device_id);
     list->addItem(m_seek_bar, tsl::style::TrackBarDefaultHeight);
