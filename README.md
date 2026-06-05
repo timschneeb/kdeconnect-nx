@@ -3,7 +3,7 @@
 
 
 
-## Building from source
+## Building from sources
 
 Refer to [BUILDING.md](BUILDING.md) for detailed build instructions and development environment setup recommendations. 
 

@@ -1,10 +1,17 @@
-# Building from source
+# Building from sources
 
-Prerequisites:
-* devkitPro
+You must setup [devkitPro](https://devkitpro.org/wiki/Getting_Started) on your system to continue.
+Don't forget to set the `DEVKITPRO` environment variable as mentioned in the devkitPro installation guide.
+
+**Prerequisites:**
   * devkitA64
   * switch-curl
   * switch-zlib
+
+Install the above dependencies, or alternatively just install the meta package for Switch development which contains everything (recommended):
+```
+pacman -S switch-dev
+```
 
 Compile in release mode:
 ```
@@ -19,7 +26,7 @@ Setting up a proper dev environment can speed up development using remote loggin
 
 I tried to document my personal workflow below as detailed as possible. If you plan on doing non-trivial changes, I highly recommend following the steps below. 
 
-Prerequisites:
+**Prerequisites:**
 * Everything from above
 * [sys-ftpd](https://github.com/ELY3M/sys-ftpd) sysmodule installed on the Switch
 
