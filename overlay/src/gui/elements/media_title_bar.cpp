@@ -19,8 +19,6 @@
 #include "stb_image.h"
 #include <webp/decode.h>
 
-#include "logger.h"
-
 static constexpr u32 kTitleSize  = 22;
 static constexpr u32 kArtistSize = 18;
 
@@ -134,8 +132,6 @@ void MediaTitleBar::setAlbumArt(const std::string& hash) {
     m_art_pixels = decoded;
     m_art_w = dst_w;
     m_art_h = dst_h;
-
-    Logger::error("Scaled to %dx%d", dst_w, dst_h);
 
     // Art presence changed, force scroll width to be recalculated.
     m_titleScroll  = {};
