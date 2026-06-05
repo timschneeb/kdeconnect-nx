@@ -33,6 +33,7 @@ public:
         // indefinitely if the service hasn't registered yet, which would freeze
         // the overlay before any GUI is shown. The GUI retries lazily via update().
         if (kdecIpcRunning()) {
+            Logger::info("Sysmodule running; connecting...");
             kdecIpcInitialize();
         } else {
             Logger::warn("Sysmodule not running at startup; will connect when available");
