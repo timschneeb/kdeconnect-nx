@@ -24,7 +24,8 @@ private:
     MediaSeekBar*   m_seek_bar  = nullptr;
     MediaButtonRow* m_btn_row   = nullptr;
 
-    uint32_t m_tick = 0;
+    uint32_t m_tick     = 0;
+    bool     m_show_art = true;
 
     void pollAndUpdate() const;
 };

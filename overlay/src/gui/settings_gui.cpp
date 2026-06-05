@@ -145,9 +145,17 @@ tsl::elm::Element* SettingsGui::createUI() {
     });
     list->addItem(seek_bar, tsl::style::TrackBarDefaultHeight);
 
+    bool show_art = true;
+    kdecIpcReadBoolSetting(KdecBoolSettingKey::MprisShowAlbumArt, show_art);
+    auto* toggle_show_art = new tsl::elm::ToggleListItem("Show thumbnail (if available)", show_art);
+    toggle_show_art->setStateChangedListener([](const bool v) {
+        kdecIpcWriteBoolSetting(KdecBoolSettingKey::MprisShowAlbumArt, v);
+    });
+    list->addItem(toggle_show_art);
+
     bool art_top = false;
     kdecIpcReadBoolSetting(KdecBoolSettingKey::MprisAlbumArtTopLayout, art_top);
-    auto* toggle_art_top = new tsl::elm::ToggleListItem("Album art above track info", art_top);
+    auto* toggle_art_top = new tsl::elm::ToggleListItem("Thumbnail above track info", art_top);
     toggle_art_top->setStateChangedListener([](const bool v) {
         kdecIpcWriteBoolSetting(KdecBoolSettingKey::MprisAlbumArtTopLayout, v);
     });

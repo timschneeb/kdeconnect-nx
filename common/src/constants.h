@@ -24,6 +24,7 @@ enum class NotificationStyle : int32_t {
     X(NotificationDynamicFontSize, false) \
     X(NotificationShowOnBatteryLow, true) \
     X(RunCommandPowerCommandsEnabled, true) \
+    X(MprisShowAlbumArt, true) \
     X(MprisAlbumArtTopLayout, true)
 
 #define KDEC_INT_SETTINGS(X) \

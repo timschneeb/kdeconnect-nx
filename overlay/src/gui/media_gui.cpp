@@ -16,6 +16,8 @@ tsl::elm::Element* MediaGui::createUI() {
     auto* frame = new tsl::elm::OverlayFrame("Media Remote", m_device_name);
     auto* list  = new tsl::elm::List();
 
+    kdecIpcReadBoolSetting(KdecBoolSettingKey::MprisShowAlbumArt, m_show_art);
+
     bool top_layout = false;
     kdecIpcReadBoolSetting(KdecBoolSettingKey::MprisAlbumArtTopLayout, top_layout);
     m_title_bar = new MediaTitleBar(top_layout ? MediaTitleBar::Layout::Top
@@ -70,7 +72,7 @@ void MediaGui::pollAndUpdate() const {
 
     if (m_title_bar) {
         m_title_bar->setInfo(title, artist);
-        m_title_bar->setAlbumArt(info.album_art_hash[0] ? info.album_art_hash : "");
+        m_title_bar->setAlbumArt(m_show_art && info.album_art_hash[0] ? info.album_art_hash : "");
     }
     if (m_seek_bar) {
         m_seek_bar->setSeekable(info.can_seek);
