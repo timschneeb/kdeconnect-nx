@@ -48,6 +48,14 @@ In both directions:
 - **Ping devices** (for testing)
 
 ## Screenshots
+<table>
+  <tr>
+    <td><img src="screenshots/remote_keyboard_demo.gif" alt="Remote keyboard input"/></td>
+  </tr>
+  <tr>
+    <td align="center">Remote keyboard input</td>
+  </tr>
+</table>
 
 <table>
   <tr>
@@ -72,9 +80,6 @@ In both directions:
   </tr>
 </table>
 
-Notifications appear as a pop-up:
-
-![Notification example](screenshots/example_notification.jpg)
 
 ## Building from sources
 
