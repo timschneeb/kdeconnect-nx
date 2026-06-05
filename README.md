@@ -4,12 +4,14 @@ A lightweight [KDE Connect](https://kdeconnect.kde.org/) implementation for the 
 Runs as a background sysmodule with an Ultrahand overlay, and pairs with any KDE Connect client present in the same local network.
 
 
+<div align="center">
 <table>
   <tr>
     <td><img src="screenshots/example_notification_half.jpg" alt="Notification pop-up on Switch home screen" height=300/></td>
     <td><img src="screenshots/overlay_main_half.jpg" alt="Overlay on Switch home screen" height=300/></td>
   </tr>
 </table>
+</div>
 
 
 ## Features
