@@ -20,7 +20,7 @@ public:
     // Actual height needed right now
     s32 height() const {
         if (m_layout == Layout::Side || m_art_pixels.empty()) return kHeightSide;
-        return m_art_h + 70; // 4 top + art + 8 gap + title + 4 + artist + 10 bottom
+        return m_art_h + 84; // 4 top + art + 8 gap + title + 14 gap + artist + 18 bottom
     }
 
     void     draw(tsl::gfx::Renderer* renderer) override;

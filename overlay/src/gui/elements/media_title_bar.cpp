@@ -244,7 +244,7 @@ void MediaTitleBar::draw(tsl::gfx::Renderer* renderer) {
         const s32 titleY  = py + (has_art ? art_bottom + static_cast<s32>(kTitleSize)
                                            : 38);
         const s32 artistY = py + (has_art ? art_bottom + static_cast<s32>(kTitleSize)
-                                           + 4 + static_cast<s32>(kArtistSize)
+                                           + 14 + static_cast<s32>(kArtistSize)
                                            : 74);
 
         if (!m_title.empty()) {
