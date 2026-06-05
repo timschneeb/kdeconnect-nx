@@ -128,7 +128,7 @@ void RunCommandPlugin::run_local_command(const std::string& key) const {
 #ifdef __SWITCH__
     // --- Power ---
     if (key == "nx-sleep") {
-        appletRequestToSleep();
+        svcSleepSystem();
     } else if (key == "nx-reboot") {
         if (R_SUCCEEDED(bpcInitialize())) {
             bpcRebootSystem();
