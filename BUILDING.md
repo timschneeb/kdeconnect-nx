@@ -1,4 +1,4 @@
-## Building from source
+# Building from source
 
 Prerequisites:
 * devkitPro
@@ -13,7 +13,7 @@ cmake --build cmake-build-release-devkita64 -j 6 --target publish
 ```
 Copy the contents of `cmake-build-release-devkita64/stage/` to the root of the SD card.
 
-## Development environment
+# Development environment
 
 Setting up a proper dev environment can speed up development using remote logging and remote deployment a lot!
 
@@ -42,7 +42,7 @@ Then configure the build:
 cmake --preset "switch-dev"
 ```
 
-### FTP upload build targets
+## FTP upload build targets
 
 To build and automatically upload the sysmodule to the Switch, run:
 ```
@@ -59,7 +59,7 @@ To build and automatically upload the overlay to the Switch, run:
 cmake --build cmake-build-debug-devkita64-dev --target MiniKDEConnect_overlay_upload
 ```
 
-### Linux CLI build
+## Linux CLI build
 
 The project can also target Linux and produce a simple CLI for testing the KDE Connect implementation. Not all features are implemented for the PC build, some stuff is stubbed out.
 ```
@@ -67,7 +67,7 @@ cmake --preset "default"
 cmake --build cmake-build-debug-host --target MiniKDEConnect_cli
 ```
 
-### Crash reports
+## Crash reports
 
 To symbolize Atmosphère crash reports (`/atmosphere/crash_reports/*.log`), use the [`tools/symbolize_crash.py`](tools/symbolize_crash.py) Python script.
 You must provide the ELF file that was produced during build, as it contains all the debug symbols. You may also need to provide the path to GDB from the devkitA64 toolkit.
@@ -83,7 +83,7 @@ python parse_crash.py crash_report.log sysmodule.elf /opt/devkitpro/devkitA64/bi
 If the sysmodule experiences an unhandled C++ exception (like `std::bad_alloc`), it will kill itself to avoid a system crash. 
 It will dump the current backtrace addresses into the log file. You can use [`tools/symbolize_terminate.py`](tools/symbolize_terminate.py) to symbolize these addresses.
 
-### Remote logging
+## Remote logging
 
 This project uses a modified version of nxlink that implements custom port support, reconnection support, and support for sysmodules.
 With it, you can use multiple nxlink sessions simultaneously for the overlay and sysmodule.
@@ -114,7 +114,7 @@ cmake-build-debug-host/tools/nxtool -l -P 28771
 # Run server for the overlay to connect to:
 cmake-build-debug-host/tools/nxlink -l -P 28772
 ```
-### Memory profiling & analysis
+## Memory profiling & analysis
 
 Since the sysmodule is severely memory-constrained, while also using a dynamic amount of TLS & network sessions, I needed to add some utilities to troubleshoot memory allocations, fragmentation and usage.
 There are several define macros you can uncomment in [`sysmodule/config.h`](sysmodule/config.h) to enable memory debug tools.
