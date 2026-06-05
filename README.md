@@ -60,7 +60,8 @@ In both directions:
 
 * Visit this page to install KDE Connect on your other devices: https://kdeconnect.kde.org/download.html
 * The KDE Connect clients will automatically discover each other.
-* After starting the pairing process, you need to accept the pair request within 30 seconds.
+* Open the overlay named 'KDE Connect NX' via Ultrahand
+* After starting the pairing process in the overlay, you need to accept the pair request within 30 seconds.
 
 <details>
 <summary>Connection problems? (Click here to expand)</summary>
