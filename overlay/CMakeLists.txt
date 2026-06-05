@@ -46,7 +46,7 @@ target_include_directories(MiniKDEConnect_overlay PRIVATE ${CMAKE_SOURCE_DIR}/co
 target_link_libraries(MiniKDEConnect_overlay PRIVATE minikdeconnect_common libultrahand)
 
 nx_generate_nacp(MiniKDEConnect_overlay.nacp
-        NAME "kdeconnect-nx-overlay"
+        NAME "KDE Connect NX"
         AUTHOR "timschneeb"
         VERSION "${CMAKE_PROJECT_VERSION}"
 )
