@@ -85,11 +85,16 @@ void MediaTitleBar::setAlbumArt(const std::string& hash) {
     // Compute prescale target preserving aspect ratio.
     int dst_w, dst_h;
     if (m_layout == Layout::Top) {
-        // Scale so the larger dimension equals kArtTopDim.
-        const float scale = std::min(static_cast<float>(kArtTopDim) / src_w,
-                                     static_cast<float>(kArtTopDim) / src_h);
-        dst_w = std::max(1, static_cast<int>(src_w * scale));
-        dst_h = std::max(1, static_cast<int>(src_h * scale));
+        // Use native resolution if it fits; otherwise scale down to the
+        // available width while preserving the original ratio.
+        const int avail_w = tsl::cfg::LayerWidth;
+        if (src_w <= avail_w) {
+            dst_w = src_w;
+            dst_h = src_h;
+        } else {
+            dst_w = avail_w;
+            dst_h = std::max(1, src_h * avail_w / src_w);
+        }
     } else {
         // Side layout: fixed square thumbnail.
         dst_w = dst_h = kArtDim;
