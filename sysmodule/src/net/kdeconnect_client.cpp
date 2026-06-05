@@ -982,7 +982,10 @@ bool KdeConnectClient::send_payload_reader(const std::string& device_id, Network
                                             const int64_t size,
                                             std::function<size_t(void*, size_t)> reader) {
     ScopedFd srv_fd{socket(AF_INET, SOCK_STREAM, 0)};
-    if (!srv_fd) return false;
+    if (!srv_fd) {
+        Logger::error("Failed to create socket for payload reader");
+        return false;
+    }
 
     int reuse = 1;
     setsockopt(srv_fd.raw, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
@@ -998,12 +1001,18 @@ bool KdeConnectClient::send_payload_reader(const std::string& device_id, Network
             break;
         }
     }
-    if (port == 0 || listen(srv_fd.raw, 1) != 0) return false;
+    if (port == 0 || listen(srv_fd.raw, 1) != 0) {
+        Logger::error("Failed to bind socket for payload reader");
+        return false;
+    }
 
     pkt.payload_size = size;
     pkt.payload_port = port;
 
-    if (!send_packet(device_id, pkt)) return false;
+    if (!send_packet(device_id, pkt)) {
+        Logger::error("Failed to send packet for payload reader");
+        return false;
+    }
 
     auto done = std::make_shared<std::atomic<bool>>(false);
     const int raw_srv_fd = srv_fd.release();
@@ -1015,10 +1024,16 @@ bool KdeConnectClient::send_payload_reader(const std::string& device_id, Network
             setsockopt(payload_srv_fd.raw, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
 
             ScopedFd client_fd{accept(payload_srv_fd.raw, nullptr, nullptr)};
-            if (!client_fd) return;
+            if (!client_fd) {
+                Logger::error("Failed to accept connection for payload reader");
+                return;
+            }
 
             auto tls_session = tls_.create_session(client_fd.raw, false);
-            if (!tls_session || !NetworkUtil::perform_tls_handshake(*tls_session)) return;
+            if (!tls_session || !NetworkUtil::perform_tls_handshake(*tls_session)) {
+                Logger::error("Failed to perform TLS handshake for payload reader");
+                return;
+            }
 
             unsigned char buf[4096];
             int64_t remaining = size;
