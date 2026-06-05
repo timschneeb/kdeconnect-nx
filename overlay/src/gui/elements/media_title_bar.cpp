@@ -31,14 +31,21 @@ void MediaTitleBar::setInfo(const std::string& title, const std::string& artist)
 }
 
 void MediaTitleBar::setAlbumArt(const std::string& hash) {
-    if (hash == m_art_hash) return;
-    m_art_hash = hash;
-    m_art_pixels.clear();
-    // Force scroll-width recalculation now that art presence changed.
-    m_titleScroll  = {};
-    m_artistScroll = {};
+    // Already displaying art for this hash — nothing to do.
+    if (!m_art_pixels.empty() && hash == m_art_hash) return;
 
-    if (hash.empty()) return;
+    // Hash changed: reset display state and scroll layout.
+    if (hash != m_art_hash) {
+        m_art_hash = hash;
+        m_art_pixels.clear();
+        m_titleScroll  = {};
+        m_artistScroll = {};
+        if (hash.empty()) return;
+    }
+
+    // Fall through to attempt (or retry) loading the file.
+    // If the file doesn't exist yet the function returns early and
+    // m_art_pixels stays empty, so the next poll will retry.
 
     // Load raw image file (no extension; format detected by magic bytes below).
     char path[128];
@@ -93,6 +100,10 @@ void MediaTitleBar::setAlbumArt(const std::string& hash) {
     }
 
     if (is_webp) WebPFree(decoded); else stbi_image_free(decoded);
+
+    // Art offset changed — force scroll width to be recalculated next draw.
+    m_titleScroll  = {};
+    m_artistScroll = {};
 }
 
 void MediaTitleBar::layout(u16, u16, u16, u16) {
