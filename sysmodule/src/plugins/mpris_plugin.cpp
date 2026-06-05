@@ -12,11 +12,11 @@ std::string MprisPlugin::name() const { return "MPRIS Plugin"; }
 std::string MprisPlugin::description() const { return "Remote control for media players on other devices."; }
 
 std::vector<std::string> MprisPlugin::supported_packet_types() const {
-    return { PacketTypes::Mpris };
+    return { PacketTypes::Mpris, PacketTypes::MprisRequest };
 }
 
 std::vector<std::string> MprisPlugin::outgoing_packet_types() const {
-    return { PacketTypes::MprisRequest };
+    return { PacketTypes::MprisRequest, PacketTypes::Mpris };
 }
 
 void MprisPlugin::on_connected(const bool paired) {
