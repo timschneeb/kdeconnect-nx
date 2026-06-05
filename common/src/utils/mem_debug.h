@@ -3,6 +3,7 @@
 #ifdef DEBUG_HEAP
 
 #include <malloc.h>
+#include "logger.h"
 
 struct MemStats {
     size_t proc_used_kb;
