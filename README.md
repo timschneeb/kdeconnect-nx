@@ -87,20 +87,20 @@ In both directions:
   <tr>
     <td><img src="screenshots/overlay_main_crop.jpg" alt="Device list"/></td>
     <td><img src="screenshots/overlay_device_crop.jpg" alt="Device actions"/></td>
-    <td><img src="screenshots/overlay_commands_crop.jpg" alt="Remote commands"/></td>
+    <td><img src="screenshots/overlay_media_remote_crop.jpg" alt="Media remote"/></td>
   </tr>
   <tr>
     <td align="center">Device list</td>
     <td align="center">Device actions</td>
-    <td align="center">Remote commands</td>
+    <td align="center">Media remote</td>
   </tr>
   <tr>
-    <td><img src="screenshots/overlay_media_remote_crop.jpg" alt="Media remote"/></td>
+    <td><img src="screenshots/overlay_commands_crop.jpg" alt="Remote commands"/></td>
     <td><img src="screenshots/overlay_sinks_crop.jpg" alt="Volume control"/></td>
     <td><img src="screenshots/overlay_settings_crop.jpg" alt="Settings"/></td>
   </tr>
   <tr>
-    <td align="center">Media remote</td>
+    <td align="center">Remote commands</td>
     <td align="center">Volume control</td>
     <td align="center">Settings</td>
   </tr>
