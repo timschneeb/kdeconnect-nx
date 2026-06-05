@@ -19,6 +19,8 @@
 #include "stb_image.h"
 #include <webp/decode.h>
 
+#include "logger.h"
+
 static constexpr u32 kTitleSize  = 22;
 static constexpr u32 kArtistSize = 18;
 
@@ -92,13 +94,14 @@ void MediaTitleBar::setAlbumArt(const std::string& hash) {
         // Use native resolution if it fits; otherwise scale down to the
         // available width while preserving the original ratio.
         const int avail_w = tsl::cfg::FramebufferWidth - 90;
-        Logger::error("avail_w = %d", avail_w);
         if (src_w <= avail_w) {
             dst_w = src_w;
             dst_h = src_h;
+            Logger::error("No scaling; src_w = %d, src_h = %d", src_w, src_h);
         } else {
             dst_w = avail_w;
             dst_h = std::max(1, src_h * avail_w / src_w);
+            Logger::error("Scaling from %dx%d to %dx%d", src_w, src_h, dst_w, dst_h);
         }
     } else {
         // Side layout: fixed square thumbnail.
