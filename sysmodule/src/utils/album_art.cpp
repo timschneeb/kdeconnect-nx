@@ -1,11 +1,16 @@
 #include "album_art.h"
 #include "logger.h"
 
+#include <algorithm>
 #include <cstdio>
+#include <deque>
 #include <dirent.h>
 #include <sys/stat.h>
 
 namespace AlbumArt {
+
+static constexpr size_t kLruMax = 10;
+static std::deque<std::string> s_lru;
 
 std::string url_hash(const std::string& url) {
     // FNV-1a 64-bit
@@ -24,6 +29,7 @@ std::string img_path(const std::string& hash) {
 }
 
 void clear_dir() {
+    s_lru.clear();
 #ifdef __SWITCH__
     mkdir(kDir, 0755);
     DIR* d = opendir(kDir);
@@ -36,6 +42,21 @@ void clear_dir() {
     }
     closedir(d);
 #endif
+}
+
+void lru_touch(const std::string& hash) {
+    if (hash.empty()) return;
+    auto it = std::ranges::find(s_lru, hash);
+    if (it != s_lru.end()) {
+        if (it == s_lru.begin()) return; // already most-recent
+        s_lru.erase(it);
+    }
+    s_lru.push_front(hash);
+    while (s_lru.size() > kLruMax) {
+        Logger::info("AlbumArt: evicting %s", s_lru.back().c_str());
+        remove(img_path(s_lru.back()).c_str());
+        s_lru.pop_back();
+    }
 }
 
 bool download_raw(DeviceProvider* provider,
@@ -87,6 +108,7 @@ bool download_raw(DeviceProvider* provider,
 
     Logger::info("AlbumArt: saved %s image as %s",
                  is_jpeg ? "JPEG" : is_png ? "PNG" : "WebP", hash.c_str());
+    lru_touch(hash);
     return true;
 }
 

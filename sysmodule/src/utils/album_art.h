@@ -15,8 +15,11 @@ std::string url_hash(const std::string& url);
 // Full path to the raw downloaded image file for a given hash (no extension).
 std::string img_path(const std::string& hash);
 
-// Delete all files in kDir. Safe to call multiple times; creates the dir if missing.
+// Delete all files in kDir and reset the LRU list.
 void clear_dir();
+
+// Evicts the oldest file once the cache exceeds kLruMax entries.
+void lru_touch(const std::string& hash);
 
 // Download the payload in np to img_path(hash) without decoding.
 // The overlay is responsible for decoding. Returns true on success.

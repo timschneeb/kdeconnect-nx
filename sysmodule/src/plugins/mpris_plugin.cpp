@@ -124,8 +124,9 @@ bool MprisPlugin::on_packet_received(const NetworkPacket& np) {
 
         // Album art: handled outside the mutex (involves I/O).
         if (!art_hash.empty()) {
-            const bool file_exists = Storage::file_exists(AlbumArt::img_path(art_hash));
-            if (!file_exists) {
+            if (Storage::file_exists(AlbumArt::img_path(art_hash))) {
+                AlbumArt::lru_touch(art_hash);
+            } else {
                 if (np.body.value("transferringAlbumArt", false) && np.has_payload()) {
                     auto np_copy = np;
                     AlbumArt::download_raw(
