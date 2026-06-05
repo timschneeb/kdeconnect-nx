@@ -17,11 +17,12 @@ public:
     std::vector<std::pair<std::string, std::string>> remote_command_list() const;
     void run_remote_command(const std::string& key) const;
 
+    void send_local_command_list() const;
+
 private:
     mutable std::mutex remote_commands_mutex_;
     std::unordered_map<std::string, std::string> remote_commands_; // id -> name
 
-    void send_local_command_list() const;
     void request_remote_command_list() const;
 
     void run_local_command(const std::string& key) const;

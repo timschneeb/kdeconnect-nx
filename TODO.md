@@ -1,1 +1,0 @@
-* Android client does not expose the volume settings because the media player capability is missing

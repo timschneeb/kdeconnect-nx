@@ -22,7 +22,8 @@ enum class NotificationStyle : int32_t {
     X(NotificationShowIcon, true) \
     X(NotificationShowTime, true) \
     X(NotificationDynamicFontSize, false) \
-    X(NotificationShowOnBatteryLow, true)
+    X(NotificationShowOnBatteryLow, true) \
+    X(RunCommandPowerCommandsEnabled, true)
 
 #define KDEC_INT_SETTINGS(X) \
     X(NotificationDuration, 4000) \

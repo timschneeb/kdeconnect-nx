@@ -469,6 +469,17 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
             KdecWireWriteBoolSetting wire{};
             memcpy(&wire, r->data.ptr, sizeof(wire));
             SettingsStore::set(wire.key, wire.value);
+
+            if (wire.key == KdecBoolSettingKey::RunCommandPowerCommandsEnabled) {
+                // If power commands were changed, resend the command list.
+                for (auto [id, session] : client->devices()) {
+                    RunCommandPlugin* plg;
+                    if (plg = session->plugin<RunCommandPlugin>(); plg) {
+                        plg->send_local_command_list();
+                    }
+                }
+            }
+
             *out_size = 0;
             return 0;
         }

@@ -145,6 +145,16 @@ tsl::elm::Element* SettingsGui::createUI() {
     });
     list->addItem(seek_bar, tsl::style::TrackBarDefaultHeight);
 
+    list->addItem(new tsl::elm::CategoryHeader("Commands"));
+
+    bool power_enabled = true;
+    kdecIpcReadBoolSetting(KdecBoolSettingKey::RunCommandPowerCommandsEnabled, power_enabled);
+    auto* toggle_power = new tsl::elm::ToggleListItem("Allow power commands", power_enabled);
+    toggle_power->setStateChangedListener([](const bool v) {
+        kdecIpcWriteBoolSetting(KdecBoolSettingKey::RunCommandPowerCommandsEnabled, v);
+    });
+    list->addItem(toggle_power);
+
     list->addItem(new tsl::elm::CategoryHeader("Debugging"));
 
     KdecMemoryInfo mem_info{};
