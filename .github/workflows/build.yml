@@ -32,7 +32,7 @@ jobs:
           restore-keys: ccache-
 
       - name: Restore FetchContent cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /fetchcontent
           key: fetchcontent-${{ hashFiles('CMakeLists.txt', 'sysmodule/libs/mbedtls/CMakeLists.txt') }}
