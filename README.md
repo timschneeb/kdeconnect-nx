@@ -47,6 +47,33 @@ In both directions:
 - **Battery status**
 - **Ping devices** (for testing)
 
+
+## Installation
+
+* Install the [Ultrahand-Overlay](https://github.com/ppkantorski/Ultrahand-Overlay), if you haven't already
+  * Ultrahand is a fork of Tesla. Tesla does not support notifications and is not compatible with this application! 
+* Download the [latest release](https://github.com/timschneeb/kdeconnect-nx/releases)
+* Extract the ZIP on the SD card of your Switch
+* Reboot
+
+### Connecting to other devices
+
+* Visit this page to install KDE Connect on your other devices: https://kdeconnect.kde.org/download.html
+
+>[!IMPORTANT]
+>Please note that some features are not implemented on all platforms. 
+>You will have the best experience with Android & Linux. The Windows client is also very capable. 
+>
+>For macOS there is currently only a nightly version available, and on iOS the implementation is very limited due to Apple's heavy restrictions.
+
+* The KDE Connect clients will automatically discover each other.
+* After starting the pairing process, you need to accept the pair request within 30 seconds.
+
+>[!TIP]
+>* Your devices must be connected to the same WiFi network
+>* Some networks (espacially public or shared ones) have client isolation enabled; KDE Connect will not be able to communicate with other devices on these networks. 
+
+
 ## Screenshots
 <table>
   <tr>
