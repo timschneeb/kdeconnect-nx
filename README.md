@@ -62,16 +62,20 @@ In both directions:
 * The KDE Connect clients will automatically discover each other.
 * After starting the pairing process, you need to accept the pair request within 30 seconds.
 
->[!TIP]
+<details>
+<summary>Connection problems? (Click here to expand)</summary>
+
 >* Your devices must be connected to the same WiFi network
 >* Some networks (espacially public or shared ones) have client isolation enabled; KDE Connect will not be able to communicate with other devices on these networks.
->* The system time on your Switch must be correct to pair devices. If you have updated the system time, you need to restart the sysmodule to apply the change to it.
+>* The system time on your Switch must be correct to pair devices, otherwise the SSL certificate exchange will fail. If you have updated the system time, you need to restart the sysmodule to apply the change to it.
 
+</details>
+  
 >[!IMPORTANT]
 >Please note that some features are not implemented on all platforms. 
 >You will have the best experience with Android & Linux. The Windows client is also very capable. 
 >
->For macOS there is currently only a nightly version available, and on iOS the implementation is very limited due to Apple's heavy restrictions.
+>For macOS there is currently only a nightly version available, and on iOS the implementation is very limited due to Apple's locked down ecosystem (it cannot run in background at all).
 
 ## Screenshots
 <table>
