@@ -19,8 +19,7 @@
     X("nx-screen-off",      "Turn screen backlight off",                  "Screen Off",          false) \
     X("nx-screen-on",       "Turn screen backlight on",                   "Screen On",           false) \
     X("nx-screenshot",      "Take screenshot and send it to this device", "Receive screenshot",  false) \
-    X("nx-shutdown",        "Turn off console",                           "Shutdown",            true)  \
-    X("nx-sleep",           "Enter sleep mode (will disconnect)",         "Sleep",               true)
+    X("nx-shutdown",        "Turn off console",                           "Shutdown",            true)
 
 std::string RunCommandPlugin::name() const { return "Run Command Plugin"; }
 std::string RunCommandPlugin::description() const { return "Exposes Switch system actions as remote commands."; }
@@ -127,9 +126,7 @@ void RunCommandPlugin::run_local_command(const std::string& key) const {
 
 #ifdef __SWITCH__
     // --- Power ---
-    if (key == "nx-sleep") {
-        svcSleepSystem();
-    } else if (key == "nx-reboot") {
+    if (key == "nx-reboot") {
         if (R_SUCCEEDED(bpcInitialize())) {
             bpcRebootSystem();
             bpcExit();
