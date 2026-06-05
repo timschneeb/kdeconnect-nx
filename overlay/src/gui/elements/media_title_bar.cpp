@@ -39,6 +39,7 @@ void MediaTitleBar::setAlbumArt(const std::string& hash) {
     if (hash != m_art_hash) {
         m_art_hash = hash;
         m_art_pixels.clear();
+        m_art_pixels.resize(0);
         m_art_w = m_art_h = 0;
         m_titleScroll  = {};
         m_artistScroll = {};
@@ -56,25 +57,27 @@ void MediaTitleBar::setAlbumArt(const std::string& hash) {
     fseek(f, 0, SEEK_END);
     const long sz = ftell(f);
     fseek(f, 0, SEEK_SET);
-    if (sz <= 0 || sz > 8 * 1024 * 1024) { fclose(f); return; }
-
-    std::vector<uint8_t> buf(static_cast<size_t>(sz));
-    fread(buf.data(), 1, buf.size(), f);
-    fclose(f);
+    if (sz <= 0 || sz > 1 * 1024 * 1024) { fclose(f); return; }
 
     int src_w = 0, src_h = 0;
     uint8_t* decoded = nullptr;
     bool is_webp = false;
 
-    if (buf.size() >= 12 &&
-        memcmp(buf.data(), "RIFF", 4) == 0 &&
-        memcmp(buf.data() + 8, "WEBP", 4) == 0) {
-        is_webp = true;
-        decoded = WebPDecodeRGBA(buf.data(), buf.size(), &src_w, &src_h);
-    } else {
-        int ch = 0;
-        decoded = stbi_load_from_memory(buf.data(), static_cast<int>(buf.size()),
-                                        &src_w, &src_h, &ch, 4);
+    {
+        std::vector<uint8_t> buf(static_cast<size_t>(sz));
+        fread(buf.data(), 1, buf.size(), f);
+        fclose(f);
+
+        if (buf.size() >= 12 &&
+            memcmp(buf.data(), "RIFF", 4) == 0 &&
+            memcmp(buf.data() + 8, "WEBP", 4) == 0) {
+            is_webp = true;
+            decoded = WebPDecodeRGBA(buf.data(), buf.size(), &src_w, &src_h);
+        } else {
+            int ch = 0;
+            decoded = stbi_load_from_memory(buf.data(), static_cast<int>(buf.size()),
+                                            &src_w, &src_h, &ch, 4);
+        }
     }
 
     if (!decoded || src_w <= 0 || src_h <= 0) {
