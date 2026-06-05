@@ -92,16 +92,18 @@ void MediaTitleBar::setAlbumArt(const std::string& hash) {
     int dst_w, dst_h;
     if (m_layout == Layout::Top) {
         // Use native resolution if it fits; otherwise scale down to the
-        // available width while preserving the original ratio.
-        const int avail_w = tsl::cfg::FramebufferWidth - 90;
-        if (src_w <= avail_w) {
-            dst_w = src_w;
-            dst_h = src_h;
-            Logger::error("No scaling; src_w = %d, src_h = %d", src_w, src_h);
-        } else {
+        // available width & height while preserving the original ratio.
+        const int avail_w = tsl::cfg::FramebufferWidth - 85;
+        static constexpr int avail_h = 270;
+        dst_w = src_w;
+        dst_h = src_h;
+        if (dst_w > avail_w) {
             dst_w = avail_w;
             dst_h = std::max(1, src_h * avail_w / src_w);
-            Logger::error("Scaling from %dx%d to %dx%d", src_w, src_h, dst_w, dst_h);
+        }
+        if (dst_h > avail_h) {
+            dst_h = avail_h;
+            dst_w = std::max(1, src_w * avail_h / src_h);
         }
     } else {
         // Side layout: fixed square thumbnail.
@@ -126,7 +128,7 @@ void MediaTitleBar::setAlbumArt(const std::string& hash) {
     }
 
     const size_t scaled_bytes = static_cast<size_t>(dst_w) * dst_h * 4;
-    if (uint8_t* p = static_cast<uint8_t*>(realloc(decoded, scaled_bytes)))
+    if (auto p = static_cast<uint8_t*>(realloc(decoded, scaled_bytes)))
         decoded = p;
 
     m_art_pixels = decoded;
