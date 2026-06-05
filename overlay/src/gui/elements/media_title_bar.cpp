@@ -22,7 +22,7 @@
 static constexpr u32 kTitleSize  = 22;
 static constexpr u32 kArtistSize = 18;
 
-MediaTitleBar::MediaTitleBar(Layout layout) : m_layout(layout) {
+MediaTitleBar::MediaTitleBar(const Layout layout) : m_layout(layout) {
     m_isItem = false;
 }
 
@@ -42,6 +42,8 @@ void MediaTitleBar::setAlbumArt(const std::string& hash) {
         m_art_w = m_art_h = 0;
         m_titleScroll  = {};
         m_artistScroll = {};
+        // Height dropped back to compact, re-layout.
+        if (auto* p = getParent()) p->invalidate();
         if (hash.empty()) return;
     }
 
@@ -93,7 +95,7 @@ void MediaTitleBar::setAlbumArt(const std::string& hash) {
         dst_w = dst_h = kArtDim;
     }
 
-    // Nearest-neighbour scale to (dst_w × dst_h).
+    // Nearest-neighbor scale to (dst_w * dst_h).
     m_art_pixels.resize(static_cast<size_t>(dst_w) * dst_h * 4);
     for (int oy = 0; oy < dst_h; ++oy) {
         const int sy = oy * src_h / dst_h;
@@ -115,6 +117,7 @@ void MediaTitleBar::setAlbumArt(const std::string& hash) {
     // Art presence changed, force scroll width to be recalculated.
     m_titleScroll  = {};
     m_artistScroll = {};
+    if (auto* p = getParent()) p->invalidate();
 }
 
 void MediaTitleBar::layout(u16, u16, u16, u16) {

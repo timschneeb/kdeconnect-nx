@@ -17,7 +17,11 @@ public:
     // Retried on every call while the file isn't yet on disk.
     void setAlbumArt(const std::string& hash);
 
-    s32 height() const { return m_layout == Layout::Top ? kHeightTop : kHeightSide; }
+    // Actual height needed right now
+    s32 height() const {
+        if (m_layout == Layout::Side || m_art_pixels.empty()) return kHeightSide;
+        return m_art_h + 70; // 4 top + art + 8 gap + title + 4 + artist + 10 bottom
+    }
 
     void     draw(tsl::gfx::Renderer* renderer) override;
     void     layout(u16, u16, u16, u16) override;
