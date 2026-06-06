@@ -8,6 +8,10 @@
 
 #include "mdns.h"
 #include "utils/logger.h"
+#include "config.h"
+#ifdef DEBUG_SOCKETS
+#include "socket_stats.h"
+#endif
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -267,14 +271,23 @@ struct MdnsDiscovery::Impl {
             running = false;
             return false;
         }
+#ifdef DEBUG_SOCKETS
+        SocketStats::on_open(service_socket, "mdns_srv");
+#endif
         discovery_socket = mdns_socket_open_ipv4(nullptr);
         if (discovery_socket < 0) {
             Logger::warn("unable to open discovery socket.");
+#ifdef DEBUG_SOCKETS
+            SocketStats::on_close(service_socket);
+#endif
             mdns_socket_close(service_socket);
             service_socket = -1;
             running = false;
             return false;
         }
+#ifdef DEBUG_SOCKETS
+        SocketStats::on_open(discovery_socket, "mdns_disc");
+#endif
         announced = build_announced_info();
         announce(false);
         send_query();
@@ -290,10 +303,16 @@ struct MdnsDiscovery::Impl {
         }
         announce(true);
         if (service_socket >= 0) {
+#ifdef DEBUG_SOCKETS
+            SocketStats::on_close(service_socket);
+#endif
             mdns_socket_close(service_socket);
             service_socket = -1;
         }
         if (discovery_socket >= 0) {
+#ifdef DEBUG_SOCKETS
+            SocketStats::on_close(discovery_socket);
+#endif
             mdns_socket_close(discovery_socket);
             discovery_socket = -1;
         }
