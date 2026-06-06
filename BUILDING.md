@@ -16,7 +16,7 @@ pacman -S switch-dev
 Compile in release mode:
 ```
 cmake --preset "switch-release"
-cmake --build cmake-build-release-devkita64 -j 6 --target publish
+cmake --build cmake-build-release-devkita64 -j 6 --target release
 ```
 Copy the contents of `cmake-build-release-devkita64/stage/` to the root of the SD card.
 

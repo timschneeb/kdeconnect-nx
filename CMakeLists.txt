@@ -37,7 +37,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch")
     add_subdirectory(overlay)
 
     set(STAGE_DIR "${CMAKE_BINARY_DIR}/stage")
-    add_custom_target(publish
+    add_custom_target(stage
         COMMAND ${CMAKE_COMMAND} -E make_directory
             "${STAGE_DIR}/atmosphere/contents"
             "${STAGE_DIR}/switch/.overlays"
