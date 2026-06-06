@@ -51,9 +51,13 @@ jobs:
       - name: Upload release ZIP
         uses: actions/upload-artifact@v7
         with:
+          name: kdeconnect-nx-dev
           path: cmake-build-release-devkita64/kdeconnect-nx-dev.zip
+          archive: false
 
       - name: Upload debug symbols ZIP
         uses: actions/upload-artifact@v7
         with:
+          name: debug-symbols
           path: cmake-build-release-devkita64/debug-symbols.zip
+          archive: false
