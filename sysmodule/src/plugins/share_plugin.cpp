@@ -206,22 +206,35 @@ static std::string poll_for_new_screenshot(const char* day_path, const char* pre
     return {};
 }
 
-// Poll until the file size stops changing between two consecutive 100 ms checks,
-// indicating the OS has finished writing the JPEG. Returns the stable size or -1 on timeout.
-static s64 wait_for_file_write(const char* fs_path) {
-    s64 prev = -1;
-    for (int i = 0; i < 20; ++i) {
+// Poll the directory entry for `filename` inside `day_path` until its reported
+// fileSize becomes non-zero. The capture service keeps the file locked; opening it for reading during that
+// window corrupts the JPEG. Reading the directory entry avoids opening the file.
+// Returns the committed file size, or -1 on timeout
+static s64 wait_for_file_entry_size(const char* day_path, const char* filename) {
+    for (int i = 0; i < 40; ++i) {
         svcSleepThread(100'000'000LL); // 100 ms
-        FsFile f;
-        if (R_FAILED(fsFsOpenFile(&s_album_fs, fs_path, FsOpenMode_Read, &f)))
+
+        FsDir dir;
+        if (R_FAILED(fsFsOpenDirectory(&s_album_fs, day_path, FsDirOpenMode_ReadFiles, &dir)))
             continue;
-        s64 sz = 0;
-        Result rc = fsFileGetSize(&f, &sz);
-        fsFileClose(&f);
-        if (R_FAILED(rc) || sz <= 0) continue;
-        if (sz == prev)
-            return sz;
-        prev = sz;
+
+        s64 found_size = 0;
+        FsDirectoryEntry entries[8];
+        bool found = false;
+        while (!found) {
+            s64 count = 0;
+            if (R_FAILED(fsDirRead(&dir, &count, 8, entries)) || count == 0) break;
+            for (s64 j = 0; j < count; ++j) {
+                if (strcmp(entries[j].name, filename) == 0) {
+                    found_size = entries[j].file_size;
+                    found = true;
+                    break;
+                }
+            }
+        }
+        fsDirClose(&dir);
+
+        if (found && found_size > 0) return found_size;
     }
     return -1;
 }
@@ -273,10 +286,10 @@ bool SharePlugin::send_screenshot() const {
         snprintf(buf, sizeof(buf), "%s/%s", day_path, new_name.c_str());
         fs_path = buf;
 
-        // Wait for the OS to finish writing the JPEG before we open it for streaming
-        file_size = wait_for_file_write(fs_path.c_str());
+        // Wait for the capture service to close the file before we open it.
+        file_size = wait_for_file_entry_size(day_path, new_name.c_str());
         if (file_size <= 0) {
-            Logger::error("send_screenshot: file never stabilised: %s", fs_path.c_str());
+            Logger::error("send_screenshot: file never finalised: %s", fs_path.c_str());
             return false;
         }
 

@@ -1087,6 +1087,11 @@ bool KdeConnectClient::send_payload_reader(const std::string& device_id, Network
                 }
                 remaining -= static_cast<int64_t>(n);
             }
+
+            if (remaining > 0) {
+                Logger::error("Failed to send all payload to %s. size=%ld, remaining=%ld", device_id.c_str(), size, remaining);
+            }
+
             mbedtls_ssl_close_notify(&tls_session->ssl);
         }();
         done->store(true);
