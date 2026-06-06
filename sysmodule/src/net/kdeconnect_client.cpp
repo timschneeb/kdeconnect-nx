@@ -773,7 +773,7 @@ std::string KdeConnectClient::verification_key(const std::shared_ptr<DeviceSessi
     std::vector<unsigned char> a = tls_.local_pubkey_bytes();
     std::vector<unsigned char> b = session->peer_pubkey;
     if (a.empty() || b.empty()) {
-        return "--------";
+        return "<ERROR>";
     }
     bool a_less_than_b = std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end());
     std::vector<unsigned char> combined;
@@ -922,6 +922,7 @@ bool KdeConnectClient::send_packet(const std::string& device_id, const NetworkPa
     return true;
 }
 
+// TODO: This function is unused now
 bool KdeConnectClient::send_payload(const std::string& device_id, NetworkPacket pkt) {
     if (pkt.send_payload.empty()) return false;
 
@@ -953,7 +954,7 @@ bool KdeConnectClient::send_payload(const std::string& device_id, NetworkPacket 
     auto payload = std::make_shared<std::vector<uint8_t>>(std::move(pkt.send_payload));
     auto done = std::make_shared<std::atomic<bool>>(false);
     const int raw_srv_fd = srv_fd.release();
-    auto t = StackThread(16 * 1024, "kc-payload", [this, raw_srv_fd, payload, done]() mutable {
+    auto t = StackThread(16 * 1024, "kc-payload", [this, raw_srv_fd, payload, done, device_id]() mutable {
         ScopedFd payload_srv_fd{raw_srv_fd};
         [&] {
             // Give the receiver 15 s to connect after receiving the share packet.
@@ -967,7 +968,9 @@ bool KdeConnectClient::send_payload(const std::string& device_id, NetworkPacket 
             auto tls_session = tls_.create_session(client_fd.raw, false);
             if (!tls_session || !NetworkUtil::perform_tls_handshake(*tls_session)) return;
 
-            NetworkUtil::send_all_tls(*tls_session, *payload);
+            if (!NetworkUtil::send_all_tls(*tls_session, *payload)) {
+                Logger::error("Failed to send payload to %s", device_id.c_str());
+            }
             mbedtls_ssl_close_notify(&tls_session->ssl);
         }();
         done->store(true);
@@ -1016,8 +1019,8 @@ bool KdeConnectClient::send_payload_reader(const std::string& device_id, Network
 
     auto done = std::make_shared<std::atomic<bool>>(false);
     const int raw_srv_fd = srv_fd.release();
-    auto t = StackThread(16 * 1024, "kc-payload-reader",
-                          [this, raw_srv_fd, reader = std::move(reader), size, done]() mutable {
+    auto t = StackThread(16 * 1024, "kc-payload-stream",
+                          [this, raw_srv_fd, reader = std::move(reader), size, done, device_id]() mutable {
         ScopedFd payload_srv_fd{raw_srv_fd};
         [&] {
             timeval timeout{15, 0};
@@ -1042,7 +1045,10 @@ bool KdeConnectClient::send_payload_reader(const std::string& device_id, Network
                     remaining < static_cast<int64_t>(sizeof(buf)) ? remaining : static_cast<int64_t>(sizeof(buf)));
                 size_t n = reader(buf, to_read);
                 if (n == 0) break;
-                if (!NetworkUtil::send_all_tls(*tls_session, buf, n)) break;
+                if (!NetworkUtil::send_all_tls(*tls_session, buf, n)) {
+                    Logger::error("Failed to send payload to %s. size=%ld, remaining=%ld", device_id.c_str(), size, remaining);
+                    break;
+                }
                 remaining -= static_cast<int64_t>(n);
             }
             mbedtls_ssl_close_notify(&tls_session->ssl);
@@ -1067,8 +1073,10 @@ void KdeConnectClient::io_loop(const std::shared_ptr<DeviceSession>& session) {
                 payload = std::move(session->send_queue.front());
                 session->send_queue.pop();
             }
-            if (!NetworkUtil::send_all_tls(*session->tls, payload))
+            if (!NetworkUtil::send_all_tls(*session->tls, payload)) {
+                Logger::error("Failed to send packet to %s (%s). Contents: %s", session->info.name.c_str(), session->info.id.c_str(), payload.c_str());
                 return false;
+            }
         }
         return false;
     };

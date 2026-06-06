@@ -37,6 +37,9 @@ std::optional<std::string> read_line_tls(TlsSession& session, const size_t max_b
             continue;
         }
         if (read <= 0) {
+            char buf[128];
+            mbedtls_strerror(read, buf, sizeof(buf));
+            Logger::error("read_line_tls: %s", buf);
             return std::nullopt;
         }
         if (ch == '\n') {
