@@ -72,7 +72,7 @@ void RunCommandPlugin::send_local_command_list() const {
 
     std::string cmd_list = "{";
     bool first = true;
-    const auto add = [&](const char* key, const char* cmd, const char* name, bool is_dangerous) {
+    const auto add = [&](const char* key, const char* cmd, const char* name, const bool is_dangerous) {
         if (is_dangerous && !power_enabled) return;
         if (!first) cmd_list += ',';
         first = false;

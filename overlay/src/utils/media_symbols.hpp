@@ -3,7 +3,6 @@
 #include <tesla.hpp>
 
 class AlphaSymbol {
-  private:
     s32       m_width;
     s32       m_height;
     const u8 *m_data;

@@ -19,7 +19,7 @@ static void upsert(yyjson_mut_doc* doc, yyjson_mut_val* obj,
 
 // --- Lifetime ----------------------------------------------------------------
 
-JsonBody::JsonBody(const JsonBody& o) : owns_(true) {
+JsonBody::JsonBody(const JsonBody& o) {
     doc_  = yyjson_mut_doc_new(nullptr);
     root_ = yyjson_mut_obj(doc_);
     yyjson_mut_doc_set_root(doc_, root_);
@@ -274,7 +274,7 @@ JsonBody& JsonBody::copy_field(const char* key, const JsonBody& src) {
 }
 
 JsonBody& JsonBody::set(const char* key, JsonBody&& child) {
-    return set(key, static_cast<const JsonBody&>(child));
+    return set(key, child);
 }
 
 JsonBody& JsonBody::set(const char* key, const JsonBody& child) {

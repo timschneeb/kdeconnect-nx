@@ -98,7 +98,7 @@ tsl::elm::Element* DeviceGui::createUI() {
 
         if (dev_.supports_share) {
             auto* screenshot = new tsl::elm::ListItem("Send screenshot");
-            screenshot->setClickListener([this, id](const u64 keys) -> bool {
+            screenshot->setClickListener([this](const u64 keys) -> bool {
                 if (keys & HidNpadButton_A) {
                     // Remove overlay from screenshot layer stack before capture, then add it back after a short delay
                     // to be safe that the screenshot has completed.

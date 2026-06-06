@@ -315,7 +315,7 @@ void NotificationPlugin::write_app_icon(const std::string& icon_hash, const Netw
 
     // fsFileRead requires a stack destination buffer to avoid 0xD401 IPC errors.
     png_set_read_fn(png_ptr, &read_ctx,
-        [](png_structp png, png_bytep buf, png_size_t n) {
+        [](const png_structp png, png_bytep buf, const png_size_t n) {
             constexpr size_t kChunk = 0x400;
             uint8_t stack_buf[kChunk];
             auto* ctx = static_cast<PngReadCtx*>(png_get_io_ptr(png));

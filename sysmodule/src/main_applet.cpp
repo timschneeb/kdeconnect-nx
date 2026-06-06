@@ -14,10 +14,8 @@
 #include "src/utils/logger.h"
 #include "src/utils/mem_debug.h"
 #include "src/plugins/ping_plugin.h"
-#include "src/plugins/battery_plugin.h"
 #include "src/plugins/find_my_phone_plugin.h"
 #include "src/plugins/mpris_plugin.h"
-#include "src/plugins/share_plugin.h"
 #include "src/plugins/mousepad_plugin.h"
 
 // ---------------------------------------------------------------------------
@@ -99,15 +97,9 @@ static void draw_ui(const KdeConnectClient& client, const int selected) {
 #ifdef DEBUG_HEAP
     {
         const auto mem = get_mem_stats();
-        const auto al  = get_alloc_stats();
         printf("\nMemory:\n");
-        printf("  Proc : %3llu / %3llu MB\n",
-            static_cast<unsigned long long>(mem.proc_used_kb),
-            static_cast<unsigned long long>(mem.proc_total_mk));
         printf("  Heap : %5zu KB used / %5zu KB total  (peak %5zu KB)\n",
             mem.heap_used_kb, mem.heap_total_kb, mem.heap_peak_kb);
-        printf("  new  : %5zu KB live  (peak %5zu KB)  allocs: %zu live / %zu total\n",
-            al.live_kb, al.peak_kb, al.live_allocs, al.total_allocs);
     }
 #endif
 

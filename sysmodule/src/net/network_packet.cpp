@@ -8,7 +8,7 @@ std::string NetworkPacket::serialize() const {
                    .count();
 
     JsonBody root;
-    root.set("id",   (int64_t)now)
+    root.set("id",   now)
         .set("type", type)
         .set("body", body);
 

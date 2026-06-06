@@ -32,7 +32,7 @@ tsl::elm::Element* CommandsGui::createUI() {
         no_cmd->m_isItem = false;
 
         list->addItem(no_cmd);
-        list->addItem(new tsl::elm::CustomDrawer([](tsl::gfx::Renderer* renderer, s32 x, s32 y, s32 w, s32 h) {
+        list->addItem(new tsl::elm::CustomDrawer([](tsl::gfx::Renderer* renderer, const s32 x, const s32 y, s32 w, s32 h) {
             auto lineHeight = tsl::gfx::FontManager::getFontMetricsForCharacter('A', 20).lineHeight + 5;
             renderer->drawString("You can add commands in the", false, x + 5, y + 50, 20, DESC_COLOR);
             renderer->drawString("KDE Connect command plugin", false, x + 5, y + lineHeight + 50, 20, DESC_COLOR);

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <tesla.hpp>
-#include <constants.h>
 
 class NotificationStyleGui : public tsl::Gui {
 public:

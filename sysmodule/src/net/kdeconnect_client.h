@@ -56,7 +56,7 @@ private:
                               const std::string &host, int port);
   void handle_new_connection(const DeviceInfo &identity, ScopedFd fd,
                              bool tcp_server_side);
-  void io_loop(const std::shared_ptr<DeviceSession> &session);
+  void io_loop(const std::shared_ptr<DeviceSession> &session) const;
 
   void handle_packet(const std::shared_ptr<DeviceSession> &session,
                      const std::string &line) const;

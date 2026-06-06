@@ -113,14 +113,14 @@ std::string uppercase_first8(const std::string& hex) {
 int create_tcp_server_socket(const int min_port, const int max_port, int& bound_port) {
     int fd = socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0) return -1;
-    
+
     int reuse = 1;
     setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
 
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
-    
+
     for (int port = min_port; port <= max_port; ++port) {
         addr.sin_port = htons(static_cast<uint16_t>(port));
         if (bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0) {
@@ -137,7 +137,7 @@ int create_tcp_server_socket(const int min_port, const int max_port, int& bound_
 int create_udp_broadcast_socket(const int port) {
     int fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd < 0) return -1;
-    
+
     int reuse = 1;
     setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
     setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &reuse, sizeof(reuse));
@@ -146,7 +146,7 @@ int create_udp_broadcast_socket(const int port) {
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(port);
-    
+
     if (bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
         close(fd);
         return -1;

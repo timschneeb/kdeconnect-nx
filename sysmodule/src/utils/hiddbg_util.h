@@ -15,5 +15,5 @@ void hiddbg_release();
 bool hiddbg_is_available();
 
 Result hiddbgSetCaptureButtonAutoPilotState(const HiddbgCaptureButtonAutoPilotState *state);
-Result hiddbgUnsetCaptureButtonAutoPilotState(void);
+Result hiddbgUnsetCaptureButtonAutoPilotState();
 #endif // __SWITCH__

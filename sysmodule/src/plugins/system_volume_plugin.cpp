@@ -87,7 +87,7 @@ bool SystemVolumePlugin::on_packet_received(const NetworkPacket& np) {
 
     // Remote is advertising its own sinks (initial list or single-sink state update)
     if (np.type == PacketTypes::SystemVolume) {
-        std::lock_guard<std::mutex> lock(remote_sinks_mutex_);
+        std::lock_guard lock(remote_sinks_mutex_);
 
         if (np.body.is_array("sinkList")) {
             remote_sinks_.clear();
@@ -122,14 +122,14 @@ bool SystemVolumePlugin::on_packet_received(const NetworkPacket& np) {
 }
 
 std::vector<SystemVolumePlugin::SinkState> SystemVolumePlugin::get_remote_sink_list() const {
-    std::lock_guard<std::mutex> lock(remote_sinks_mutex_);
+    std::lock_guard lock(remote_sinks_mutex_);
     return remote_sinks_;
 }
 
 void SystemVolumePlugin::set_remote_sink(const std::string& sink_name, const int volume, const bool muted, const bool is_default_output) const {
     int max_volume = 100;
     {
-        std::lock_guard<std::mutex> lock(remote_sinks_mutex_);
+        std::lock_guard lock(remote_sinks_mutex_);
         for (const auto& s : remote_sinks_) {
             if (s.name == sink_name) { max_volume = s.max_volume; break; }
         }

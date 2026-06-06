@@ -5,7 +5,7 @@
 #include <switch.h>
 #include "logger.h"
 
-static std::atomic<int> s_hiddbg_refcount{0};
+static std::atomic s_hiddbg_refcount{0};
 
 void hiddbg_retain() {
     if (s_hiddbg_refcount.fetch_add(1) == 0) {
@@ -31,7 +31,7 @@ Result hiddbgSetCaptureButtonAutoPilotState(const HiddbgCaptureButtonAutoPilotSt
     return serviceDispatchIn(hiddbgGetServiceSession(), 131, *state);
 }
 
-Result hiddbgUnsetCaptureButtonAutoPilotState(void) {
+Result hiddbgUnsetCaptureButtonAutoPilotState() {
     return serviceDispatch(hiddbgGetServiceSession(), 132);
 }
 

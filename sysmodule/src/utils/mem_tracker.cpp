@@ -223,7 +223,7 @@ extern "C" {
     void* __real_aligned_alloc(size_t, size_t);
     void* __real_valloc(size_t);
 
-    void* __wrap_malloc(size_t sz) {
+    void* __wrap_malloc(const size_t sz) {
         void* p = __real_malloc(sz);
         track_alloc(p);
         return p;
@@ -234,38 +234,38 @@ extern "C" {
         __real_free(p);
     }
 
-    void* __wrap_realloc(void* old, size_t sz) {
+    void* __wrap_realloc(void* old, const size_t sz) {
         track_free(old);  // read size before realloc invalidates the block
         void* p = __real_realloc(old, sz);
         track_alloc(p);
         return p;
     }
 
-    void* __wrap_calloc(size_t n, size_t sz) {
+    void* __wrap_calloc(const size_t n, const size_t sz) {
         void* p = __real_calloc(n, sz);
         track_alloc(p);
         return p;
     }
 
-    void* __wrap_memalign(size_t alignment, size_t sz) {
+    void* __wrap_memalign(const size_t alignment, const size_t sz) {
         void* p = __real_memalign(alignment, sz);
         track_alloc(p);
         return p;
     }
 
-    int __wrap_posix_memalign(void** memptr, size_t alignment, size_t sz) {
+    int __wrap_posix_memalign(void** memptr, const size_t alignment, const size_t sz) {
         int ret = __real_posix_memalign(memptr, alignment, sz);
         if (ret == 0) track_alloc(*memptr);
         return ret;
     }
 
-    void* __wrap_aligned_alloc(size_t alignment, size_t sz) {
+    void* __wrap_aligned_alloc(const size_t alignment, const size_t sz) {
         void* p = __real_aligned_alloc(alignment, sz);
         track_alloc(p);
         return p;
     }
 
-    void* __wrap_valloc(size_t sz) {
+    void* __wrap_valloc(const size_t sz) {
         void* p = __real_valloc(sz);
         track_alloc(p);
         return p;

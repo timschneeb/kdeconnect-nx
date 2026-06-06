@@ -7,10 +7,8 @@
 #include <string>
 
 #include "net/kdeconnect_client.h"
-#include "plugins/share_plugin.h"
 #include "utils/storage.h"
 #include "utils/logger.h"
-#include "utils/mem_debug.h"
 #include "ipc/ipc_service.h"
 
 constexpr bool kEnableMdns = true;
@@ -46,7 +44,7 @@ NxApplication::~NxApplication() {
     Logger::shutdown();
 }
 
-void NxApplication::restart_client(const char* reason, bool force) {
+void NxApplication::restart_client(const char* reason, const bool force) {
     if (!force && std::chrono::steady_clock::now() - last_restart_ < restart_cooldown_) {
         return;
     }

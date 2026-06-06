@@ -2,7 +2,6 @@
 #include "plugin.h"
 #include <atomic>
 #include <chrono>
-#include <cstdint>
 
 class BatteryPlugin : public Plugin {
 public:

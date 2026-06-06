@@ -115,7 +115,7 @@ tsl::elm::Element *MainGui::createUI() {
                 frame->setContent(list);
                 return frame;
             }
-            else if (R_FAILED(rc)) {
+            if (R_FAILED(rc)) {
                 char buf[48];
                 snprintf(buf, sizeof(buf), "IPC error: %d-%d", R_MODULE(rc), R_DESCRIPTION(rc));
                 list = ErrorWidget::create(sym::errorCircleFilled, buf);

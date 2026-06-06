@@ -1,6 +1,5 @@
 #include "notification_style_gui.h"
 #include "gui_common.h"
-#include "../utils/symbols.h"
 #include "elements/style_list_item.h"
 #include <kdec/ipc_client.h>
 

@@ -25,7 +25,7 @@ NxLink::NxLink()
 #endif
 }
 
-void NxLink::setHost(const std::optional<in_addr>& host_address, uint16_t port)
+void NxLink::setHost(const std::optional<in_addr>& host_address, const uint16_t port)
 {
 
 #ifdef NXLINK_ENABLED

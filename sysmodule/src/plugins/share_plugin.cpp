@@ -164,7 +164,7 @@ static bool ensure_album_fs() {
 
 // Return the lexicographic-max .jpg filename in day_path, or empty string if none.
 // day_path must be an absolute path within the album FsFileSystem, e.g. "/2024/06/04".
-static void scan_newest_jpg(const char* day_path, char* out_name, size_t out_size) {
+static void scan_newest_jpg(const char* day_path, char* out_name, const size_t out_size) {
     out_name[0] = '\0';
 
     FsDir dir;

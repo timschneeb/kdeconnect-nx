@@ -16,12 +16,12 @@
 #include "socket_stats.h"
 // Wrap socket()/accept() so creation is counted. Closes are counted in ScopedFd
 // destructor and at each explicit close() call site below.
-static int kc_socket(int domain, int type, int proto, const char* name) {
+static int kc_socket(const int domain, const int type, const int proto, const char* name) {
     int fd = socket(domain, type, proto);
     if (fd >= 0) SocketStats::on_open(fd, name);
     return fd;
 }
-static int kc_accept(int s, sockaddr* a, socklen_t* l, const char* name) {
+static int kc_accept(const int s, sockaddr* a, socklen_t* l, const char* name) {
     int fd = accept(s, a, l);
     if (fd >= 0) SocketStats::on_open(fd, name);
     return fd;
@@ -1097,7 +1097,7 @@ bool KdeConnectClient::send_payload_reader(const std::string& device_id, Network
     return true;
 }
 
-void KdeConnectClient::io_loop(const std::shared_ptr<DeviceSession>& session) {
+void KdeConnectClient::io_loop(const std::shared_ptr<DeviceSession>& session) const {
     // Drain outgoing queue. All TLS access is in this one thread, so reads and
     // writes never race on the mbedtls context. Returns false on send failure.
     auto drain_sends = [&]() -> bool {

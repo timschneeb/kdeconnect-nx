@@ -65,7 +65,7 @@ bool download_raw(DeviceProvider* provider,
                   const std::string& hash) {
     const std::string path = img_path(hash);
     Logger::info("AlbumArt: downloading hash=%s size=%lld port=%d",
-                 hash.c_str(), static_cast<long long>(np.payload_size), np.payload_port);
+                 hash.c_str(), np.payload_size, np.payload_port);
 
     if (!provider->download_payload(session, np, path)) {
         Logger::warn("AlbumArt: payload download failed (%s)", hash.c_str());

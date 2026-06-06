@@ -127,7 +127,7 @@ void save() {
             j_bool.set(name, v);
     for (const auto& [k, v] : int_copy)
         if (const char* name = int_key_name(static_cast<KdecIntSettingKey>(k)))
-            j_int.set(name, static_cast<int>(v));
+            j_int.set(name, v);
 
     JsonBody j;
     j.set("bool", std::move(j_bool)).set("int", std::move(j_int));

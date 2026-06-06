@@ -50,7 +50,7 @@ class StackThread {
         u32     magic;
         Handle  handle;
         Thread* thread_ptr;
-        struct _reent* reent;
+        _reent* reent;
         void*   tls_tp;
     } ThreadVars;
 

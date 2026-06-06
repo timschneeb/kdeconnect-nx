@@ -18,7 +18,7 @@ std::string Logger::log_file_path_;
 NxLink Logger::nxlink_;
 #endif
 
-void Logger::set_nxlink_host(const std::string& host_address_str, uint16_t port) {
+void Logger::set_nxlink_host(const std::string& host_address_str, const uint16_t port) {
 #if !defined(NO_LOG) && defined(NXLINK_ENABLED)
     if (host_address_str.empty()) {
         nxlink_.setHost(std::nullopt, port);
