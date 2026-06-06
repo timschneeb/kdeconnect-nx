@@ -46,19 +46,16 @@ jobs:
             -DFETCHCONTENT_BASE_DIR=/fetchcontent
 
       - name: Build
-        run: cmake --build --preset switch-release --target publish
+        run: cmake --build --preset switch-release --target release
 
-      - name: Upload artifact
+      - name: Upload release ZIP
         uses: actions/upload-artifact@v7
         with:
-          name: kdeconnect-nx
-          path: cmake-build-release-devkita64/stage/
-          include-hidden-files: true
+          name: kdeconnect-nx-dev
+          path: cmake-build-release-devkita64/kdeconnect-nx-dev.zip
 
-      - name: Upload ELF files
+      - name: Upload debug symbols ZIP
         uses: actions/upload-artifact@v7
         with:
-          name: kdeconnect-nx-elf
-          path: |
-            cmake-build-release-devkita64/sysmodule/MiniKDEConnect_sysmodule.elf
-            cmake-build-release-devkita64/overlay/MiniKDEConnect_overlay.elf
+          name: -symbols
+          path: cmake-build-release-devkita64/debug-symbols.zip

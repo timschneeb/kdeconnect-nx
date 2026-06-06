@@ -50,4 +50,35 @@ if(CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch")
         DEPENDS MiniKDEConnect_sysmodule_nsp MiniKDEConnect_overlay
         COMMENT "Staging SD card layout to ${STAGE_DIR}"
     )
+
+    if(DEFINED ENV{GITHUB_ACTIONS})
+        set(RELEASE_ZIP "${CMAKE_BINARY_DIR}/kdeconnect-nx-dev.zip")
+        set(DEBUG_ZIP   "${CMAKE_BINARY_DIR}/debug-symbols.zip")
+    else()
+        set(RELEASE_ZIP "${CMAKE_BINARY_DIR}/kdeconnect-nx-release-v${PROJECT_VERSION}.zip")
+        set(DEBUG_ZIP   "${CMAKE_BINARY_DIR}/debug-symbols-v${PROJECT_VERSION}.zip")
+    endif()
+
+    set(DEBUG_STAGE_DIR "${CMAKE_BINARY_DIR}/debug-stage")
+
+    add_custom_target(release
+        # SD card layout ZIP (paths relative to stage/).
+        COMMAND ${CMAKE_COMMAND} -E tar cf "${RELEASE_ZIP}" --format=zip -- .
+        # Flat debug symbols ZIP: copy ELFs into a temp dir first so there are
+        # no subdirectory paths inside the archive.
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${DEBUG_STAGE_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy
+                "${CMAKE_BINARY_DIR}/sysmodule/MiniKDEConnect_sysmodule.elf"
+                "${DEBUG_STAGE_DIR}/MiniKDEConnect_sysmodule.elf"
+        COMMAND ${CMAKE_COMMAND} -E copy
+                "${CMAKE_BINARY_DIR}/overlay/MiniKDEConnect_overlay.elf"
+                "${DEBUG_STAGE_DIR}/MiniKDEConnect_overlay.elf"
+        COMMAND ${CMAKE_COMMAND} -E chdir "${DEBUG_STAGE_DIR}"
+                ${CMAKE_COMMAND} -E tar cf "${DEBUG_ZIP}" --format=zip --
+                MiniKDEConnect_sysmodule.elf
+                MiniKDEConnect_overlay.elf
+        DEPENDS stage
+        WORKING_DIRECTORY "${STAGE_DIR}"
+        COMMENT "Packaging ${RELEASE_ZIP} and ${DEBUG_ZIP}"
+    )
 endif()
