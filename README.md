@@ -8,6 +8,8 @@ Runs as a background sysmodule with an Ultrahand overlay, and pairs with any KDE
   <img src="screenshots/overlay_main_half.jpg" alt="Overlay on Switch home screen" width="400" />
 </p>
 
+More screenshots [below](#screenshots).
+
 ## Features
 
 Not all KDE Connect plugins are implemented. Some plugins are only implemented in one direction.
