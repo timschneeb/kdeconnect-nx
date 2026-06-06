@@ -6,9 +6,13 @@
 #include "config.h"
 
 #include "nx_application.h"
+#include "net/kdeconnect_client.h"
 #include "plugins/plugin_registry.h"
 #include "utils/logger.h"
 #include "utils/mem_debug.h"
+#ifdef DEBUG_SOCKETS
+#include "socket_stats.h"
+#endif
 #ifdef DEBUG_ALLOC_TRACE
 #include "utils/mem_tracker.h"
 #endif
@@ -84,7 +88,7 @@ void __appExit(void)
 }
 }
 
-#ifdef DEBUG_HEAP
+#if defined(DEBUG_HEAP) || defined(DEBUG_SOCKETS)
 static uint8_t tick = 0;
 #endif
 
@@ -157,9 +161,16 @@ int main(int argc, char* argv[])
 #endif
         app.processEvents();
 
-#ifdef DEBUG_HEAP
+#if defined(DEBUG_HEAP) || defined(DEBUG_SOCKETS)
         if (tick >= 20) {
+#ifdef DEBUG_HEAP
             log_mem_stats();
+#endif
+#ifdef DEBUG_SOCKETS
+            const auto& c = app.client();
+            SocketStats::log(c->pending_threads_count(),
+                             static_cast<int>(c->devices().size()));
+#endif
             tick = 0;
         }
         tick++;

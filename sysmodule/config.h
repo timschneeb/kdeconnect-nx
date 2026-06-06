@@ -19,6 +19,8 @@
 // ------ OTHER ------
 /// Exit sysmodule automatically after N seconds
 //#define DEBUG_EXIT_TIMEOUT 60
+/// Log open socket count + pending thread count periodically (same cadence as DEBUG_HEAP)
+#define DEBUG_SOCKETS
 #endif
 
 /**

@@ -25,6 +25,7 @@ public:
   bool start(bool enable_mdns);
   void stop();
   bool needs_restart() const { return needs_restart_.load(); }
+  int pending_threads_count() { std::lock_guard lock(pending_mutex_); return static_cast<int>(pending_threads_.size()); }
 
   std::unordered_map<std::string, std::shared_ptr<DeviceSession>> devices() const override;
   std::shared_ptr<DeviceSession> device(const std::string &device_id) const override;

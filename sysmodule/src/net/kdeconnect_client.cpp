@@ -11,6 +11,30 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#include "config.h"
+#ifdef DEBUG_SOCKETS
+#include "socket_stats.h"
+// Wrap socket()/accept() so creation is counted. Closes are counted in ScopedFd
+// destructor and at each explicit close() call site below.
+static int kc_socket(int domain, int type, int proto, const char* name) {
+    int fd = socket(domain, type, proto);
+    if (fd >= 0) SocketStats::on_open(fd, name);
+    return fd;
+}
+static int kc_accept(int s, sockaddr* a, socklen_t* l, const char* name) {
+    int fd = accept(s, a, l);
+    if (fd >= 0) SocketStats::on_open(fd, name);
+    return fd;
+}
+#define KC_SOCKET(d,t,p,name)  kc_socket(d,t,p,name)
+#define KC_ACCEPT(s,a,l,name)  kc_accept(s,a,l,name)
+#define KC_CLOSE_RAW(fd)       do { if ((fd) >= 0) { SocketStats::on_close(fd); close(fd); (fd) = -1; } } while (0)
+#else
+#define KC_SOCKET(d,t,p,name)  socket(d,t,p)
+#define KC_ACCEPT(s,a,l,name)  accept(s,a,l)
+#define KC_CLOSE_RAW(fd)       do { if ((fd) >= 0) { close(fd); (fd) = -1; } } while (0)
+#endif
+
 #include <array>
 #include <atomic>
 #include <cerrno>
@@ -133,11 +157,17 @@ bool KdeConnectClient::start(const bool enable_mdns) {
         needs_restart_.store(true);
         return false;
     }
+#ifdef DEBUG_SOCKETS
+    SocketStats::on_open(tcp_fd_, "tcp_listen"); // tcp_fd_
+#endif
 
     udp_fd_ = NetworkUtil::create_udp_broadcast_socket(kUdpPort);
     if (udp_fd_ < 0) {
         Logger::warn("Unable to bind UDP socket for listening; discovery receive disabled.");
     }
+#ifdef DEBUG_SOCKETS
+    else { SocketStats::on_open(udp_fd_, "udp"); } // udp_fd_
+#endif
 
     if (enable_mdns) {
         mdns_discovery_ = std::make_unique<MdnsDiscovery>(local_device_, tcp_port_, [this](const std::string& device_id, const std::string& host) {
@@ -206,14 +236,8 @@ void KdeConnectClient::stop() {
         broadcast_thread_.join();
     }
 
-    if (tcp_fd_ >= 0) {
-        close(tcp_fd_);
-        tcp_fd_ = -1;
-    }
-    if (udp_fd_ >= 0) {
-        close(udp_fd_);
-        udp_fd_ = -1;
-    }
+    KC_CLOSE_RAW(tcp_fd_);
+    KC_CLOSE_RAW(udp_fd_);
 
     // Join all pending handshake threads (network_loop has exited, so no new ones are added).
     // SO_RCVTIMEO on their sockets bounds the wait to ~5 s in the worst case.
@@ -237,8 +261,7 @@ void KdeConnectClient::stop() {
         session->disconnected.store(true);
         if (session->fd >= 0) {
             shutdown(session->fd, SHUT_RDWR);
-            close(session->fd);
-            session->fd = -1;
+            KC_CLOSE_RAW(session->fd);
         }
         if (session->io_thread.joinable()) session->io_thread.join();
         if (session->tls) {
@@ -301,9 +324,11 @@ void KdeConnectClient::network_loop() {
         if (tcp_fd_ >= 0 && FD_ISSET(tcp_fd_, &rfds)) {
             sockaddr_in client_addr{};
             socklen_t addr_len = sizeof(client_addr);
-            ScopedFd fd{accept(tcp_fd_, reinterpret_cast<sockaddr*>(&client_addr), &addr_len)};
+            ScopedFd fd{KC_ACCEPT(tcp_fd_, reinterpret_cast<sockaddr*>(&client_addr), &addr_len, "kc_accept")};
             if (!fd) {
-                if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) continue;
+                // EINTR/EAGAIN/EWOULDBLOCK: retry; ECONNABORTED: client reset before
+                // accept() ran, which is transient and safe to ignore.
+                if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK || errno == ECONNABORTED) continue;
                 Logger::warn("TCP accept failed (%s)", strerror(errno));
                 needs_restart_.store(true);
                 break;
@@ -403,7 +428,7 @@ void KdeConnectClient::handle_discovered_peer(const DeviceInfo& identity, const 
     auto t = StackThread(24 * 1024, "kc-connect", [this, identity, host, port, done] {
         try {
             [&] {
-                ScopedFd fd{socket(AF_INET, SOCK_STREAM, 0)};
+                ScopedFd fd{KC_SOCKET(AF_INET, SOCK_STREAM, 0, "kc_connect")};
                 if (!fd) return;
                 configure_tcp_keepalive(fd.raw);
                 timeval recv_timeout{5, 0};
@@ -536,8 +561,7 @@ void KdeConnectClient::handle_new_connection(const DeviceInfo& identity, ScopedF
         old_session->disconnected.store(true);
         if (old_session->fd >= 0) {
             shutdown(old_session->fd, SHUT_RDWR);
-            close(old_session->fd);
-            old_session->fd = -1;
+            KC_CLOSE_RAW(old_session->fd);
         }
         if (old_session->io_thread.joinable()) old_session->io_thread.join();
         if (old_session->tls) {
@@ -602,7 +626,7 @@ bool KdeConnectClient::download_payload(const std::shared_ptr<DeviceSession>& se
                                         NetworkPacket& packet,
                                         const std::string& file_path) {
     if (!session) return false;
-    ScopedFd fd{socket(AF_INET, SOCK_STREAM, 0)};
+    ScopedFd fd{KC_SOCKET(AF_INET, SOCK_STREAM, 0, "download")};
     if (!fd) return false;
 
     // Allow aborting mid-transfer if session is torn down
@@ -926,7 +950,7 @@ bool KdeConnectClient::send_packet(const std::string& device_id, const NetworkPa
 bool KdeConnectClient::send_payload(const std::string& device_id, NetworkPacket pkt) {
     if (pkt.send_payload.empty()) return false;
 
-    ScopedFd srv_fd{socket(AF_INET, SOCK_STREAM, 0)};
+    ScopedFd srv_fd{KC_SOCKET(AF_INET, SOCK_STREAM, 0, "upload-srv")};
     if (!srv_fd) return false;
 
     int reuse = 1;
@@ -957,11 +981,15 @@ bool KdeConnectClient::send_payload(const std::string& device_id, NetworkPacket 
     auto t = StackThread(16 * 1024, "kc-payload", [this, raw_srv_fd, payload, done, device_id]() mutable {
         ScopedFd payload_srv_fd{raw_srv_fd};
         [&] {
-            // Give the receiver 15 s to connect after receiving the share packet.
-            timeval timeout{15, 0};
-            setsockopt(payload_srv_fd.raw, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+            // Give the receiver 15 s to connect. Use select() rather than SO_RCVTIMEO
+            // because SO_RCVTIMEO does not reliably timeout accept() on all platforms.
+            fd_set rfds;
+            FD_ZERO(&rfds);
+            FD_SET(payload_srv_fd.raw, &rfds);
+            timeval tv{15, 0};
+            if (select(payload_srv_fd.raw + 1, &rfds, nullptr, nullptr, &tv) <= 0) return;
 
-            ScopedFd client_fd{accept(payload_srv_fd.raw, nullptr, nullptr)};
+            ScopedFd client_fd{KC_ACCEPT(payload_srv_fd.raw, nullptr, nullptr, "upload-client")};
             if (!client_fd) return;
 
             // Receiver connects as TLS client; we are TLS server.
@@ -984,9 +1012,9 @@ bool KdeConnectClient::send_payload(const std::string& device_id, NetworkPacket 
 bool KdeConnectClient::send_payload_reader(const std::string& device_id, NetworkPacket pkt,
                                             const int64_t size,
                                             std::function<size_t(void*, size_t)> reader) {
-    ScopedFd srv_fd{socket(AF_INET, SOCK_STREAM, 0)};
+    ScopedFd srv_fd{KC_SOCKET(AF_INET, SOCK_STREAM, 0, "upload-srv")};
     if (!srv_fd) {
-        Logger::error("Failed to create socket for payload reader");
+        Logger::error("Failed to create socket for payload reader: %s", strerror(errno));
         return false;
     }
 
@@ -1005,7 +1033,7 @@ bool KdeConnectClient::send_payload_reader(const std::string& device_id, Network
         }
     }
     if (port == 0 || listen(srv_fd.raw, 1) != 0) {
-        Logger::error("Failed to bind socket for payload reader");
+        Logger::error("Failed to bind socket for payload reader: %s", strerror(errno));
         return false;
     }
 
@@ -1023,10 +1051,18 @@ bool KdeConnectClient::send_payload_reader(const std::string& device_id, Network
                           [this, raw_srv_fd, reader = std::move(reader), size, done, device_id]() mutable {
         ScopedFd payload_srv_fd{raw_srv_fd};
         [&] {
-            timeval timeout{15, 0};
-            setsockopt(payload_srv_fd.raw, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+            // Use select() for the accept timeout: SO_RCVTIMEO does not reliably
+            // timeout accept() on all platforms (notably Switch/lwip).
+            fd_set rfds;
+            FD_ZERO(&rfds);
+            FD_SET(payload_srv_fd.raw, &rfds);
+            timeval tv{15, 0};
+            if (select(payload_srv_fd.raw + 1, &rfds, nullptr, nullptr, &tv) <= 0) {
+                Logger::error("Payload reader: accept timed out waiting for receiver");
+                return;
+            }
 
-            ScopedFd client_fd{accept(payload_srv_fd.raw, nullptr, nullptr)};
+            ScopedFd client_fd{KC_ACCEPT(payload_srv_fd.raw, nullptr, nullptr, "upload-client")};
             if (!client_fd) {
                 Logger::error("Failed to accept connection for payload reader");
                 return;
@@ -1108,8 +1144,7 @@ void KdeConnectClient::io_loop(const std::shared_ptr<DeviceSession>& session) {
     session->disconnected.store(true);
     if (session->fd >= 0) {
         shutdown(session->fd, SHUT_RDWR);
-        close(session->fd);
-        session->fd = -1;
+        KC_CLOSE_RAW(session->fd);
     }
     if (session->tls) {
         mbedtls_ssl_close_notify(&session->tls->ssl);
