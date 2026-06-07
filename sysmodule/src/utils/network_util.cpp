@@ -6,6 +6,8 @@
 #include <netinet/in.h>
 
 #include <mbedtls/error.h>
+#include <mbedtls/ssl.h>
+#include <mbedtls/x509_crt.h>
 #include "utils/logger.h"
 
 namespace NetworkUtil {
@@ -154,6 +156,23 @@ int create_udp_broadcast_socket(const int port) {
     return fd;
 }
 
+static void log_tls_context(const TlsSession& session, const char* label) {
+    // Cipher suite
+    const char* cs = mbedtls_ssl_get_ciphersuite(&session.ssl);
+    Logger::info("TLS %s: cipher=%s", label, cs ? cs : "(none)");
+
+    // Peer certificate
+    const mbedtls_x509_crt* peer = mbedtls_ssl_get_peer_cert(&session.ssl);
+    if (peer) {
+        char subject[128] = {};
+        mbedtls_x509_dn_gets(subject, sizeof(subject), &peer->subject);
+        Logger::info("TLS %s: peer cert key=%s subject=%s",
+                     label, mbedtls_pk_get_name(&peer->pk), subject);
+    } else {
+        Logger::info("TLS %s: no peer certificate", label);
+    }
+}
+
 bool perform_tls_handshake(TlsSession& session) {
     while (true) {
         int ret = mbedtls_ssl_handshake(&session.ssl);
@@ -162,6 +181,7 @@ bool perform_tls_handshake(TlsSession& session) {
             char errbuf[128];
             mbedtls_strerror(ret, errbuf, sizeof(errbuf));
             Logger::warn("SSL error: %s", errbuf);
+            log_tls_context(session, "handshake failed");
             return false;
         }
     }
