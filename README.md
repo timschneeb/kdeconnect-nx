@@ -75,7 +75,7 @@ In both directions:
 >Please note that some features are not implemented on all platforms. 
 >You will have the best experience with Android & Linux. The Windows client is also very capable. 
 >
->For macOS there is currently only a nightly version available, and on iOS the implementation is very limited due to Apple's locked down ecosystem (it cannot run in background at all).
+>For macOS there is currently only a nightly version available, and on iOS the implementation is very limited due to Apple's locked down ecosystem (it cannot run in background at all). I have not tested the macOS & iOS client with this sysmodule.
 
 ## Screenshots
 <table>
