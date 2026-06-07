@@ -52,8 +52,8 @@ In both directions:
 * Extract the ZIP on the SD card of your Switch
 * Reboot
 
->![INFO]
->The background sysmodule that handles all of the networking, TLS encryption, and plugins consumes 2.7MB of memory in total.
+>[!NOTE]
+>The sysmodule that handles all of the networking, TLS encryption, and plugins consumes 2.7MB of memory from the system pool in total.
 
 ### Connecting to other devices
 
