@@ -92,7 +92,7 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
     std::string id    = np.body.value("id", "");
     std::string time  = np.body.value("time", "");
 
-    Logger::info("%s: %s", app.c_str(), title.c_str());
+    Logger::info("%s: %s", app.c_str(), id.c_str());
 
     std::string icon_hash = np.body.value("payloadHash", "");
     if (icon_hash.empty()) {

@@ -73,8 +73,6 @@ bool SystemVolumePlugin::on_packet_received(const NetworkPacket& np) {
             else         set_system_volume(volume_);
         }
 
-        Logger::info("%d%%%s", volume_, muted_ ? " (muted)" : "");
-
         NetworkPacket pkt;
         pkt.type = PacketTypes::SystemVolume;
         pkt.body.set("name",    kSinkName)

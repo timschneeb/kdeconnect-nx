@@ -215,6 +215,7 @@ void MousepadPlugin::inject_key(const NetworkPacket &np) {
 
     auto do_key = [&](const uint8_t hid_code, const bool needs_shift, const bool needs_altgr = false) {
         bool apply_shift = shift || needs_shift;
+#ifdef DEBUG
         std::string info = [&] {
             char buf[40];
             snprintf(buf, sizeof(buf), "%02X shift=%d ctrl=%d alt=%d gui=%d altgr=%d",
@@ -222,6 +223,7 @@ void MousepadPlugin::inject_key(const NetworkPacket &np) {
             return std::string(buf);
         }();
         Logger::info("Key inject: hid=0x%s", info.c_str());
+#endif
         do_inject_hid(hid_code, apply_shift, ctrl, alt, super, needs_altgr);
     };
 
