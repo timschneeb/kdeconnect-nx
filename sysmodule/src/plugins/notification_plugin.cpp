@@ -80,7 +80,9 @@ bool NotificationPlugin::on_packet_received(const NetworkPacket& np) {
 
     if (np.body.value("isCancel", false)) {
         std::string cancel_id = np.body.value("id", "");
+#ifdef DEBUG
         Logger::info("Dismissed: %s", cancel_id.c_str());
+#endif
         m_posted_ids.erase(cancel_id);
         return true;
     }
