@@ -3,6 +3,8 @@
 
 #include <mbedtls/bignum.h>
 #include <mbedtls/base64.h>
+#include <mbedtls/debug.h>
+#include <mbedtls/ecp.h>
 #include <mbedtls/error.h>
 #include <mbedtls/net_sockets.h>
 #include <mbedtls/pem.h>
@@ -121,12 +123,13 @@ TlsContext::~TlsContext() {
 }
 
 bool TlsContext::load_or_create(const std::string& cert_path, const std::string& key_path) {
-    if (!load_from_files(cert_path, key_path)) {
-        if (!generate_self_signed(cert_path, key_path)) {
-            return false;
+    if (load_from_files(cert_path, key_path)) {
+        if (mbedtls_pk_get_type(&key_) != MBEDTLS_PK_ECKEY) {
+            Logger::warn("TLS: existing certificate is not EC");
         }
+        return true;
     }
-    return true;
+    return generate_self_signed(cert_path, key_path);
 }
 
 int TlsContext::drbg_random_cb(void* ctx, unsigned char* buf, const size_t len) {
@@ -246,18 +249,18 @@ bool TlsContext::generate_self_signed(const std::string& cert_path, const std::s
     int ret;
     char errbuf[128];
 
-    if ((ret = mbedtls_pk_setup(&key_, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA))) != 0) {
+    if ((ret = mbedtls_pk_setup(&key_, mbedtls_pk_info_from_type(MBEDTLS_PK_ECKEY))) != 0) {
         mbedtls_strerror(ret, errbuf, sizeof(errbuf));
         Logger::error("mbedtls_pk_setup failed: %s", errbuf);
         return false;
     }
-    Logger::info("TLS: generating 2048-bit RSA key...");
-    if ((ret = mbedtls_rsa_gen_key(mbedtls_pk_rsa(key_), drbg_random_cb, this, 2048, 65537)) != 0) {
+    Logger::info("TLS: generating EC key (secp256r1)...");
+    if ((ret = mbedtls_ecp_gen_key(MBEDTLS_ECP_DP_SECP256R1, mbedtls_pk_ec(key_), drbg_random_cb, this)) != 0) {
         mbedtls_strerror(ret, errbuf, sizeof(errbuf));
-        Logger::error("mbedtls_rsa_gen_key failed: %s", errbuf);
+        Logger::error("mbedtls_ecp_gen_key failed: %s", errbuf);
         return false;
     }
-    Logger::info("TLS: RSA key generated.");
+    Logger::info("TLS: EC key generated.");
 
     mbedtls_x509write_cert write_cert;
     mbedtls_x509write_crt_init(&write_cert);
