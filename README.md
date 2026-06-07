@@ -17,6 +17,7 @@ Not all KDE Connect plugins are implemented. Some plugins are only implemented i
 From your phone, tablet, PC to your Switch:
 
 - **Receive notifications (from Android/PC)**
+  - (Notification sharing is disabled by default on PC. Enable it in the plugin settings)
 - **Remote keyboard**
   - Inject USB keyboard strokes on the Switch from another device
   - (Limitation: An US English USB keyboard is simulated, so only characters present on a US keyboard can be injected.)
