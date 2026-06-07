@@ -63,7 +63,8 @@ In both directions:
 <summary>Connection problems? (Click here to expand)</summary>
 
 >* Your devices must be connected to the same WiFi network
->* Some networks (espacially public or shared ones) have client isolation enabled; KDE Connect will not be able to communicate with other devices on these networks.
+>* Some networks (especially public or shared ones) have client isolation enabled; KDE Connect will not be able to communicate with other devices on these networks.
+>* Restart the sysmodule (in the overlay, navigate to: `Settings > Kill sysmodule`)
 >* KDE Connect uses dynamic ports in the range 1714-1764 for UDP and TCP. So if you are behind a firewall, [make sure to open this port range for both TCP and UDP](https://userbase.kde.org/KDEConnect#I_have_two_devices_running_KDE_Connect_on_the_same_network,_but_they_can't_see_each_other). Otherwise, make sure your network is not blocking UDP broadcast packets.
 >* The system time on your Switch must be correct to pair devices, otherwise the SSL certificate exchange will fail. If you have updated the system time, you need to restart the sysmodule to apply the change to it.
 >* Check that the KDE Connect apps are updated to the latest version. This implementation does not support older KDE Connect clients.
