@@ -72,6 +72,14 @@ void Logger::open_log_file(const char* name) {
         fclose(f);
         log_file_path_ = std::move(path);
     }
+
+#ifdef DEBUG
+#define BUILD_TYPE "debug"
+#else
+#define BUILD_TYPE "release"
+#endif
+
+    info("Version: %s-%s (commit %s)", MINIKDECONNECT_VERSION, BUILD_TYPE, GIT_COMMIT_HASH, GIT_LAST_TAG);
 #endif
 }
 
