@@ -69,7 +69,6 @@ find_package(Threads REQUIRED)
 
 add_subdirectory(common)
 add_subdirectory(sysmodule)
-add_subdirectory(sysmodule-am-mitm)
 add_subdirectory(tools/nxlink)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch")
