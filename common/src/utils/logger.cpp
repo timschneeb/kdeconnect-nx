@@ -10,6 +10,8 @@
 #include <switch.h>
 #endif
 
+#include "git_version.h"
+
 #ifndef NO_LOG
 Logger::Sink Logger::sink_;
 std::string Logger::log_file_path_;

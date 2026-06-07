@@ -3,38 +3,17 @@ cmake_minimum_required(VERSION 3.31.6)
 find_package(Git QUIET)
 if(Git_FOUND)
     execute_process(
-        COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        OUTPUT_VARIABLE GIT_COMMIT_HASH
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        ERROR_QUIET
-    )
-    execute_process(
         COMMAND ${GIT_EXECUTABLE} describe --tags --abbrev=0
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
         OUTPUT_VARIABLE GIT_LAST_TAG
         OUTPUT_STRIP_TRAILING_WHITESPACE
         ERROR_QUIET
     )
-    execute_process(
-        COMMAND ${GIT_EXECUTABLE} describe --tags --dirty=-dirty
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        OUTPUT_VARIABLE GIT_DESCRIBE
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        ERROR_QUIET
-    )
-endif()
-if(NOT GIT_COMMIT_HASH)
-    set(GIT_COMMIT_HASH "unknown")
 endif()
 if(GIT_LAST_TAG)
     string(REGEX REPLACE "^v" "" GIT_VERSION "${GIT_LAST_TAG}")
 else()
-    set(GIT_LAST_TAG "unknown")
     set(GIT_VERSION "0.0.0")
-endif()
-if(NOT GIT_DESCRIBE)
-    set(GIT_DESCRIBE "unknown")
 endif()
 
 project(MiniKDEConnect VERSION ${GIT_VERSION})
@@ -42,11 +21,28 @@ project(MiniKDEConnect VERSION ${GIT_VERSION})
 set(CMAKE_CXX_STANDARD 20)
 
 add_compile_definitions(MINIKDECONNECT_VERSION=\"${PROJECT_VERSION}\")
-add_compile_definitions(
-    GIT_COMMIT_HASH=\"${GIT_COMMIT_HASH}\"
-    GIT_LAST_TAG=\"${GIT_LAST_TAG}\"
-    GIT_DESCRIBE=\"${GIT_DESCRIBE}\"
+
+# Generate git_version.h at configure time, then refresh it on every build.
+set(SOURCE_DIR "${CMAKE_SOURCE_DIR}")
+set(TEMPLATE   "${CMAKE_SOURCE_DIR}/cmake/git_version.h.in")
+set(OUTPUT     "${CMAKE_BINARY_DIR}/git_version.h")
+include("${CMAKE_SOURCE_DIR}/cmake/update_git_version.cmake")
+unset(SOURCE_DIR)
+unset(TEMPLATE)
+unset(OUTPUT)
+
+add_custom_target(git_version_header ALL
+    COMMAND ${CMAKE_COMMAND}
+        -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+        -DTEMPLATE=${CMAKE_SOURCE_DIR}/cmake/git_version.h.in
+        -DOUTPUT=${CMAKE_BINARY_DIR}/git_version.h
+        -P ${CMAKE_SOURCE_DIR}/cmake/update_git_version.cmake
+    BYPRODUCTS ${CMAKE_BINARY_DIR}/git_version.h
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Refreshing git_version.h"
 )
+
+include_directories(${CMAKE_BINARY_DIR})
 
 file(READ ${CMAKE_SOURCE_DIR}/sysmodule/toolbox.json _toolbox_contents)
 string(JSON MINIKDECONNECT_TID GET ${_toolbox_contents} tid)
@@ -125,3 +121,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch")
         COMMENT "Packaging ${RELEASE_ZIP} and ${DEBUG_ZIP}"
     )
 endif()
+
+foreach(_t MiniKDEConnect_sysmodule MiniKDEConnect_overlay MiniKDEConnect_common MiniKDEConnect_cli)
+    if(TARGET ${_t})
+        add_dependencies(${_t} git_version_header)
+    endif()
+endforeach()

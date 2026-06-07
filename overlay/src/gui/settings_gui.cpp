@@ -1,5 +1,6 @@
 #include "settings_gui.h"
 #include "gui_common.h"
+#include "git_version.h"
 #include "elements/font_size_bar.h"
 #include "notification_style_gui.h"
 #include "../utils/symbols.h"

@@ -1,5 +1,6 @@
 #include "ipc_service.h"
 #include <kdec/ipc.h>
+#include "git_version.h"
 #include <cstring>
 #include <malloc.h>
 

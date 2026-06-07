@@ -1,0 +1,4 @@
+#pragma once
+#define GIT_COMMIT_HASH "@GIT_COMMIT_HASH@"
+#define GIT_LAST_TAG    "@GIT_LAST_TAG@"
+#define GIT_DESCRIBE    "@GIT_DESCRIBE@"
