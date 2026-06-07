@@ -36,3 +36,4 @@ Result kdecIpcSendScreenshot(const std::string& device_id);
 Result kdecIpcGetMemoryInfo(KdecMemoryInfo& out);
 Result kdecIpcSendTestNotification();
 Result kdecIpcSendBroadcast();
+Result kdecIpcGetVersionInfo(KdecVersionInfo& out);

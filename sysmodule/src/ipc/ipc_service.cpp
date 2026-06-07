@@ -578,6 +578,18 @@ Result IpcService::handle_command(u32 cmd_id, const IpcServerRequest* r, u8* out
             client->send_broadcast();
             return 0;
 
+        case KdecIpcCmd_GetVersionInfo: {
+            KdecVersionInfo info{};
+            strncpy(info.version,    MINIKDECONNECT_VERSION, KDEC_VERSION_MAX    - 1);
+            strncpy(info.git_commit, GIT_COMMIT_HASH,        KDEC_GIT_COMMIT_MAX - 1);
+#ifndef NDEBUG
+            info.is_debug = true;
+#endif
+            *out_size = sizeof(KdecVersionInfo);
+            *reinterpret_cast<KdecVersionInfo*>(out_data) = info;
+            return 0;
+        }
+
         default:
             return 1;
     }

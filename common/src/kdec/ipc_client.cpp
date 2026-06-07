@@ -223,6 +223,10 @@ Result kdecIpcGetMemoryInfo(KdecMemoryInfo& out) {
     return serviceDispatchOut(&g_kdecSrv, KdecIpcCmd_GetMemoryInfo, out);
 }
 
+Result kdecIpcGetVersionInfo(KdecVersionInfo& out) {
+    return serviceDispatchOut(&g_kdecSrv, KdecIpcCmd_GetVersionInfo, out);
+}
+
 Result kdecIpcGetAllSettings(std::vector<KdecWireSettingEntry>& out) {
     static KdecWireSettingEntry buf[constants::kMaxSettings];
 

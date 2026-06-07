@@ -38,10 +38,11 @@ enum KdecIpcCmd {
     KdecIpcCmd_Ring             = 17,
     KdecIpcCmd_GetVolumeSinks   = 18,
     KdecIpcCmd_SetVolumeSink    = 19,
-    KdecIpcCmd_SendScreenshot        = 20,
-    KdecIpcCmd_GetMemoryInfo         = 21,
-    KdecIpcCmd_SendTestNotification  = 22,
-    KdecIpcCmd_SendBroadcast         = 23,
+    KdecIpcCmd_SendScreenshot   = 20,
+    KdecIpcCmd_GetMemoryInfo    = 21,
+    KdecIpcCmd_SendTestNotification = 22,
+    KdecIpcCmd_SendBroadcast    = 23,
+    KdecIpcCmd_GetVersionInfo   = 24,
 };
 
 enum class DevicePairState : uint8_t {
@@ -129,6 +130,16 @@ struct KdecMemoryInfo {
     size_t heap_max_kb;
 } __attribute__((aligned(16)));
 static_assert(sizeof(KdecMemoryInfo) == 48);
+
+#define KDEC_VERSION_MAX     32
+#define KDEC_GIT_COMMIT_MAX  16
+
+struct KdecVersionInfo {
+    char version[KDEC_VERSION_MAX];
+    char git_commit[KDEC_GIT_COMMIT_MAX];
+    bool is_debug;
+} __attribute__((aligned(16)));
+static_assert(sizeof(KdecVersionInfo) == 64);
 
 struct KdecWireDeviceId {
     char device_id[KDEC_DEVICE_ID_MAX];

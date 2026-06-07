@@ -197,6 +197,31 @@ tsl::elm::Element* SettingsGui::createUI() {
     used_mem_item->setValue(heap_buf);
     list->addItem(used_mem_item);
 
+    KdecVersionInfo ver_info{};
+    kdecIpcGetVersionInfo(ver_info);
+
+    auto is_version_different = std::strcmp(ver_info.version, MINIKDECONNECT_VERSION) != 0 ||
+        std::strcmp(ver_info.git_commit, GIT_COMMIT_HASH) != 0;
+
+    {
+        char ver_buf[64];
+        if (ver_info.is_debug)
+            std::snprintf(ver_buf, sizeof(ver_buf), "v%s-dbg-%s", ver_info.version, ver_info.git_commit);
+        else
+            std::snprintf(ver_buf, sizeof(ver_buf), "v%s-%s", ver_info.version, ver_info.git_commit);
+        auto* sysmodule_ver = new tsl::elm::ListItem(is_version_different ? "Sysmodule version" : "Version");
+        sysmodule_ver->setValue(ver_buf);
+        list->addItem(sysmodule_ver);
+    }
+
+    if (is_version_different) {
+        char ovl_buf[64];
+        std::snprintf(ovl_buf, sizeof(ovl_buf), "v%s-%s", MINIKDECONNECT_VERSION, GIT_COMMIT_HASH);
+        auto* overlay_ver = new tsl::elm::ListItem("Overlay version");
+        overlay_ver->setValue(ovl_buf);
+        list->addItem(overlay_ver);
+    }
+
     auto* kill_sysmodule = new tsl::elm::ListItem("Kill sysmodule");
     kill_sysmodule->setValue(sym::cross);
     kill_sysmodule->setValueColor(tsl::Color(255, 0, 0, 255));
