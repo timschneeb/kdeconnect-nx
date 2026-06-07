@@ -1,11 +1,5 @@
 cmake_minimum_required(VERSION 3.31.6)
 
-project(MiniKDEConnect VERSION 0.0.1)
-
-set(CMAKE_CXX_STANDARD 20)
-
-add_compile_definitions(MINIKDECONNECT_VERSION=\"${PROJECT_VERSION}\")
-
 find_package(Git QUIET)
 if(Git_FOUND)
     execute_process(
@@ -33,12 +27,21 @@ endif()
 if(NOT GIT_COMMIT_HASH)
     set(GIT_COMMIT_HASH "unknown")
 endif()
-if(NOT GIT_LAST_TAG)
+if(GIT_LAST_TAG)
+    string(REGEX REPLACE "^v" "" GIT_VERSION "${GIT_LAST_TAG}")
+else()
     set(GIT_LAST_TAG "unknown")
+    set(GIT_VERSION "0.0.0")
 endif()
 if(NOT GIT_DESCRIBE)
     set(GIT_DESCRIBE "unknown")
 endif()
+
+project(MiniKDEConnect VERSION ${GIT_VERSION})
+
+set(CMAKE_CXX_STANDARD 20)
+
+add_compile_definitions(MINIKDECONNECT_VERSION=\"${PROJECT_VERSION}\")
 add_compile_definitions(
     GIT_COMMIT_HASH=\"${GIT_COMMIT_HASH}\"
     GIT_LAST_TAG=\"${GIT_LAST_TAG}\"
@@ -70,6 +73,7 @@ find_package(Threads REQUIRED)
 
 add_subdirectory(common)
 add_subdirectory(sysmodule)
+add_subdirectory(sysmodule-am-mitm)
 add_subdirectory(tools/nxlink)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch")
