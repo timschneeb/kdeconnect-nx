@@ -26,7 +26,7 @@ From your phone, tablet, PC to your Switch:
 - **Volume control**
   - Remote control the master volume level of your Switch
 - **File transfer**
-  - Send files to your Switch's SD card
+  - Send files to your Switch's SD card (just implemented for completeness' sake, for most use-cases sys-ftpd is better)
 
 From your Switch to your other devices:
 
@@ -44,7 +44,6 @@ In both directions:
 - **Battery status**
 - **Ping devices** (for testing)
 
-
 ## Installation
 
 * Install the [Ultrahand-Overlay](https://github.com/ppkantorski/Ultrahand-Overlay), if you haven't already
@@ -52,6 +51,9 @@ In both directions:
 * Download the [latest release](https://github.com/timschneeb/kdeconnect-nx/releases) of this project
 * Extract the ZIP on the SD card of your Switch
 * Reboot
+
+>![INFO]
+>The background sysmodule that handles all of the networking, TLS encryption, and plugins consumes 2.7MB of memory in total.
 
 ### Connecting to other devices
 
