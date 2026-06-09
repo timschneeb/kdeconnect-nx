@@ -119,6 +119,12 @@ bool connect_with_timeout(const int fd, const sockaddr_in& addr, const int timeo
     return true;
 }
 
+void notify_plugins_connected(const std::shared_ptr<DeviceProvider::DeviceSession>& session) {
+    for (auto& plugin : session->plugins) {
+        plugin->on_connected(session->paired);
+    }
+}
+
 } // namespace
 
 DeviceProvider::DeviceSession::~DeviceSession() {
@@ -762,6 +768,7 @@ void KdeConnectClient::handle_pair_packet(const std::shared_ptr<DeviceSession>& 
             session->pair_state = PairState::Paired;
             session->paired = true;
             storage_.save_paired_device(session->info, session->cert_pem);
+            notify_plugins_connected(session);
             Logger::info("Pairing completed with %s", session->info.name.c_str());
 
             NotificationPlugin::post_notification("kdeconnect", session->info.name,
@@ -873,6 +880,7 @@ void KdeConnectClient::accept_pair(const std::string& device_id) {
         session->pair_state = PairState::Paired;
         session->paired = true;
         storage_.save_paired_device(session->info, session->cert_pem);
+        notify_plugins_connected(session);
         Logger::info("Pair accepted for %s", session->info.name.c_str());
     }
 }
