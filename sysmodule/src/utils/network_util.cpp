@@ -6,6 +6,7 @@
 #include <netinet/in.h>
 
 #include <mbedtls/error.h>
+#include <mbedtls/md.h>
 #include <mbedtls/ssl.h>
 #include <mbedtls/x509_crt.h>
 #include "utils/logger.h"
@@ -166,8 +167,13 @@ static void log_tls_context(const TlsSession& session, const char* label) {
     if (peer) {
         char subject[128] = {};
         mbedtls_x509_dn_gets(subject, sizeof(subject), &peer->subject);
-        Logger::info("TLS %s: peer cert key=%s subject=%s",
-                     label, mbedtls_pk_get_name(&peer->pk), subject);
+        const mbedtls_md_info_t* sig_md_info = mbedtls_md_info_from_type(peer->sig_md);
+        const char* sig_md = sig_md_info ? mbedtls_md_get_name(sig_md_info) : nullptr;
+        Logger::info("TLS %s: peer cert key=%s sig=%s subject=%s",
+                     label,
+                     mbedtls_pk_get_name(&peer->pk),
+                     sig_md ? sig_md : "(unknown)",
+                     subject);
     } else {
         Logger::info("TLS %s: no peer certificate", label);
     }

@@ -125,6 +125,7 @@ TlsContext::~TlsContext() {
 bool TlsContext::load_or_create(const std::string& cert_path, const std::string& key_path) {
     if (load_from_files(cert_path, key_path)) {
         if (mbedtls_pk_get_type(&key_) != MBEDTLS_PK_ECKEY) {
+            // RSA was only used on prerelease versions, we dont need conversion for backwards compat here
             Logger::warn("TLS: existing certificate is not EC");
         }
         return true;
@@ -244,7 +245,9 @@ bool TlsContext::load_from_files(const std::string& cert_path, const std::string
 }
 
 bool TlsContext::generate_self_signed(const std::string& cert_path, const std::string& key_path) {
-    device_id_ = generate_device_id();
+    if (device_id_.empty()) {
+        device_id_ = generate_device_id();
+    }
 
     int ret;
     char errbuf[128];
